@@ -1,0 +1,18 @@
+[package]
+name = "networking"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mio = { version = "0.8", features = ["os-poll", "net"] }
+crossbeam = "0.8"
+thiserror = "1"
+fxhash = "0.2"
+tracing = "0.1"
+anyhow = "1"
+
+[dev-dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+bincode = "1"
+ctrlc = "3"
