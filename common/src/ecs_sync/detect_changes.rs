@@ -114,8 +114,7 @@ fn filter_new_archetypes(
     let new_unique_archetypes = world.archetypes().len();
 
     for archetype_id in state.unique_archetypes..new_unique_archetypes {
-        // Theres no public constructor for ArchetypeId...
-        let archetype_id: ArchetypeId = unsafe { mem::transmute_copy(&(archetype_id as u32)) };
+        let archetype_id = ArchetypeId::new(archetype_id);
         let archetype = &world.archetypes()[archetype_id];
 
         // Check if this archetype contains any component types we track
