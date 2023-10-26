@@ -8,11 +8,11 @@ use bevy_ecs::{
     archetype::ArchetypeId,
     component::{ComponentId, StorageType, Tick},
     entity::Entity,
-    event::{EventWriter, ManualEventReader},
+    event::ManualEventReader,
     ptr::Ptr,
     removal_detection::RemovedComponentEntity,
     storage::{TableId, TableRow},
-    system::{CommandQueue, Commands, Local, Res, ResMut, SystemChangeTick, SystemState},
+    system::{CommandQueue, Commands, Local, SystemChangeTick, SystemState},
     world::World,
 };
 use tracing::error;
@@ -41,17 +41,9 @@ pub struct ChangeDetectionState {
 }
 
 pub fn detect_changes(
-    // mut cmds: Commands,
     world: &mut World,
     mut state: Local<ChangeDetectionState>,
-    // world: &World,
     tick: &mut SystemState<SystemChangeTick>,
-    //
-    // settings: Res<SerializationSettings>,
-    // mut state: Local<ChangeDetectionState>,
-    // mut sync_state: ResMut<SyncState>,
-    //
-    // mut changes: EventWriter<SerializedChangeEventOut>,
 ) {
     // Reborrows
     let mut sync_state = world.remove_resource::<SyncState>().unwrap();
