@@ -69,14 +69,14 @@ fn options() -> impl Options {
 #[macro_export]
 macro_rules! generate_adapters_components {
     (name = $name:ident, output = $output:ty, tokens = { $($token:expr),* }) => {
-        pub fn $name() -> std::collections::HashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, std::any::TypeId, fn(&mut bevy_ecs::world::EntityMut))>
+        pub fn $name() -> std::collections::HashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut))>
         {
-            fn from<T: bevy_ecs::component::Component, O>(token: $crate::token::Token<T, O>) -> ($crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, std::any::TypeId, fn(&mut bevy_ecs::world::EntityMut)))
+            fn from<T: bevy_ecs::component::Component, O>(token: $crate::token::Token<T, O>) -> ($crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut)))
             where
                 for<'a> T: Send + Sync + serde::Serialize + serde::Deserialize<'a> + 'static,
                 $crate::adapters::Adapter<T>: $crate::adapters::TypeAdapter<$output>
             {
-                (token.0, (std::boxed::Box::<$crate::adapters::Adapter<T>>::default(), std::any::TypeId::of::<T>(), |entity| {
+                (token.0, (std::boxed::Box::<$crate::adapters::Adapter<T>>::default(), bevy_ecs::component::ComponentDescriptor::new::<T>(), |entity| {
                     entity.remove::<T>();
                 }))
             }

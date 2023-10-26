@@ -118,22 +118,10 @@ fn filter_new_archetypes(
         let archetype_id: ArchetypeId = unsafe { mem::transmute_copy(&(archetype_id as u32)) };
         let archetype = &world.archetypes()[archetype_id];
 
-        println!(
-            "new archetype, {:?}",
-            archetype.table_components().collect::<Vec<_>>()
-        );
-
         // Check if this archetype contains any component types we track
-        for component_type in settings.tracked_components.keys() {
-            println!("component in archetype, {component_type:?}");
-            let Some(component_id) = world.components().get_id(*component_type) else {
-                // No components of this type exist...
-                continue;
-            };
-
-            let storage = archetype.get_storage_type(component_id);
+        for component_id in settings.tracked_components.keys() {
+            let storage = archetype.get_storage_type(*component_id);
             let Some(storage) = storage else {
-                println!("dont care");
                 // Archetype does not contain this component type
                 // Check the next component type
                 continue;
@@ -147,10 +135,10 @@ fn filter_new_archetypes(
                         .relevant_tables
                         .entry(archetype.table_id().index())
                         .or_default()
-                        .push(component_id);
+                        .push(*component_id);
                 }
                 StorageType::SparseSet => {
-                    state.relevant_sets.insert(component_id);
+                    state.relevant_sets.insert(*component_id);
                 }
             }
         }
@@ -170,30 +158,16 @@ fn detect_changes_tables(
 
     new_entities: &mut HashSet<Entity>,
 ) {
-    println!("hit");
     // This is not an intended use case
     // I need to fork bevy...
 
     // Check each table we recorded as containing a component type we track
     for (table, components) in &state.relevant_tables {
-        println!("table");
         // Lookup the table in the ECS
         let table = world.storages().tables.get(TableId::new(*table)).unwrap();
 
         // Check each table column that contains a tracked component
         for component_id in components {
-            println!("component type");
-
-            let Some(component_type) = world
-                .components()
-                .get_info(*component_id)
-                .and_then(|it| it.type_id())
-            else {
-                // TODO: If this is impossible use unwrap instead
-                error!("BUG?");
-                continue;
-            };
-
             // Lookup the column in the table
             let column = table.get_column(*component_id).unwrap();
             let changed_ticks = column.get_changed_ticks_slice();
@@ -202,14 +176,12 @@ fn detect_changes_tables(
             let component_sync_state = sync_state.components.entry(*component_id).or_default();
 
             for (idx, changed_tick) in changed_ticks.into_iter().enumerate() {
-                println!("entity");
                 // I love unsafe
                 let last_changed = unsafe { *changed_tick.get() };
 
                 // Determine if this change has already been seen
                 let seen = last_changed.is_newer_than(tick.last_run(), tick.this_run());
                 if !seen {
-                    println!("seen");
                     continue;
                 }
 
@@ -217,7 +189,6 @@ fn detect_changes_tables(
                 // and lookup its sync metadata for this component
                 let entity_id = table.entities()[idx];
                 let Some(net_id) = world.get::<NetworkId>(entity_id) else {
-                    println!("new");
                     // This entity has not been seen before
                     new_entities.insert(entity_id);
 
@@ -230,14 +201,12 @@ fn detect_changes_tables(
                 // Determine if this change was due to applying a remote change
                 let modified_locally = last_changed.is_newer_than(last_sync_tick, tick.this_run());
                 if !modified_locally {
-                    println!("forign modified");
                     continue;
                 }
 
                 // Serialize the new component
                 let ptr = column.get_data(TableRow::new(idx.into())).unwrap();
-                let (token, type_adapter) =
-                    settings.tracked_components.get(&component_type).unwrap();
+                let (token, type_adapter) = settings.tracked_components.get(component_id).unwrap();
                 // SAFETY: `type_adapter` is assoicated with the component_type of this column and
                 // therefore should match the type of ptr
                 let serialized = unsafe { serialize_ptr(ptr, &**type_adapter) };
@@ -247,7 +216,6 @@ fn detect_changes_tables(
                     error!("Local modified forign controlled component");
                 }
 
-                println!("emit");
                 // Notify other systems about this change
                 changes.push(
                     SerializedChange::ComponentUpdated(*net_id, token.clone(), Some(serialized))
@@ -303,14 +271,9 @@ fn detect_removed_components(
     }
 
     // Check each component type we track
-    for (component_type, (token, _)) in &settings.tracked_components {
-        let Some(component_id) = world.components().get_id(*component_type) else {
-            // No components of this type exist...
-            continue;
-        };
-
+    for (component_id, (token, _)) in &settings.tracked_components {
         // Get the removed component event buffer
-        let Some(events) = world.removed_components().get(component_id) else {
+        let Some(events) = world.removed_components().get(*component_id) else {
             // No components of this type have been removed yet
             continue;
         };
@@ -318,14 +281,14 @@ fn detect_removed_components(
         // Get the event reader for this component type
         let reader = state
             .removed_component_readers
-            .entry(component_id)
+            .entry(*component_id)
             .or_insert_with(|| events.get_reader());
 
         // Lookup the sync metadata for this component type
-        let component_sync_state = sync_state.components.entry(component_id).or_default();
+        let component_sync_state = sync_state.components.entry(*component_id).or_default();
 
         // Read new events
-        for event in reader.iter(events) {
+        for event in reader.read(events) {
             // Determine which entity this component belongs to
             let entity_id = event.clone().into();
 
@@ -449,18 +412,15 @@ fn sync_new_entities(
                 error!("BUG: New component is already tracked! semantics: {semantics:?}, last synced: {tick:?}");
             }
 
-            let Some(component_type) = component_info.type_id() else {
-                // TODO: If this is impossible use unwrap instead
-                error!("BUG?");
-                continue;
-            };
-
             // Serialize the new component
             let ptr = world
                 .entity(*entity)
                 .get_by_id(component_info.id())
                 .unwrap();
-            let (token, type_adapter) = settings.tracked_components.get(&component_type).unwrap();
+            let (token, type_adapter) = settings
+                .tracked_components
+                .get(&component_info.id())
+                .unwrap();
             // SAFETY: `type_adapter` is assoicated with the component_type for this component
             // therefore should match the type of ptr
             let serialized = unsafe { serialize_ptr(ptr, &**type_adapter) };

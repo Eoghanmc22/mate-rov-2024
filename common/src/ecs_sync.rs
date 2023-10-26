@@ -8,7 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     event::Event,
     system::Resource,
-    world::{EntityMut, FromWorld, World},
+    world::{EntityWorldMut, FromWorld, World},
 };
 
 use crate::{
@@ -73,7 +73,7 @@ pub enum Semantics {
 #[derive(Resource)]
 pub struct SerializationSettings {
     tracked_components: HashMap<
-        TypeId,
+        ComponentId,
         (
             token::Key,
             Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
@@ -91,8 +91,8 @@ pub struct SerializationSettings {
         token::Key,
         (
             Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
-            TypeId,
-            fn(&mut EntityMut),
+            ComponentId,
+            fn(&mut EntityWorldMut),
         ),
     >,
 
@@ -112,13 +112,14 @@ impl FromWorld for SerializationSettings {
         let adapters_components = components::adapters_components();
         let tracked_components = adapters_components
             .into_iter()
-            .map(|(key, (adapter, type_id, remover))| {
+            .map(|(key, (adapter, descriptor, remover))| {
                 let adapter = adapter.into();
+                let component_id = world.init_component_with_descriptor(descriptor);
 
                 component_deserialization
-                    .insert(key.clone(), (Arc::clone(&adapter), type_id, remover));
+                    .insert(key.clone(), (Arc::clone(&adapter), component_id, remover));
 
-                (type_id, (key, adapter))
+                (component_id, (key, adapter))
             })
             .collect();
 

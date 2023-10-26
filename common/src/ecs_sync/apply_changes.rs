@@ -41,7 +41,7 @@ pub fn apply_changes(
     let mut queue = CommandQueue::default();
     let mut cmds = Commands::new(&mut queue, world);
 
-    for change in reader.iter(events) {
+    for change in reader.read(events) {
         match &change.0 {
             SerializedChange::EntitySpawned(net_id) => {
                 let entity_id = cmds.spawn(*net_id).id();
@@ -68,20 +68,16 @@ pub fn apply_changes(
                     continue;
                 };
 
-                let Some((type_adapter, component_type, _remover)) =
+                let Some((type_adapter, component_id, _remover)) =
                     settings.component_deserialization.get(token)
                 else {
                     error!("Got update for unknown entity token");
                     continue;
                 };
 
-                let Some(component_id) = world.components().get_id(*component_type) else {
-                    todo!("Need a bevy_ecs fork to handle this")
-                };
-
                 // Update the sync meta
-                let sync_meta = sync_state.components.entry(component_id).or_default();
-                let sync_meta_entry = if !entity.contains_id(component_id) {
+                let sync_meta = sync_state.components.entry(*component_id).or_default();
+                let sync_meta_entry = if !entity.contains_id(*component_id) {
                     sync_meta
                         .entry(entity_id)
                         .or_insert((Semantics::ForignMutable, Tick::new(0)))
@@ -98,6 +94,8 @@ pub fn apply_changes(
                 }
 
                 let type_adapter = type_adapter.clone();
+                let component_id = *component_id;
+                // TODO: this will be slow
                 let serialized = serialized.clone();
                 cmds.add(move |world: &mut World| {
                     // TODO: error handling
@@ -122,20 +120,16 @@ pub fn apply_changes(
                     continue;
                 };
 
-                let Some((_type_adapter, component_type, remover)) =
+                let Some((_type_adapter, component_id, remover)) =
                     settings.component_deserialization.get(token)
                 else {
                     error!("Got remove for unknown component token");
                     continue;
                 };
 
-                let Some(component_id) = world.components().get_id(*component_type) else {
-                    todo!("Need a bevy_ecs fork to handle this")
-                };
-
                 // Update the sync meta
-                let sync_meta = sync_state.components.entry(component_id).or_default();
-                let sync_meta_entry = if !entity.contains_id(component_id) {
+                let sync_meta = sync_state.components.entry(*component_id).or_default();
+                let sync_meta_entry = if !entity.contains_id(*component_id) {
                     sync_meta
                         .entry(entity_id)
                         .or_insert((Semantics::ForignMutable, Tick::new(0)))
