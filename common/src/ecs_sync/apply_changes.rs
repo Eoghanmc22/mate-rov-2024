@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    system::{Local, Res, ResMut},
-    world::World,
+    system::{Local, Res, ResMut, SystemChangeTick},
+    world::World, component::Tick,
 };
 use tracing::error;
 
 use super::{
-    NetworkId, SerializationSettings, SerializedChange, SerializedChangeEventIn, SyncState,
+    NetworkId, SerializationSettings, SerializedChange, SerializedChangeEventIn, SyncState, Semantics,
 };
 
 #[derive(Default)]
@@ -19,8 +19,8 @@ pub struct ChangeApplicationState {
 
 pub fn apply_changes(
     world: &mut World,
-    // tick: SystemChangeTick,
-    //
+    tick: SystemChangeTick,
+
     mut state: Local<ChangeApplicationState>,
     settings: Res<SerializationSettings>,
     mut sync_state: ResMut<SyncState>,
@@ -36,7 +36,7 @@ pub fn apply_changes(
             }
             SerializedChange::EntityDespawned(net_id) => {
                 let Some(entity_id) = state.cached_forign_net_ids.remove(net_id) else {
-                    error!("Got remove for unknown entity");
+                    error!("Got remove for unknown or local entity");
                     continue;
                 };
 
@@ -61,6 +61,20 @@ pub fn apply_changes(
                     continue;
                 };
 
+                // Update the sync meta
+                let sync_meta = sync_state.components.entry(*component_id).or_default();
+                let sync_meta_entry = if !entity.contains_id(*component_id) {
+                    sync_meta.entry(*entity_id).or_insert((Semantics::ForignMutable, Tick::new(0)))
+                } else {
+                    sync_meta.entry(*entity_id).or_insert((Semantics::LocalMutable, Tick::new(0)))
+                };
+                sync_meta_entry.1 = tick.this_run();
+
+                // Check if write is allowed
+                if sync_meta_entry.0 != Semantics::ForignMutable {
+                    error!("Forign modified local controlled component");
+                }
+
                 // TODO: error handling
                 type_adapter
                     .deserialize(serialized, &mut |ptr| 
@@ -82,15 +96,32 @@ pub fn apply_changes(
                     continue;
                 };
 
-                let Some((_type_adapter, _id, remover)) =
+                let Some((_type_adapter, component_id, remover)) =
                     settings.component_deserialization.get(token)
                 else {
                     error!("Got remove for unknown component token");
                     continue;
                 };
 
-                // TODO: there doesnt seem to be a bevy api for this...
-                (remover)(&mut entity);
+                // Update the sync meta
+                let sync_meta = sync_state.components.entry(*component_id).or_default();
+                let sync_meta_entry = if !entity.contains_id(*component_id) {
+                    sync_meta.entry(*entity_id).or_insert((Semantics::ForignMutable, Tick::new(0)))
+                } else {
+                    sync_meta.entry(*entity_id).or_insert((Semantics::LocalMutable, Tick::new(0)))
+                };
+
+                // Check if write is allowed
+                if sync_meta_entry.0 == Semantics::ForignMutable {
+                    sync_meta_entry.1 = tick.this_run();
+
+                    // TODO: there doesnt seem to be a bevy api for this...
+                    (remover)(&mut entity);
+                } else {
+                    error!("Forign removed local controlled component");
+
+                }
+
             }
             SerializedChange::ResourceUpdated(token, Some(serialized)) => {
                 let Some((type_adapter, type_id)) =
@@ -106,6 +137,15 @@ pub fn apply_changes(
                     error!("Got update for unknown resource");
                     continue;
                 };
+
+                // Update the sync meta
+                let sync_meta_entry = sync_state.resources.entry(component_id).or_insert((Semantics::ForignMutable, Tick::new(0)));
+                sync_meta_entry.1 = tick.this_run();
+
+                // Check if write is allowed
+                if sync_meta_entry.0 != Semantics::ForignMutable {
+                    error!("Forign modified local controlled resource");
+                }
 
                 // TODO: error handling
                 type_adapter
@@ -131,7 +171,17 @@ pub fn apply_changes(
                     continue;
                 };
 
-                world.remove_resource_by_id(component_id);
+                // Update the sync meta
+                let sync_meta_entry = sync_state.resources.entry(component_id).or_insert((Semantics::ForignMutable, Tick::new(0)));
+
+                // Check if write is allowed
+                if sync_meta_entry.0 == Semantics::ForignMutable {
+                    sync_meta_entry.1 = tick.this_run();
+
+                    world.remove_resource_by_id(component_id);
+                } else {
+                    error!("Forign modified local controlled resource");
+                }
             },
         }
     }

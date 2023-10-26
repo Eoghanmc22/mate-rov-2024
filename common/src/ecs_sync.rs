@@ -4,7 +4,7 @@ pub mod detect_changes;
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use bevy_ecs::{
-    component::{Component, ComponentDescriptor, ComponentId, Tick},
+    component::{Component, ComponentId, Tick},
     entity::Entity,
     event::Event,
     system::Resource,

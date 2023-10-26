@@ -1,15 +1,12 @@
 //! Infrastructure to serialize and recover data
 
-use std::collections::HashMap;
-use std::{any::Any, boxed::Box, marker::PhantomData};
+use std::{any::Any, marker::PhantomData};
 
 use anyhow::Context;
 use bevy_ecs::ptr::{OwningPtr, Ptr};
 use bincode::{DefaultOptions, Options};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::token;
 
 /// Repersents a type that can be serialized to and deserialized from another type
 pub trait TypeAdapter<Output> {
