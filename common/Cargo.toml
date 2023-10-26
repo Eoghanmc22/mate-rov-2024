@@ -17,3 +17,6 @@ mint = { version = "0.5", features = ["serde"] }
 rand = "0.8"
 
 bevy_ecs = "0.11.3"
+
+[dev-dependencies]
+tracing-subscriber = "0.3"

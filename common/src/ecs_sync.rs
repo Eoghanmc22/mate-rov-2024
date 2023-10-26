@@ -27,6 +27,7 @@ impl NetworkId {
     }
 }
 
+#[derive(Debug)]
 pub enum SerializedChange {
     EntitySpawned(NetworkId),
     EntityDespawned(NetworkId),
@@ -34,9 +35,9 @@ pub enum SerializedChange {
     ResourceUpdated(token::Key, Option<adapters::BackingType>),
 }
 
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub struct SerializedChangeEventIn(SerializedChange);
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub struct SerializedChangeEventOut(SerializedChange);
 
 impl From<SerializedChange> for SerializedChangeEventIn {
@@ -72,7 +73,7 @@ pub enum Semantics {
 #[derive(Resource)]
 pub struct SerializationSettings {
     tracked_components: HashMap<
-        ComponentId,
+        TypeId,
         (
             token::Key,
             Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
@@ -90,7 +91,7 @@ pub struct SerializationSettings {
         token::Key,
         (
             Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
-            ComponentId,
+            TypeId,
             fn(&mut EntityMut),
         ),
     >,
@@ -111,14 +112,13 @@ impl FromWorld for SerializationSettings {
         let adapters_components = components::adapters_components();
         let tracked_components = adapters_components
             .into_iter()
-            .map(|(key, (adapter, descriptor, remover))| {
-                // TODO: Can we get rid of and Arc:: without needing to specify types?
-                let id = world.init_component_with_descriptor(descriptor);
+            .map(|(key, (adapter, type_id, remover))| {
                 let adapter = adapter.into();
 
-                component_deserialization.insert(key.clone(), (Arc::clone(&adapter), id, remover));
+                component_deserialization
+                    .insert(key.clone(), (Arc::clone(&adapter), type_id, remover));
 
-                (id, (key, adapter))
+                (type_id, (key, adapter))
             })
             .collect();
 
@@ -142,5 +142,66 @@ impl FromWorld for SerializationSettings {
             component_deserialization,
             resource_deserialization,
         }
+    }
+}
+
+// TODO check soundness with miri
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::{
+        event::Events,
+        system::{IntoSystem, System},
+        world::World,
+    };
+    use tracing::{error, Level};
+
+    use crate::components::Test;
+
+    use super::{detect_changes, SerializationSettings, SerializedChangeEventOut, SyncState};
+
+    #[test]
+    fn detect_changes() {
+        tracing_subscriber::fmt()
+            .pretty()
+            .with_max_level(Level::TRACE)
+            .init();
+
+        let mut system = IntoSystem::into_system(detect_changes::detect_changes);
+        let mut world = World::new();
+        world.init_resource::<SyncState>();
+        world.init_resource::<SerializationSettings>();
+        world.init_resource::<Events<SerializedChangeEventOut>>();
+
+        let entity = world.spawn(Test(0)).id();
+
+        println!("0");
+        system.initialize(&mut world);
+        system.run((), &mut world);
+
+        println!("1");
+        world.entity_mut(entity).insert(Test(1));
+        system.run((), &mut world);
+
+        println!("2");
+        world.entity_mut(entity).insert(Test(2));
+        world.insert_resource(Test(100));
+        system.run((), &mut world);
+
+        println!("3");
+        world.entity_mut(entity).remove::<Test>();
+        world.insert_resource(Test(101));
+        system.run((), &mut world);
+
+        println!("4");
+        world.entity_mut(entity).despawn();
+        world.remove_resource::<Test>();
+        system.run((), &mut world);
+
+        world
+            .resource_mut::<Events<SerializedChangeEventOut>>()
+            .drain()
+            .for_each(|it| println!("{it:?}"));
+
+        panic!()
     }
 }

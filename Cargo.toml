@@ -1,9 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "robot",
+    # "robot",
     # "surface",
-    "runner-rpi"
+    # "runner-rpi",
+    "common",
+    # "networking",
 ]
 
 # Enable a small amount of optimization in debug mode
