@@ -1,16 +1,20 @@
 pub mod apply_changes;
 pub mod detect_changes;
 
-use std::collections::HashMap;
+use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use bevy_ecs::{
-    component::{Component, ComponentId, Tick},
+    component::{Component, ComponentDescriptor, ComponentId, Tick},
     entity::Entity,
     event::Event,
     system::Resource,
+    world::{EntityMut, FromWorld, World},
 };
 
-use crate::{adapters, token};
+use crate::{
+    adapters::{self, TypeAdapter},
+    components, token,
+};
 
 // TODO: Mechanism to handle newly attached peers and/or sync existing ones
 
@@ -63,4 +67,80 @@ pub struct SyncState {
 pub enum Semantics {
     LocalMutable,
     ForignMutable,
+}
+
+#[derive(Resource)]
+pub struct SerializationSettings {
+    tracked_components: HashMap<
+        ComponentId,
+        (
+            token::Key,
+            Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
+        ),
+    >,
+    tracked_resources: HashMap<
+        TypeId,
+        (
+            token::Key,
+            Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
+        ),
+    >,
+
+    component_deserialization: HashMap<
+        token::Key,
+        (
+            Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
+            ComponentId,
+            fn(&mut EntityMut),
+        ),
+    >,
+
+    resource_deserialization: HashMap<
+        token::Key,
+        (
+            Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
+            TypeId,
+        ),
+    >,
+}
+
+impl FromWorld for SerializationSettings {
+    fn from_world(world: &mut World) -> Self {
+        let mut component_deserialization = HashMap::new();
+
+        let adapters_components = components::adapters_components();
+        let tracked_components = adapters_components
+            .into_iter()
+            .map(|(key, (adapter, descriptor, remover))| {
+                // TODO: Can we get rid of and Arc:: without needing to specify types?
+                let id = world.init_component_with_descriptor(descriptor);
+                let adapter = adapter.into();
+
+                component_deserialization.insert(key.clone(), (Arc::clone(&adapter), id, remover));
+
+                (id, (key, adapter))
+            })
+            .collect();
+
+        let mut resource_deserialization = HashMap::new();
+
+        let adapters_resources = components::adapters_resources();
+        let tracked_resources = adapters_resources
+            .into_iter()
+            .map(|(key, (adapter, type_id))| {
+                let adapter = adapter.into();
+
+                resource_deserialization.insert(key.clone(), (Arc::clone(&adapter), type_id));
+
+                (type_id, (key, adapter))
+            })
+            .collect();
+
+        SerializationSettings {
+            tracked_components,
+            tracked_resources,
+            component_deserialization,
+            resource_deserialization,
+        }
+    }
 }

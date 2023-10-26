@@ -12,63 +12,19 @@ use bevy_ecs::{
     ptr::Ptr,
     removal_detection::RemovedComponentEntity,
     storage::{TableId, TableRow},
-    system::{Commands, Local, Res, ResMut, Resource, SystemChangeTick},
-    world::{FromWorld, World},
+    system::{Commands, Local, Res, ResMut, SystemChangeTick},
+    world::World,
 };
 use tracing::error;
 
 use crate::{
     adapters::{self, BackingType, TypeAdapter},
-    components,
     ecs_sync::NetworkId,
-    token,
 };
 
-use super::{Semantics, SerializedChange, SerializedChangeEventOut, SyncState};
-
-#[derive(Resource)]
-pub struct ChangeDetectionSettings {
-    tracked_components: HashMap<
-        ComponentId,
-        (
-            token::Key,
-            Box<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
-        ),
-    >,
-    tracked_resources: HashMap<
-        TypeId,
-        (
-            token::Key,
-            Box<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
-        ),
-    >,
-}
-
-impl FromWorld for ChangeDetectionSettings {
-    fn from_world(world: &mut World) -> Self {
-        let adapters_components = components::adapters_components();
-        let tracked_components = adapters_components
-            .into_iter()
-            .map(|(key, (adapter, descriptor))| {
-                (
-                    world.init_component_with_descriptor(descriptor),
-                    (key, adapter),
-                )
-            })
-            .collect();
-
-        let adapters_resources = components::adapters_resources();
-        let tracked_resources = adapters_resources
-            .into_iter()
-            .map(|(key, (adapter, type_id))| (type_id, (key, adapter)))
-            .collect();
-
-        ChangeDetectionSettings {
-            tracked_components,
-            tracked_resources,
-        }
-    }
-}
+use super::{
+    Semantics, SerializationSettings, SerializedChange, SerializedChangeEventOut, SyncState,
+};
 
 #[derive(Default)]
 pub struct ChangeDetectionState {
@@ -79,7 +35,7 @@ pub struct ChangeDetectionState {
     relevant_tables: HashMap<usize, Vec<ComponentId>>,
     relevant_sets: HashSet<ComponentId>,
 
-    cached_net_ids: HashMap<Entity, NetworkId>,
+    cached_local_net_ids: HashMap<Entity, NetworkId>,
 
     last_resources: HashSet<TypeId>,
 }
@@ -89,7 +45,7 @@ pub fn detect_changes(
     world: &World,
     tick: SystemChangeTick,
 
-    settings: Res<ChangeDetectionSettings>,
+    settings: Res<SerializationSettings>,
     mut state: Local<ChangeDetectionState>,
     mut sync_state: ResMut<SyncState>,
 
@@ -107,7 +63,7 @@ pub fn detect_changes(
     // FIXME: Check that order wont cause sync issues
     // TODO: Validate that state is matained consistently
 
-    // Handle changed to entities
+    // Handle changes to entities
     filter_new_archetypes(world, settings, state);
     detect_changes_tables(
         world,
@@ -152,8 +108,8 @@ pub fn detect_changes(
 /// Checks each new archetype since last system run for matches with tracked components
 fn filter_new_archetypes(
     world: &World,
-    settings: &ChangeDetectionSettings,
-    state: &ChangeDetectionState,
+    settings: &SerializationSettings,
+    state: &mut ChangeDetectionState,
 ) {
     // Abuse bevy internals
     // In bevy, archetypes are only added
@@ -197,9 +153,9 @@ fn filter_new_archetypes(
 /// Detect changes to components stored in "tables"
 fn detect_changes_tables(
     world: &World,
-    settings: &ChangeDetectionSettings,
-    state: &ChangeDetectionState,
-    sync_state: &SyncState,
+    settings: &SerializationSettings,
+    state: &mut ChangeDetectionState,
+    sync_state: &mut SyncState,
     tick: &SystemChangeTick,
     changes: &mut EventWriter<SerializedChangeEventOut>,
 
@@ -257,7 +213,7 @@ fn detect_changes_tables(
                     settings.tracked_components.get(component_type).unwrap();
                 // SAFETY: `type_adapter` is assoicated with the component_type of this column and
                 // therefore should match the type of ptr
-                let serialized = unsafe { serialize_ptr(ptr, type_adapter) };
+                let serialized = unsafe { serialize_ptr(ptr, &**type_adapter) };
 
                 // Check that this write is allowed
                 if semantics != Semantics::LocalMutable {
@@ -277,9 +233,9 @@ fn detect_changes_tables(
 /// Detect changes to components stored in sparse sets
 fn detect_changes_sparse_set(
     world: &World,
-    settings: &ChangeDetectionSettings,
-    state: &ChangeDetectionState,
-    sync_state: &SyncState,
+    settings: &SerializationSettings,
+    state: &mut ChangeDetectionState,
+    sync_state: &mut SyncState,
     tick: &SystemChangeTick,
     changes: &mut EventWriter<SerializedChangeEventOut>,
 
@@ -294,9 +250,9 @@ fn detect_changes_sparse_set(
 /// Detects removed components and deleted entities
 fn detect_removed_components(
     world: &World,
-    settings: &ChangeDetectionSettings,
-    state: &ChangeDetectionState,
-    sync_state: &SyncState,
+    settings: &SerializationSettings,
+    state: &mut ChangeDetectionState,
+    sync_state: &mut SyncState,
     changes: &mut EventWriter<SerializedChangeEventOut>,
 
     new_entities: &mut HashSet<Entity>,
@@ -328,7 +284,7 @@ fn detect_removed_components(
             let Some(net_id) = world.get::<NetworkId>(entity_id) else {
                 // Entity was despawned
                 // If entity_id is in `cached_net_ids`, it it locally owned
-                if let Some(net_id) = state.cached_net_ids.remove(&entity_id) {
+                if let Some(net_id) = state.cached_local_net_ids.remove(&entity_id) {
                     // Sync change with peers
                     changes.send(SerializedChange::EntityDespawned(net_id).into());
                 } else {
@@ -362,9 +318,9 @@ fn detect_removed_components(
 /// Detect changed and removed resources
 fn handle_changed_resources(
     world: &World,
-    settings: &ChangeDetectionSettings,
-    state: &ChangeDetectionState,
-    sync_state: &SyncState,
+    settings: &SerializationSettings,
+    state: &mut ChangeDetectionState,
+    sync_state: &mut SyncState,
     tick: &SystemChangeTick,
     changes: &mut EventWriter<SerializedChangeEventOut>,
 ) {
@@ -391,7 +347,7 @@ fn handle_changed_resources(
             if changed {
                 // Serialize the new resource
                 let ptr = resource.get_data()?;
-                let serialized = unsafe { serialize_ptr(ptr, type_adapter) };
+                let serialized = unsafe { serialize_ptr(ptr, &**type_adapter) };
 
                 if semantics != Semantics::LocalMutable {
                     error!("Local modified forign controlled component");
@@ -417,8 +373,8 @@ fn sync_new_entities(
     cmds: &mut Commands,
 
     world: &World,
-    settings: &ChangeDetectionSettings,
-    state: &ChangeDetectionState,
+    settings: &SerializationSettings,
+    state: &mut ChangeDetectionState,
     sync_state: &SyncState,
 
     changes: &mut EventWriter<SerializedChangeEventOut>,
@@ -428,7 +384,7 @@ fn sync_new_entities(
         // Assign random network id
         let net_id = NetworkId::random();
         cmds.entity(*entity).insert(net_id);
-        state.cached_net_ids.insert(*entity, net_id);
+        state.cached_local_net_ids.insert(*entity, net_id);
 
         // Spawn entity on peer
         changes.send(SerializedChange::EntitySpawned(net_id).into());
@@ -447,7 +403,7 @@ fn sync_new_entities(
                 .unwrap();
             // SAFETY: `type_adapter` is assoicated with the component_type for this component
             // therefore should match the type of ptr
-            let serialized = unsafe { serialize_ptr(ptr, type_adapter) };
+            let serialized = unsafe { serialize_ptr(ptr, &**type_adapter) };
 
             changes.send(
                 SerializedChange::ComponentUpdated(net_id, token.clone(), Some(serialized)).into(),
@@ -458,10 +414,9 @@ fn sync_new_entities(
 
 unsafe fn serialize_ptr(
     ptr: Ptr<'_>,
-    type_adapter: &Box<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
+    type_adapter: &(dyn TypeAdapter<adapters::BackingType> + Send + Sync),
 ) -> BackingType {
+    // TODO: error handling
     // SAFETY: Caller is required to make sure the pointer and type_adapter match
-    let obj = type_adapter.deref(ptr);
-    // TODO: error handeling
-    type_adapter.serialize(obj).expect("serialize error")
+    type_adapter.serialize(ptr).expect("serialize error")
 }
