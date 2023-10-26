@@ -1,9 +1,8 @@
 //! Code shared between both the surface and robot projects
-#![feature(const_fn_floating_point_arithmetic, const_float_classify)]
+#![feature(try_blocks)]
 
 pub mod adapters;
 pub mod components;
+pub mod ecs_sync;
 pub mod protocol;
 pub mod token;
-pub mod change_detection;
-pub mod ecs_sync;
