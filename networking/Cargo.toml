@@ -7,7 +7,7 @@ edition = "2021"
 mio = { version = "0.8", features = ["os-poll", "net"] }
 crossbeam = "0.8"
 thiserror = "1"
-fxhash = "0.2"
+ahash = "0.8"
 tracing = "0.1"
 anyhow = "1"
 

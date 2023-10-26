@@ -15,6 +15,7 @@ tracing = "0.1"
 
 mint = { version = "0.5", features = ["serde"] }
 rand = "0.8"
+ahash = "0.8"
 
 bevy_ecs = { path = "../../bevy-fork/crates/bevy_ecs/" }
 

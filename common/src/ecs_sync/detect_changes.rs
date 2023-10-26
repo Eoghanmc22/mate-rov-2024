@@ -1,8 +1,6 @@
-use std::{
-    any::TypeId,
-    collections::{HashMap, HashSet},
-    mem,
-};
+use std::any::TypeId;
+
+use ahash::{AHashMap as HashMap, AHashSet as HashSet};
 
 use bevy_ecs::{
     archetype::ArchetypeId,
@@ -30,10 +28,10 @@ use super::{
 pub struct ChangeDetectionState {
     removed_component_readers: HashMap<ComponentId, ManualEventReader<RemovedComponentEntity>>,
 
-    // Abuses current bevy internals
-    unique_archetypes: usize,
     relevant_tables: HashMap<usize, Vec<ComponentId>>,
     relevant_sets: HashSet<ComponentId>,
+    // Abuses current bevy internals
+    unique_archetypes: usize,
 
     cached_local_net_ids: HashMap<Entity, NetworkId>,
 
@@ -120,6 +118,7 @@ fn filter_new_archetypes(
         // Check if this archetype contains any component types we track
         for component_id in settings.tracked_components.keys() {
             let storage = archetype.get_storage_type(*component_id);
+
             let Some(storage) = storage else {
                 // Archetype does not contain this component type
                 // Check the next component type
@@ -157,9 +156,6 @@ fn detect_changes_tables(
 
     new_entities: &mut HashSet<Entity>,
 ) {
-    // This is not an intended use case
-    // I need to fork bevy...
-
     // Check each table we recorded as containing a component type we track
     for (table, components) in &state.relevant_tables {
         // Lookup the table in the ECS
@@ -238,6 +234,7 @@ fn detect_changes_sparse_set(
 ) {
     for _component in &state.relevant_sets {
         // This literally doesnt seem to be possible with the exposed api...
+        // TODO: Look into exposing the necessary apis if we end up needing SparseSet components
         panic!("`SparseSet`s are not supported");
     }
 }

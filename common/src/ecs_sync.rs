@@ -1,8 +1,9 @@
 pub mod apply_changes;
 pub mod detect_changes;
 
-use std::{any::TypeId, collections::HashMap, sync::Arc};
+use std::{any::TypeId, sync::Arc};
 
+use ahash::AHashMap as HashMap;
 use bevy_ecs::{
     component::{Component, ComponentId, Tick},
     entity::Entity,
@@ -146,7 +147,6 @@ impl FromWorld for SerializationSettings {
     }
 }
 
-// TODO check soundness with miri
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
@@ -154,7 +154,7 @@ mod tests {
         system::{IntoSystem, System},
         world::World,
     };
-    use tracing::{error, Level};
+    use tracing::Level;
 
     use crate::components::Test;
 
@@ -175,25 +175,20 @@ mod tests {
 
         let entity = world.spawn(Test(0)).id();
 
-        println!("0");
         system.initialize(&mut world);
         system.run((), &mut world);
 
-        println!("1");
         world.entity_mut(entity).insert(Test(1));
         system.run((), &mut world);
 
-        println!("2");
         world.entity_mut(entity).insert(Test(2));
         world.insert_resource(Test(100));
         system.run((), &mut world);
 
-        println!("3");
         world.entity_mut(entity).remove::<Test>();
         world.insert_resource(Test(101));
         system.run((), &mut world);
 
-        println!("4");
         world.entity_mut(entity).despawn();
         world.remove_resource::<Test>();
         system.run((), &mut world);

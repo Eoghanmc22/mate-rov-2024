@@ -69,7 +69,7 @@ fn options() -> impl Options {
 #[macro_export]
 macro_rules! generate_adapters_components {
     (name = $name:ident, output = $output:ty, tokens = { $($token:expr),* }) => {
-        pub fn $name() -> std::collections::HashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut))>
+        pub fn $name() -> ahash::AHashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut))>
         {
             fn from<T: bevy_ecs::component::Component, O>(token: $crate::token::Token<T, O>) -> ($crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut)))
             where
@@ -94,7 +94,7 @@ macro_rules! generate_adapters_components {
 #[macro_export]
 macro_rules! generate_adapters_resources {
     (name = $name:ident, output = $output:ty, tokens = { $($token:expr),* }) => {
-        pub fn $name() -> std::collections::HashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, std::any::TypeId)>
+        pub fn $name() -> ahash::AHashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, std::any::TypeId)>
         {
             fn from<T: bevy_ecs::system::Resource, O>(token: $crate::token::Token<T, O>) -> ($crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, std::any::TypeId))
             where

@@ -2,8 +2,8 @@ use crate::{
     acceptor::Acceptor, buf::Buffer, error::NetError, peer::Peer, Event, Message, Packet,
     PROBE_LENGTH, WAKER_TOKEN,
 };
+use ahash::AHashMap as HashMap;
 use crossbeam::channel::Receiver;
-use fxhash::FxHashMap as HashMap;
 use mio::{
     net::{TcpListener, TcpStream},
     Events, Interest, Poll, Token,
