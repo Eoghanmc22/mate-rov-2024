@@ -1,21 +1,25 @@
-use parallax::system::launch::SystemManager;
-use tracing::{info, Level};
+// pub mod peripheral;
+// pub mod systems;
 
-pub mod peripheral;
-pub mod systems;
+pub mod plugins;
+
+use std::time::Duration;
+
+use bevy::{app::ScheduleRunnerPlugin, prelude::*};
+use plugins::sync::SyncPlugin;
+use tracing::Level;
 
 fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();
-    info!("Starting robot");
 
-    let mut systems = SystemManager::default();
-
-    info!("---------- Registering systems ----------");
-    info!("--------------------------------------");
-
-    systems.start("robot_config.toml");
-
-    info!("Robot stopped");
+    App::new()
+        .add_plugins(
+            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+                1.0 / 100.0,
+            ))),
+        )
+        .add_plugins(SyncPlugin)
+        .run();
 }

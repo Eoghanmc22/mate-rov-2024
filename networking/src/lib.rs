@@ -10,7 +10,8 @@ pub(crate) mod raw;
 pub(crate) mod worker;
 
 use crossbeam::channel::{self, Receiver, Sender};
-use mio::{Poll, Token, Waker};
+pub use mio::Token;
+use mio::{Poll, Waker};
 
 use std::{net::SocketAddr, sync::Arc};
 

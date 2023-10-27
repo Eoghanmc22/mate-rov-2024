@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 common = { path = "../common" }
 networking = { path = "../networking" }
-parallax = { path = "../../parallax" }
+
+bevy= { path = "../../bevy-fork/", default-features = false, features = ["multi-threaded"] }
 
 tracing = "0.1"
 tracing-subscriber = "0.3"
