@@ -3,7 +3,7 @@ pub mod detect_changes;
 
 use std::{any::TypeId, sync::Arc};
 
-use ahash::AHashMap as HashMap;
+use ahash::HashMap;
 use bevy_ecs::{
     component::{Component, ComponentId, Tick},
     entity::Entity,
@@ -107,7 +107,7 @@ pub struct SerializationSettings {
 
 impl FromWorld for SerializationSettings {
     fn from_world(world: &mut World) -> Self {
-        let mut component_deserialization = HashMap::new();
+        let mut component_deserialization = HashMap::default();
 
         let adapters_components = components::adapters_components();
         let tracked_components = adapters_components
@@ -123,7 +123,7 @@ impl FromWorld for SerializationSettings {
             })
             .collect();
 
-        let mut resource_deserialization = HashMap::new();
+        let mut resource_deserialization = HashMap::default();
 
         let adapters_resources = components::adapters_resources();
         let tracked_resources = adapters_resources

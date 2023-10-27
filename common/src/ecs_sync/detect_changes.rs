@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use ahash::{AHashMap as HashMap, AHashSet as HashSet};
+use ahash::{HashMap, HashSet};
 
 use bevy_ecs::{
     archetype::ArchetypeId,
@@ -49,7 +49,7 @@ pub fn detect_changes(
     let settings = world.get_resource::<SerializationSettings>().unwrap();
     let state = &mut *state;
 
-    let mut new_entities = HashSet::new();
+    let mut new_entities = HashSet::default();
     let mut changes = Vec::new();
 
     let mut queue = CommandQueue::default();
@@ -344,7 +344,7 @@ fn handle_changed_resources(
     changes: &mut Vec<SerializedChangeEventOut>,
 ) {
     // Detect changed resources
-    let mut resources = HashSet::new();
+    let mut resources = HashSet::default();
     for (type_id, (token, type_adapter)) in &settings.tracked_resources {
         // Type annotations rlly ugly :(
         let _: Option<()> = try {
