@@ -18,8 +18,6 @@ use crate::{
     components, token,
 };
 
-// TODO: Mechanism to handle newly attached peers and/or sync existing ones
-
 #[derive(Component, Hash, Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct NetworkId(pub(crate) u128);
 

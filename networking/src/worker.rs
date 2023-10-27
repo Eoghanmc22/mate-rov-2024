@@ -77,6 +77,7 @@ pub fn start_worker<P: Packet>(
                                     Some(token),
                                     NetError::from(err).chain("Register socket".to_owned()),
                                 ));
+                                (handler)(Event::Disconnect(token));
                                 continue 'message;
                             }
 
@@ -112,6 +113,7 @@ pub fn start_worker<P: Packet>(
                                     Some(token),
                                     NetError::from(err).chain("Register listner".to_owned()),
                                 ));
+                                (handler)(Event::Disconnect(token));
                                 continue 'message;
                             }
 
@@ -119,6 +121,7 @@ pub fn start_worker<P: Packet>(
                             accptors.insert(token, Acceptor { listener });
                         }
                         Message::Disconect(token) => {
+                            (handler)(Event::Disconnect(token));
                             peers.remove(&token);
                             accptors.remove(&token);
                         }
@@ -131,6 +134,7 @@ pub fn start_worker<P: Packet>(
                                         Some(peer_token),
                                         err.chain("Write packet".to_owned()),
                                     ));
+                                    (handler)(Event::Disconnect(peer_token));
                                     peers.remove(&peer_token);
                                     continue 'message;
                                 }
@@ -155,6 +159,7 @@ pub fn start_worker<P: Packet>(
                                         Some(*token),
                                         err.chain("Brodcast packet".to_owned()),
                                     ));
+                                    (handler)(Event::Disconnect(*token));
                                     to_remove.push(*token);
                                     continue 'peer;
                                 }
@@ -191,6 +196,7 @@ pub fn start_worker<P: Packet>(
                                             Some(event.token()),
                                             err.chain("Setup peer socket".to_owned()),
                                         ));
+                                        (handler)(Event::Disconnect(event.token()));
                                         peers.remove(&event.token());
                                         continue 'event;
                                     }
@@ -206,6 +212,7 @@ pub fn start_worker<P: Packet>(
                                     Some(event.token()),
                                     NetError::from(err).chain("Connect to peer".to_owned()),
                                 ));
+                                (handler)(Event::Disconnect(event.token()));
                                 peers.remove(&event.token());
                                 continue 'event;
                             }
@@ -227,6 +234,7 @@ pub fn start_worker<P: Packet>(
                             Some(event.token()),
                             err.chain("Write packets".to_owned()),
                         ));
+                        (handler)(Event::Disconnect(event.token()));
                         peers.remove(&event.token());
                         continue 'event;
                     }
@@ -249,6 +257,7 @@ pub fn start_worker<P: Packet>(
                                     Some(event.token()),
                                     err.chain("Read packets".to_owned()),
                                 ));
+                                (handler)(Event::Disconnect(event.token()));
                                 peers.remove(&event.token());
                                 continue 'event;
                             }
@@ -290,6 +299,7 @@ pub fn start_worker<P: Packet>(
                                 Some(token),
                                 NetError::from(err).chain("Register accepted".to_owned()),
                             ));
+                            (handler)(Event::Disconnect(token));
                             continue 'accept;
                         }
 
@@ -303,6 +313,7 @@ pub fn start_worker<P: Packet>(
                                 Some(token),
                                 err.chain("Setup accepted socket".to_owned()),
                             ));
+                            (handler)(Event::Disconnect(token));
                             continue 'accept;
                         }
 

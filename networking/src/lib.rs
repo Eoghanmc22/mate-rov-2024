@@ -66,6 +66,7 @@ pub enum Event<P> {
 
     Data(Token, P),
 
+    Disconnect(Token),
     Error(Option<Token>, error::NetError),
 }
 

@@ -100,7 +100,7 @@ pub fn apply_changes(
 
                 let type_adapter = type_adapter.clone();
                 let component_id = *component_id;
-                // TODO: this will be slow
+
                 let serialized = serialized.clone();
                 cmds.add(move |world: &mut World| {
                     // TODO: error handling

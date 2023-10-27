@@ -141,35 +141,31 @@ fn net_read(
                     latency.last_acknowledged = sent.into();
                 }
             },
-            // TODO: Disconnection should not be implicit
-            // Make a disconnect event
             NetEvent::Error(token, error) => {
-                error!("Network Error: {error:?}");
+                error!("Network Error: Token: {token:?} Error: {error:?}");
+            }
+            NetEvent::Disconnect(token) => {
+                let Some(entity) = peers.by_token.remove(&token) else {
+                    error!("Unknown peer disconnected");
+                    continue;
+                };
+                let Ok(peer) = query.get_component::<Peer>(entity) else {
+                    error!("Unknown peer disconnected");
+                    continue;
+                };
 
-                if let Some(token) = token {
-                    let Some(entity) = peers.by_token.remove(&token) else {
-                        error!("Unknown peer disconnected");
-                        continue;
-                    };
-                    let Ok(peer) = query.get_component::<Peer>(entity) else {
-                        error!("Unknown peer disconnected");
-                        continue;
-                    };
-                    peers.by_addrs.remove(&peer.addrs);
+                peers.by_addrs.remove(&peer.addrs);
+                sync_state.singleton_map.remove(&token.0);
 
-                    cmds.entity(entity).despawn();
+                cmds.entity(entity).despawn();
 
-                    error!("Peer at {} disconnected due to error", peer.addrs);
-
-                    todo!("Remove from singleton_map");
-                }
+                error!("Peer ({token:?}) at {} disconnected", peer.addrs);
             }
         }
     }
 }
 fn net_write(net: Res<Net>, mut changes: EventReader<SerializedChangeEventOut>) {
     for change in changes.read() {
-        // FIXME: Slow
         let rst = net.0.brodcast_packet(Protocol::EcsUpdate(change.0.clone()));
 
         if let Err(_) = rst {
@@ -211,8 +207,6 @@ fn ping(net: Res<Net>, time: Res<Time>, mut query: Query<(&Peer, &mut Latency)>)
             if let Err(_) = rst {
                 error!("Could not disconnect peer");
             }
-
-            todo!("Cleanup state like in the error handler");
 
             continue;
         }
