@@ -785,7 +785,7 @@ dependencies = [
  "anyhow",
  "bevy_ecs",
  "bincode",
- "mint",
+ "glam 0.23.0",
  "networking",
  "rand",
  "serde",
@@ -1254,9 +1254,6 @@ name = "mint"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e53debba6bda7a793e5f99b8dacf19e626084f525f7829104ba9898f367d85ff"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "mio"

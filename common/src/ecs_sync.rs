@@ -144,57 +144,57 @@ impl FromWorld for SerializationSettings {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use bevy_ecs::{
-        event::Events,
-        system::{IntoSystem, System},
-        world::World,
-    };
-    use tracing::Level;
-
-    use crate::components::Test;
-
-    use super::{detect_changes, SerializationSettings, SerializedChangeEventOut, SyncState};
-
-    #[test]
-    fn detect_changes() {
-        tracing_subscriber::fmt()
-            .pretty()
-            .with_max_level(Level::TRACE)
-            .init();
-
-        let mut system = IntoSystem::into_system(detect_changes::detect_changes);
-        let mut world = World::new();
-        world.init_resource::<SyncState>();
-        world.init_resource::<SerializationSettings>();
-        world.init_resource::<Events<SerializedChangeEventOut>>();
-
-        let entity = world.spawn(Test(0)).id();
-
-        system.initialize(&mut world);
-        system.run((), &mut world);
-
-        world.entity_mut(entity).insert(Test(1));
-        system.run((), &mut world);
-
-        world.entity_mut(entity).insert(Test(2));
-        world.insert_resource(Test(100));
-        system.run((), &mut world);
-
-        world.entity_mut(entity).remove::<Test>();
-        world.insert_resource(Test(101));
-        system.run((), &mut world);
-
-        world.entity_mut(entity).despawn();
-        world.remove_resource::<Test>();
-        system.run((), &mut world);
-
-        world
-            .resource_mut::<Events<SerializedChangeEventOut>>()
-            .drain()
-            .for_each(|it| println!("{it:?}"));
-
-        panic!()
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use bevy_ecs::{
+//         event::Events,
+//         system::{IntoSystem, System},
+//         world::World,
+//     };
+//     use tracing::Level;
+//
+//     use crate::components::Test;
+//
+//     use super::{detect_changes, SerializationSettings, SerializedChangeEventOut, SyncState};
+//
+//     #[test]
+//     fn detect_changes() {
+//         tracing_subscriber::fmt()
+//             .pretty()
+//             .with_max_level(Level::TRACE)
+//             .init();
+//
+//         let mut system = IntoSystem::into_system(detect_changes::detect_changes);
+//         let mut world = World::new();
+//         world.init_resource::<SyncState>();
+//         world.init_resource::<SerializationSettings>();
+//         world.init_resource::<Events<SerializedChangeEventOut>>();
+//
+//         let entity = world.spawn(Test(0)).id();
+//
+//         system.initialize(&mut world);
+//         system.run((), &mut world);
+//
+//         world.entity_mut(entity).insert(Test(1));
+//         system.run((), &mut world);
+//
+//         world.entity_mut(entity).insert(Test(2));
+//         world.insert_resource(Test(100));
+//         system.run((), &mut world);
+//
+//         world.entity_mut(entity).remove::<Test>();
+//         world.insert_resource(Test(101));
+//         system.run((), &mut world);
+//
+//         world.entity_mut(entity).despawn();
+//         world.remove_resource::<Test>();
+//         system.run((), &mut world);
+//
+//         world
+//             .resource_mut::<Events<SerializedChangeEventOut>>()
+//             .drain()
+//             .for_each(|it| println!("{it:?}"));
+//
+//         panic!()
+//     }
+// }

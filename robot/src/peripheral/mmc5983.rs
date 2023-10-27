@@ -1,7 +1,8 @@
+use common::types::sensors::MagFrame;
+use common::types::units::Gauss;
 use std::{thread, time::Duration};
 
 use anyhow::Context;
-use common::types::{Gauss, MagFrame};
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
 
 pub struct Mcc5983 {

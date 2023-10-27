@@ -115,6 +115,19 @@ macro_rules! generate_adapters_resources {
         }
     };
 }
+#[macro_export]
+macro_rules! tokened {
+    ($(#[derive $traits:tt])? #[token($token:literal)] $vis:vis struct $name:ident $trailing1:tt $($trailing2:tt)?) => {
+        $(#[derive $traits])?
+        $vis struct $name $trailing1 $($trailing2)?
+
+        impl Tokened for $name {
+            const TOKEN: Token<Self, Self::TokenMeta> = Token::new_const($token);
+
+            type TokenMeta = ();
+        }
+    }
+}
 
 /// Helper function to serialize an object
 // pub fn serialize<V: Serialize + Any + Send + Sync, M, Output>(

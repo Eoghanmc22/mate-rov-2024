@@ -1,7 +1,10 @@
 use std::{thread, time::Duration};
 
 use anyhow::{bail, Context};
-use common::types::{Celsius, DepthFrame, Mbar, Meters};
+use common::types::{
+    sensors::DepthFrame,
+    units::{Celsius, Mbar, Meters},
+};
 use rppal::i2c::I2c;
 
 pub struct Ms5837 {

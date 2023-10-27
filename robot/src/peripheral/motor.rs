@@ -1,4 +1,5 @@
-use common::types::{MotorId, Movement, Percent};
+use ahash::HashMap;
+use common::types::units::Percent;
 use std::fmt::Debug;
 use std::time::Duration;
 

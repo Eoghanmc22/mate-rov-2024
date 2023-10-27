@@ -1,7 +1,10 @@
+use common::types::{
+    sensors::InertialFrame,
+    units::{Celsius, Dps, GForce},
+};
 use std::{thread, time::Duration};
 
 use anyhow::Context;
-use common::types::{Celsius, Dps, GForce, InertialFrame};
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
 
 pub struct Icm20602 {
