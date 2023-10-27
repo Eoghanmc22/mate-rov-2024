@@ -7,7 +7,7 @@ use ahrs::{Ahrs, Madgwick};
 use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Orientation, RawInertial, RawMagnetic, RobotMarker},
-    types::sensors::{InertialFrame, MagFrame},
+    types::sensors::{InertialFrame, MagneticFrame},
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use nalgebra::Vector3;
@@ -19,19 +19,22 @@ pub struct OrientationPlugin;
 
 impl Plugin for OrientationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, start_sensor_thread);
+        app.add_systems(Startup, start_inertial_thread);
         app.add_systems(Update, read_new_data);
         app.insert_resource(MadgwickFilter(Madgwick::new(1.0 / 1000.0, 0.041)));
     }
 }
 
 #[derive(Resource)]
-struct InertialChannels(Receiver<([InertialFrame; 10], [MagFrame; 1])>, Sender<()>);
+struct InertialChannels(
+    Receiver<([InertialFrame; 10], [MagneticFrame; 1])>,
+    Sender<()>,
+);
 
 #[derive(Resource)]
 struct MadgwickFilter(Madgwick<f64>);
 
-fn start_sensor_thread(mut cmds: Commands) {
+pub fn start_inertial_thread(mut cmds: Commands) {
     let (tx_data, rx_data) = channel::bounded(5);
     let (tx_exit, rx_exit) = channel::bounded(1);
 
@@ -64,7 +67,7 @@ fn start_sensor_thread(mut cmds: Commands) {
         let mut counter = 0;
 
         let mut inertial_buffer = [InertialFrame::default(); 10];
-        let mut mag_buffer = [MagFrame::default(); 1];
+        let mut mag_buffer = [MagneticFrame::default(); 1];
 
         let inertial_divisor = counts / inertial_buffer.len();
         let mag_divisor = counts / mag_buffer.len();
@@ -111,7 +114,6 @@ fn start_sensor_thread(mut cmds: Commands) {
             }
 
             deadline += interval;
-
             let remaining = deadline - Instant::now();
             thread::sleep(remaining);
 
@@ -124,13 +126,13 @@ fn start_sensor_thread(mut cmds: Commands) {
     cmds.insert_resource(InertialChannels(rx_data, tx_exit));
 }
 
-fn read_new_data(
+pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<InertialChannels>,
     mut madgwick_filter: ResMut<MadgwickFilter>,
     robot: Query<Entity, With<RobotMarker>>,
 ) {
-    for (inertial, magnetic) in &channels.0 {
+    for (inertial, magnetic) in channels.0.try_iter() {
         // We currently ignore mag updates as the compass is not calibrated
         // TODO: Calibrate the compass
         for inertial in inertial {
@@ -160,7 +162,7 @@ fn read_new_data(
     }
 }
 
-fn shutdown(channels: Res<InertialChannels>, mut exit: EventReader<AppExit>) {
+pub fn shutdown(channels: Res<InertialChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let _ = channels.1.send(());
     }

@@ -73,7 +73,7 @@ pub struct Latency {
     pub last_acknowledged: Option<Duration>,
 }
 
-fn start_server(mut cmds: Commands) {
+pub fn start_server(mut cmds: Commands) {
     let networking = Networking::new().expect("Start networking");
     let handle = networking.messenger();
 
@@ -93,7 +93,7 @@ fn start_server(mut cmds: Commands) {
     });
 }
 
-fn net_read(
+pub fn net_read(
     mut cmds: Commands,
 
     net: Res<Net>,
@@ -164,7 +164,7 @@ fn net_read(
         }
     }
 }
-fn net_write(net: Res<Net>, mut changes: EventReader<SerializedChangeEventOut>) {
+pub fn net_write(net: Res<Net>, mut changes: EventReader<SerializedChangeEventOut>) {
     for change in changes.read() {
         let rst = net.0.brodcast_packet(Protocol::EcsUpdate(change.0.clone()));
 
@@ -174,7 +174,7 @@ fn net_write(net: Res<Net>, mut changes: EventReader<SerializedChangeEventOut>) 
     }
 }
 
-fn net_shutdown(net: Res<Net>, mut exit: EventReader<AppExit>) {
+pub fn net_shutdown(net: Res<Net>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let rst = net.0.shutdown();
 
@@ -187,7 +187,7 @@ fn net_shutdown(net: Res<Net>, mut exit: EventReader<AppExit>) {
 const PING_INTERVAL: Duration = Duration::from_millis(40);
 const MAX_LATENCY: Duration = Duration::from_millis(25);
 
-fn ping(net: Res<Net>, time: Res<Time>, mut query: Query<(&Peer, &mut Latency)>) {
+pub fn ping(net: Res<Net>, time: Res<Time>, mut query: Query<(&Peer, &mut Latency)>) {
     let now = time.elapsed();
 
     for (peer, mut latency) in &mut query {
@@ -238,7 +238,7 @@ struct Deltas {
     resources: HashMap<token::Key, BackingType>,
 }
 
-fn flatten_outbound_deltas(
+pub fn flatten_outbound_deltas(
     mut deltas: ResMut<Deltas>,
     mut events: EventReader<SerializedChangeEventOut>,
 ) {
@@ -272,7 +272,7 @@ fn flatten_outbound_deltas(
     }
 }
 
-fn sync_new_peers(net: Res<Net>, deltas: Res<Deltas>, query: Query<&Peer, Added<Peer>>) {
+pub fn sync_new_peers(net: Res<Net>, deltas: Res<Deltas>, query: Query<&Peer, Added<Peer>>) {
     'outer: for peer in query.iter() {
         for entity in deltas.entities.keys() {
             let rst = net.0.send_packet(

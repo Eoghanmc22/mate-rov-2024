@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::units::{Celsius, Dps, GForce, Gauss};
+use super::units::{Celsius, Dps, GForce, Gauss, Mbar, Meters};
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct InertialFrame {
@@ -16,8 +16,17 @@ pub struct InertialFrame {
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
-pub struct MagFrame {
+pub struct MagneticFrame {
     pub mag_x: Gauss,
     pub mag_y: Gauss,
     pub mag_z: Gauss,
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct DepthFrame {
+    pub depth: Meters,
+    pub altitude: Meters,
+    pub pressure: Mbar,
+
+    pub temperature: Celsius,
 }

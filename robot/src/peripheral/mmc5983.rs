@@ -1,4 +1,4 @@
-use common::types::sensors::MagFrame;
+use common::types::sensors::MagneticFrame;
 use common::types::units::Gauss;
 use std::{thread, time::Duration};
 
@@ -29,7 +29,7 @@ impl Mcc5983 {
 
     // TODO Hard and soft iron calibration?
 
-    pub fn read_frame(&mut self) -> anyhow::Result<MagFrame> {
+    pub fn read_frame(&mut self) -> anyhow::Result<MagneticFrame> {
         let raw = self.read_raw_frame().context("Read raw frame")?;
 
         // The first byte is junk
@@ -50,7 +50,7 @@ impl Mcc5983 {
         let mag_y = mag_native_x;
         let mag_z = mag_native_z;
 
-        Ok(MagFrame {
+        Ok(MagneticFrame {
             mag_x: Gauss(mag_x),
             mag_y: Gauss(mag_y),
             mag_z: Gauss(mag_z),

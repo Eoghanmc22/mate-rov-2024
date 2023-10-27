@@ -6,7 +6,7 @@ use crate::{
     adapters, generate_adapters_components, generate_adapters_resources,
     token::{Token, Tokened},
     tokened,
-    types::sensors::{InertialFrame, MagFrame},
+    types::sensors::{DepthFrame, InertialFrame, MagneticFrame},
 };
 
 generate_adapters_components! {
@@ -47,5 +47,11 @@ tokened! {
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug)]
     #[token("robot.sensors.magnetic")]
-    pub struct RawMagnetic(pub MagFrame);
+    pub struct RawMagnetic(pub MagneticFrame);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug)]
+    #[token("robot.sensors.depth")]
+    pub struct RawDepth(pub DepthFrame);
 }

@@ -121,6 +121,7 @@ impl Ms5837 {
     }
 }
 
+// Hippity hoppity the code in the data sheet is my property
 fn calculate_pressure_and_temperature(raw: (u32, u32), calibration: &[u16; 8]) -> (Mbar, Celsius) {
     // Calculate temperature
     let dt = raw.1 as i32 - calibration[5] as i32 * 256;

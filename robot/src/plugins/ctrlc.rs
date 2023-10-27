@@ -13,7 +13,7 @@ impl Plugin for CtrlCPlugin {
 #[derive(Resource)]
 struct CtrlcChannel(Receiver<()>);
 
-fn setup_handler(mut cmds: Commands) {
+pub fn setup_handler(mut cmds: Commands) {
     let (tx, rx) = channel::bounded(1);
 
     ctrlc::set_handler(move || {
@@ -24,7 +24,7 @@ fn setup_handler(mut cmds: Commands) {
     cmds.insert_resource(CtrlcChannel(rx));
 }
 
-fn check_handler(channel: Res<CtrlcChannel>, mut exit: EventWriter<AppExit>) {
+pub fn check_handler(channel: Res<CtrlcChannel>, mut exit: EventWriter<AppExit>) {
     if let Ok(()) = channel.0.try_recv() {
         exit.send(AppExit);
     }
