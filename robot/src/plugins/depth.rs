@@ -5,7 +5,7 @@ use std::{
 
 use bevy::{app::AppExit, prelude::*};
 use common::{
-    components::{RawDepth, RobotMarker},
+    components::{Depth, RobotMarker},
     types::sensors::DepthFrame,
 };
 use crossbeam::channel::{self, Receiver, Sender};
@@ -18,7 +18,7 @@ pub struct DepthPlugin;
 impl Plugin for DepthPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, start_depth_thread);
-        app.add_systems(Update, read_new_data);
+        app.add_systems(Update, (read_new_data, shutdown));
     }
 }
 
@@ -75,7 +75,7 @@ pub fn read_new_data(
     robot: Query<Entity, With<RobotMarker>>,
 ) {
     for depth in channels.0.try_iter() {
-        let depth = RawDepth(depth);
+        let depth = Depth(depth);
 
         let robot = robot.single();
         cmds.entity(robot).insert(depth);

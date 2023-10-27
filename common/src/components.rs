@@ -15,8 +15,8 @@ generate_adapters_components! {
     tokens = {
         RobotMarker::TOKEN,
         Orientation::TOKEN,
-        RawInertial::TOKEN,
-        RawMagnetic::TOKEN
+        Inertial::TOKEN,
+        Magnetic::TOKEN
     }
 }
 generate_adapters_resources! {
@@ -41,17 +41,23 @@ tokened! {
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug)]
     #[token("robot.sensors.inertial")]
-    pub struct RawInertial(pub InertialFrame);
+    pub struct Inertial(pub InertialFrame);
 }
 
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug)]
     #[token("robot.sensors.magnetic")]
-    pub struct RawMagnetic(pub MagneticFrame);
+    pub struct Magnetic(pub MagneticFrame);
 }
 
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug)]
     #[token("robot.sensors.depth")]
-    pub struct RawDepth(pub DepthFrame);
+    pub struct Depth(pub DepthFrame);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug)]
+    #[token("robot.sensors.leak")]
+    pub struct Leak(pub bool);
 }

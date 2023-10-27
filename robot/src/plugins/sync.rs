@@ -45,7 +45,7 @@ impl Plugin for SyncPlugin {
             (
                 detect_changes::detect_changes.before(net_write),
                 net_write,
-                net_shutdown,
+                shutdown,
             ),
         );
     }
@@ -174,7 +174,7 @@ pub fn net_write(net: Res<Net>, mut changes: EventReader<SerializedChangeEventOu
     }
 }
 
-pub fn net_shutdown(net: Res<Net>, mut exit: EventReader<AppExit>) {
+pub fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let rst = net.0.shutdown();
 

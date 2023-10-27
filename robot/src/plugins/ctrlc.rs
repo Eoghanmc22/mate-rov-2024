@@ -6,7 +6,7 @@ pub struct CtrlCPlugin;
 impl Plugin for CtrlCPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_handler);
-        app.add_systems(Update, check_handler);
+        app.add_systems(PreUpdate, check_handler);
     }
 }
 

@@ -6,7 +6,7 @@ use std::{
 use ahrs::{Ahrs, Madgwick};
 use bevy::{app::AppExit, prelude::*};
 use common::{
-    components::{Orientation, RawInertial, RawMagnetic, RobotMarker},
+    components::{Inertial, Magnetic, Orientation, RobotMarker},
     types::sensors::{InertialFrame, MagneticFrame},
 };
 use crossbeam::channel::{self, Receiver, Sender};
@@ -19,9 +19,10 @@ pub struct OrientationPlugin;
 
 impl Plugin for OrientationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, start_inertial_thread);
-        app.add_systems(Update, read_new_data);
         app.insert_resource(MadgwickFilter(Madgwick::new(1.0 / 1000.0, 0.041)));
+
+        app.add_systems(Startup, start_inertial_thread);
+        app.add_systems(Update, (read_new_data, shutdown));
     }
 }
 
@@ -152,10 +153,10 @@ pub fn read_new_data(
         let orientation = Orientation(quat);
 
         let inertial = inertial.last().unwrap();
-        let inertial = RawInertial(*inertial);
+        let inertial = Inertial(*inertial);
 
         let magnetic = magnetic.last().unwrap();
-        let magnetic = RawMagnetic(*magnetic);
+        let magnetic = Magnetic(*magnetic);
 
         let robot = robot.single();
         cmds.entity(robot).insert((orientation, inertial, magnetic));
