@@ -6,7 +6,7 @@ pub mod plugins;
 use std::time::Duration;
 
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
-use plugins::sync::SyncPlugin;
+use plugins::{ctrlc::CtrlCPlugin, sync::SyncPlugin};
 use tracing::Level;
 
 fn main() {
@@ -20,6 +20,6 @@ fn main() {
                 1.0 / 100.0,
             ))),
         )
-        .add_plugins(SyncPlugin)
+        .add_plugins((SyncPlugin, CtrlCPlugin))
         .run();
 }
