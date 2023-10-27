@@ -61,6 +61,7 @@ pub fn read_new_data(
 
 pub fn shutdown(mut channels: ResMut<LeakChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
-        channels.1.clear_async_interrupt();
+        // TODO: Handle?
+        let _ = channels.1.clear_async_interrupt();
     }
 }

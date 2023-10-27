@@ -40,7 +40,8 @@ pub fn start_inertial_thread(mut cmds: Commands) {
     let (tx_exit, rx_exit) = channel::bounded(1);
 
     thread::spawn(move || {
-        span!(Level::INFO, "Inertial sensor monitor thread").enter();
+        let span = span!(Level::INFO, "Inertial sensor monitor thread");
+        let _enter = span.enter();
 
         let imu = Icm20602::new(Icm20602::SPI_BUS, Icm20602::SPI_SELECT, Icm20602::SPI_CLOCK);
         let mut imu = match imu {
@@ -79,7 +80,8 @@ pub fn start_inertial_thread(mut cmds: Commands) {
 
         loop {
             if counter == 0 && !first_run {
-                tx_data.send((inertial_buffer, mag_buffer));
+                // TODO: Handle?
+                let _ = tx_data.send((inertial_buffer, mag_buffer));
             }
 
             if counter % inertial_divisor == 0 {

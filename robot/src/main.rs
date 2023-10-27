@@ -1,3 +1,5 @@
+#![allow(private_interfaces)]
+
 pub mod peripheral;
 pub mod plugins;
 

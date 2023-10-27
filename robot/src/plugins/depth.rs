@@ -30,7 +30,8 @@ pub fn start_depth_thread(mut cmds: Commands) {
     let (tx_exit, rx_exit) = channel::bounded(1);
 
     thread::spawn(move || {
-        span!(Level::INFO, "Depth sensor monitor thread").enter();
+        let span = span!(Level::INFO, "Depth sensor monitor thread");
+        let _enter = span.enter();
 
         let depth = Ms5837::new(Ms5837::I2C_BUS, Ms5837::I2C_ADDRESS);
         let mut depth = match depth {
@@ -49,7 +50,8 @@ pub fn start_depth_thread(mut cmds: Commands) {
 
             match rst {
                 Ok(frame) => {
-                    tx_data.send(frame);
+                    // TODO: Handle?
+                    let _ = tx_data.send(frame);
                 }
                 Err(err) => {
                     // Todo: error handling
