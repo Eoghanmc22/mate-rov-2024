@@ -11,6 +11,7 @@ use bevy_ecs::{
     system::Resource,
     world::{EntityWorldMut, FromWorld, World},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     adapters::{self, TypeAdapter},
@@ -19,16 +20,18 @@ use crate::{
 
 // TODO: Mechanism to handle newly attached peers and/or sync existing ones
 
-#[derive(Component, Hash, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Component, Hash, Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct NetworkId(pub(crate) u128);
 
 impl NetworkId {
+    pub const SINGLETON: NetworkId = NetworkId(0);
+
     pub fn random() -> Self {
         Self(rand::random())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SerializedChange {
     EntitySpawned(NetworkId),
     EntityDespawned(NetworkId),
@@ -37,15 +40,9 @@ pub enum SerializedChange {
 }
 
 #[derive(Event, Debug)]
-pub struct SerializedChangeEventIn(SerializedChange);
+pub struct SerializedChangeEventIn(pub SerializedChange, pub usize);
 #[derive(Event, Debug)]
-pub struct SerializedChangeEventOut(SerializedChange);
-
-impl From<SerializedChange> for SerializedChangeEventIn {
-    fn from(value: SerializedChange) -> Self {
-        Self(value)
-    }
-}
+pub struct SerializedChangeEventOut(pub SerializedChange);
 
 impl From<SerializedChange> for SerializedChangeEventOut {
     fn from(value: SerializedChange) -> Self {
@@ -57,6 +54,8 @@ impl From<SerializedChange> for SerializedChangeEventOut {
 pub struct SyncState {
     components: HashMap<ComponentId, HashMap<Entity, (Semantics, Tick)>>,
     resources: HashMap<ComponentId, (Semantics, Tick)>,
+
+    pub singleton_map: HashMap<usize, Entity>,
 }
 
 // #[derive(Clone, Copy, PartialEq, Eq, Debug)]

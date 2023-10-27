@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use ahash::HashMap;
 use bevy_ecs::{
     component::Tick,
     entity::Entity,
@@ -41,10 +40,16 @@ pub fn apply_changes(
     let mut queue = CommandQueue::default();
     let mut cmds = Commands::new(&mut queue, world);
 
-    for change in reader.read(events) {
-        match &change.0 {
+    for SerializedChangeEventIn(change, peer) in reader.read(events) {
+        match change {
             SerializedChange::EntitySpawned(net_id) => {
-                let entity_id = cmds.spawn(*net_id).id();
+                let entity_id = if *net_id == NetworkId::SINGLETON {
+                    sync_state.singleton_map.get(peer).cloned()
+                } else {
+                    None
+                };
+
+                let entity_id = entity_id.unwrap_or_else(|| cmds.spawn(*net_id).id());
 
                 state.cached_forign_net_ids.insert(*net_id, entity_id);
             }

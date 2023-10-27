@@ -4,6 +4,7 @@ use ahash::{AHashMap as HashMap, AHashSet as HashSet};
 
 use bevy_ecs::{
     archetype::ArchetypeId,
+    change_detection::DetectChanges,
     component::{ComponentId, StorageType, Tick},
     entity::Entity,
     event::ManualEventReader,
@@ -183,12 +184,25 @@ fn detect_changes_tables(
                 // Determine which entity this component belongs to
                 // and lookup its sync metadata for this component
                 let entity_id = table.entities()[idx];
-                let Some(net_id) = world.get::<NetworkId>(entity_id) else {
+                let Some(net_id) = world
+                    .get_entity(entity_id)
+                    .and_then(|it| it.get_ref::<NetworkId>())
+                else {
                     // This entity has not been seen before
                     new_entities.insert(entity_id);
 
                     continue;
                 };
+                let net_id_changed = net_id
+                    .last_changed()
+                    .is_newer_than(tick.last_run(), tick.this_run());
+                if net_id_changed {
+                    // This entity needs to be resynced
+                    new_entities.insert(entity_id);
+
+                    continue;
+                }
+
                 let (semantics, last_sync_tick) = *component_sync_state
                     .entry(entity_id)
                     .or_insert_with(|| (Semantics::LocalMutable, Tick::new(0)));
@@ -388,8 +402,12 @@ fn sync_new_entities(
     new_entities: &HashSet<Entity>,
 ) {
     for entity in new_entities {
-        // Assign random network id
-        let net_id = NetworkId::random();
+        // Assign network id or use existing
+        let net_id = world
+            .get::<NetworkId>(*entity)
+            .cloned()
+            .unwrap_or(NetworkId::random());
+
         cmds.entity(*entity).insert(net_id);
         state.cached_local_net_ids.insert(*entity, net_id);
 

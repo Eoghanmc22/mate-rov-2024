@@ -3,15 +3,21 @@
 use anyhow::Context;
 use bincode::{DefaultOptions, Options};
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
+
+use crate::ecs_sync::SerializedChange;
 
 /// Representation of all messages that can be communicated between peers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Protocol {
+    EcsUpdate(SerializedChange),
     /// Asks the peer to reply with a Pong, used to measure communication latency
-    Ping { ping: SystemTime },
+    Ping {
+        payload: u64,
+    },
     /// Response to a Ping, used to measure communication latency
-    Pong { ping: SystemTime, pong: SystemTime },
+    Pong {
+        payload: u64,
+    },
 }
 
 impl networking::Packet for Protocol {

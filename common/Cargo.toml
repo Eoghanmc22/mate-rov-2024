@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 networking = { path = "../networking" }
-
+mint = { version = "0.5", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 bincode = "1"
 
@@ -13,7 +13,6 @@ anyhow = "1"
 thiserror = "1"
 tracing = "0.1"
 
-mint = { version = "0.5", features = ["serde"] }
 rand = "0.8"
 ahash = "0.8"
 
