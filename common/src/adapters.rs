@@ -1,6 +1,6 @@
 //! Infrastructure to serialize and recover data
 
-use std::{any::Any, marker::PhantomData};
+use std::{any::Any, marker::PhantomData, sync::Arc};
 
 use anyhow::Context;
 use bevy_ecs::ptr::{OwningPtr, Ptr};
@@ -31,7 +31,7 @@ impl<B> Default for Adapter<B> {
 }
 
 /// Default blanket impl of TypeAdapter using the [`bincode`] trait
-pub type BackingType = Vec<u8>;
+pub type BackingType = Arc<Vec<u8>>;
 impl<T> TypeAdapter<BackingType> for Adapter<T>
 where
     for<'a> T: Serialize + Deserialize<'a> + Any + Send + Sync,
@@ -41,6 +41,7 @@ where
         options()
             .serialize(val)
             .context("Bincode error")
+            .map(Into::into)
             .map_err(AdapterError::SerializationError)
     }
 

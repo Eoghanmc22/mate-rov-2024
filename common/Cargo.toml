@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 networking = { path = "../networking" }
 mint = { version = "0.5", features = ["serde"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 bincode = "1"
 
 anyhow = "1"
