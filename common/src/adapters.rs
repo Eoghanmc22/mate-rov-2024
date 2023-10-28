@@ -55,7 +55,7 @@ where
             .context("Bincode error")
             .map_err(AdapterError::SerializationError)?;
 
-        OwningPtr::make(val, |ptr| (f)(ptr));
+        OwningPtr::make(val, f);
 
         Ok(())
     }

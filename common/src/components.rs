@@ -1,4 +1,4 @@
-use bevy_ecs::{component::Component, system::Resource};
+use bevy_ecs::component::Component;
 use glam::Quat;
 use serde::{Deserialize, Serialize};
 

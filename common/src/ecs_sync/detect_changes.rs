@@ -150,7 +150,7 @@ fn filter_new_archetypes(
 fn detect_changes_tables(
     world: &World,
     settings: &SerializationSettings,
-    state: &mut ChangeDetectionState,
+    state: &ChangeDetectionState,
     sync_state: &mut SyncState,
     tick: &SystemChangeTick,
     changes: &mut Vec<SerializedChangeEventOut>,
@@ -171,7 +171,7 @@ fn detect_changes_tables(
             // Lookup the sync metadata for this component type
             let component_sync_state = sync_state.components.entry(*component_id).or_default();
 
-            for (idx, changed_tick) in changed_ticks.into_iter().enumerate() {
+            for (idx, changed_tick) in changed_ticks.iter().enumerate() {
                 // I love unsafe
                 let last_changed = unsafe { *changed_tick.get() };
 
@@ -214,7 +214,7 @@ fn detect_changes_tables(
                 }
 
                 // Serialize the new component
-                let ptr = column.get_data(TableRow::new(idx.into())).unwrap();
+                let ptr = column.get_data(TableRow::new(idx)).unwrap();
                 let (token, type_adapter) = settings.tracked_components.get(component_id).unwrap();
                 // SAFETY: `type_adapter` is assoicated with the component_type of this column and
                 // therefore should match the type of ptr
@@ -239,7 +239,7 @@ fn detect_changes_tables(
 fn detect_changes_sparse_set(
     _world: &World,
     _settings: &SerializationSettings,
-    state: &mut ChangeDetectionState,
+    state: &ChangeDetectionState,
     _sync_state: &mut SyncState,
     _tick: &SystemChangeTick,
     _changes: &mut Vec<SerializedChangeEventOut>,
@@ -249,7 +249,7 @@ fn detect_changes_sparse_set(
     for _component in &state.relevant_sets {
         // This literally doesnt seem to be possible with the exposed api...
         // TODO: Look into exposing the necessary apis if we end up needing SparseSet components
-        panic!("`SparseSet`s are not supported");
+        todo!("`SparseSet`s are not supported");
     }
 }
 
