@@ -1,11 +1,14 @@
+use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
 use crossbeam::channel::{self, Receiver};
+
+use super::error;
 
 pub struct CtrlCPlugin;
 
 impl Plugin for CtrlCPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_handler);
+        app.add_systems(Startup, setup_handler.pipe(error::handle_errors));
         app.add_systems(PreUpdate, check_handler);
     }
 }
@@ -13,15 +16,17 @@ impl Plugin for CtrlCPlugin {
 #[derive(Resource)]
 struct CtrlcChannel(Receiver<()>);
 
-pub fn setup_handler(mut cmds: Commands) {
+pub fn setup_handler(mut cmds: Commands) -> anyhow::Result<()> {
     let (tx, rx) = channel::bounded(1);
+
+    cmds.insert_resource(CtrlcChannel(rx));
 
     ctrlc::set_handler(move || {
         let _ = tx.send(());
     })
-    .expect("Set ctrl-c");
+    .context("Set ctrl-c")?;
 
-    cmds.insert_resource(CtrlcChannel(rx));
+    Ok(())
 }
 
 pub fn check_handler(channel: Res<CtrlcChannel>, mut exit: EventWriter<AppExit>) {

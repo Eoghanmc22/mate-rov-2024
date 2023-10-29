@@ -4,6 +4,7 @@ use std::{
 };
 
 use ahrs::{Ahrs, Madgwick};
+use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Inertial, Magnetic, Orientation, RobotMarker},
@@ -15,14 +16,19 @@ use tracing::{span, Level};
 
 use crate::peripheral::{icm20602::Icm20602, mmc5983::Mcc5983};
 
+use super::error::{self, ErrorEvent, Errors};
+
 pub struct OrientationPlugin;
 
 impl Plugin for OrientationPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(MadgwickFilter(Madgwick::new(1.0 / 1000.0, 0.041)));
 
-        app.add_systems(Startup, start_inertial_thread);
-        app.add_systems(Update, (read_new_data, shutdown));
+        app.add_systems(Startup, start_inertial_thread.pipe(error::handle_errors));
+        app.add_systems(
+            Update,
+            (read_new_data, shutdown).run_if(resource_exists::<InertialChannels>()),
+        );
     }
 }
 
@@ -35,33 +41,20 @@ struct InertialChannels(
 #[derive(Resource)]
 struct MadgwickFilter(Madgwick<f64>);
 
-pub fn start_inertial_thread(mut cmds: Commands) {
+pub fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let (tx_data, rx_data) = channel::bounded(5);
     let (tx_exit, rx_exit) = channel::bounded(1);
+
+    let mut imu = Icm20602::new(Icm20602::SPI_BUS, Icm20602::SPI_SELECT, Icm20602::SPI_CLOCK)
+        .context("Inerital Sensor (ICM20602)")?;
+    let mut mag = Mcc5983::new(Mcc5983::SPI_BUS, Mcc5983::SPI_SELECT, Mcc5983::SPI_CLOCK)
+        .context("Magnmetic Sensor (MCC5983)")?;
+
+    let errors = errors.0.clone();
 
     thread::spawn(move || {
         let span = span!(Level::INFO, "Inertial sensor monitor thread");
         let _enter = span.enter();
-
-        let imu = Icm20602::new(Icm20602::SPI_BUS, Icm20602::SPI_SELECT, Icm20602::SPI_CLOCK);
-        let mut imu = match imu {
-            Ok(imu) => imu,
-            Err(err) => {
-                // TODO: error handeling
-                // events.send(Event::Error(err.context("ICM20602")));
-                return;
-            }
-        };
-
-        let mag = Mcc5983::new(Mcc5983::SPI_BUS, Mcc5983::SPI_SELECT, Mcc5983::SPI_CLOCK);
-        let mut mag = match mag {
-            Ok(mag) => mag,
-            Err(err) => {
-                // TODO: error handeling
-                // events.send(Event::Error(err.context("MCC5983")));
-                return;
-            }
-        };
 
         let interval = Duration::from_secs_f64(1.0 / 1000.0);
         let counts = 10;
@@ -85,29 +78,27 @@ pub fn start_inertial_thread(mut cmds: Commands) {
             }
 
             if counter % inertial_divisor == 0 {
-                let rst = imu.read_frame();
+                let rst = imu.read_frame().context("Read inertial frame");
 
                 match rst {
                     Ok(frame) => {
                         inertial_buffer[counter / inertial_divisor] = frame;
                     }
                     Err(err) => {
-                        // TODO: error handeling
-                        // events.send(Event::Error(err.context("Could not read imu")));
+                        let _ = errors.send(err);
                     }
                 }
             }
 
             if counter % mag_divisor == 0 {
-                let rst = mag.read_frame();
+                let rst = mag.read_frame().context("Read magnetic frame");
 
                 match rst {
                     Ok(frame) => {
                         mag_buffer[counter / mag_divisor] = frame;
                     }
                     Err(err) => {
-                        // TODO: error handeling
-                        // events.send(Event::Error(err.context("Could not read mag")));
+                        let _ = errors.send(err);
                     }
                 }
             }
@@ -127,6 +118,8 @@ pub fn start_inertial_thread(mut cmds: Commands) {
     });
 
     cmds.insert_resource(InertialChannels(rx_data, tx_exit));
+
+    Ok(())
 }
 
 pub fn read_new_data(
@@ -134,6 +127,7 @@ pub fn read_new_data(
     channels: Res<InertialChannels>,
     mut madgwick_filter: ResMut<MadgwickFilter>,
     robot: Query<Entity, With<RobotMarker>>,
+    mut errors: EventWriter<ErrorEvent>,
 ) {
     for (inertial, magnetic) in channels.0.try_iter() {
         // We currently ignore mag updates as the compass is not calibrated
@@ -144,8 +138,8 @@ pub fn read_new_data(
             let accel = Vector3::new(inertial.accel_x.0, inertial.accel_y.0, inertial.accel_z.0);
 
             let rst = madgwick_filter.0.update_imu(&gyro, &accel);
-            if let Err(_) = rst {
-                // TODO: error handeling
+            if let Err(msg) = rst {
+                errors.send(anyhow::anyhow!("Process IMU frame: {msg}").into());
             }
         }
 

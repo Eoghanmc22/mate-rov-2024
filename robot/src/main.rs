@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use plugins::{
-    ctrlc::CtrlCPlugin, depth::DepthPlugin, leak::LeakPlugin, orientation::OrientationPlugin,
-    robot::RobotPlugin, sync::SyncPlugin,
+    ctrlc::CtrlCPlugin, depth::DepthPlugin, error::ErrorPlugin, leak::LeakPlugin,
+    orientation::OrientationPlugin, robot::RobotPlugin, sync::SyncPlugin,
 };
 use tracing::Level;
 
@@ -32,6 +32,7 @@ fn main() {
             OrientationPlugin,
             DepthPlugin,
             LeakPlugin,
+            ErrorPlugin,
         ))
         .run();
 }

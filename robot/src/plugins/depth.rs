@@ -3,6 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Depth, RobotMarker},
@@ -13,40 +14,40 @@ use tracing::{span, Level};
 
 use crate::peripheral::ms5937::Ms5837;
 
+use super::error::{self, Errors};
+
 pub struct DepthPlugin;
 
 impl Plugin for DepthPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, start_depth_thread);
-        app.add_systems(Update, (read_new_data, shutdown));
+        app.add_systems(Startup, start_depth_thread.pipe(error::handle_errors));
+        app.add_systems(
+            Update,
+            (read_new_data, shutdown).run_if(resource_exists::<DepthChannels>()),
+        );
     }
 }
 
 #[derive(Resource)]
 struct DepthChannels(Receiver<DepthFrame>, Sender<()>);
 
-pub fn start_depth_thread(mut cmds: Commands) {
+pub fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let (tx_data, rx_data) = channel::bounded(5);
     let (tx_exit, rx_exit) = channel::bounded(1);
+
+    let mut depth =
+        Ms5837::new(Ms5837::I2C_BUS, Ms5837::I2C_ADDRESS).context("Depth sensor (Ms5837)")?;
+    let errors = errors.0.clone();
 
     thread::spawn(move || {
         let span = span!(Level::INFO, "Depth sensor monitor thread");
         let _enter = span.enter();
 
-        let depth = Ms5837::new(Ms5837::I2C_BUS, Ms5837::I2C_ADDRESS);
-        let mut depth = match depth {
-            Ok(depth) => depth,
-            Err(err) => {
-                // Todo: error handling
-                return;
-            }
-        };
-
         let interval = Duration::from_secs_f64(1.0 / 100.0);
         let mut deadline = Instant::now();
 
         loop {
-            let rst = depth.read_frame();
+            let rst = depth.read_frame().context("Read depth frame");
 
             match rst {
                 Ok(frame) => {
@@ -54,7 +55,7 @@ pub fn start_depth_thread(mut cmds: Commands) {
                     let _ = tx_data.send(frame);
                 }
                 Err(err) => {
-                    // Todo: error handling
+                    let _ = errors.send(err);
                 }
             }
 
@@ -69,6 +70,8 @@ pub fn start_depth_thread(mut cmds: Commands) {
     });
 
     cmds.insert_resource(DepthChannels(rx_data, tx_exit));
+
+    Ok(())
 }
 
 pub fn read_new_data(

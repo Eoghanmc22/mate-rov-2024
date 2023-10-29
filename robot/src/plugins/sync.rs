@@ -1,6 +1,7 @@
 use std::{net::SocketAddr, thread, time::Duration};
 
 use ahash::HashMap;
+use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
 use common::{
     adapters::BackingType,
@@ -13,6 +14,8 @@ use common::{
 };
 use crossbeam::channel::{self, Receiver};
 use networking::{Event as NetEvent, Messenger, Networking, Token as NetToken};
+
+use super::error::{self, ErrorEvent, Errors};
 
 pub struct SyncPlugin;
 
@@ -27,7 +30,7 @@ impl Plugin for SyncPlugin {
 
         app.init_resource::<Peers>();
 
-        app.add_systems(Startup, start_server);
+        app.add_systems(Startup, start_server.pipe(error::handle_errors));
         app.add_systems(
             PreUpdate,
             (net_read, apply_changes::apply_changes.after(net_read)),
@@ -73,24 +76,28 @@ pub struct Latency {
     pub last_acknowledged: Option<Duration>,
 }
 
-pub fn start_server(mut cmds: Commands) {
-    let networking = Networking::new().expect("Start networking");
+pub fn start_server(mut cmds: Commands, mut errors: Res<Errors>) -> anyhow::Result<()> {
+    let networking = Networking::new().context("Start networking")?;
     let handle = networking.messenger();
 
-    // TODO: this bound is arbitrary
     let (tx, rx) = channel::bounded(30);
-
-    cmds.insert_resource(Net(handle, rx));
+    let errors = errors.0.clone();
 
     thread::spawn(move || {
         networking.start(|event| {
             if tx.is_full() {
-                error!("Net channel full")
+                errors.send(anyhow::anyhow!("Net channel full"));
             }
 
+            // Panicking here isnt terable because it will bring down the net threads if the main
+            // app exits uncleanly
             tx.send(event).expect("Channel disconnected");
         })
     });
+
+    cmds.insert_resource(Net(handle, rx));
+
+    Ok(())
 }
 
 pub fn net_read(
@@ -102,6 +109,8 @@ pub fn net_read(
     mut changes: EventWriter<SerializedChangeEventIn>,
 
     mut query: Query<(&Peer, &mut Latency)>,
+
+    mut errors: EventWriter<ErrorEvent>,
 ) {
     for event in net.1.try_iter() {
         match event {
@@ -123,7 +132,7 @@ pub fn net_read(
                     let rst = net.0.send_packet(token, response);
 
                     if let Err(_) = rst {
-                        error!("Could not reply to ping");
+                        errors.send(anyhow::anyhow!("Could not reply to ping").into());
                     }
                 }
                 Protocol::Pong { payload } => {
@@ -133,7 +142,7 @@ pub fn net_read(
                         .and_then(|it| query.get_component_mut::<Latency>(*it).ok());
 
                     let Some(mut latency) = latency else {
-                        error!("Got pong from unknown peer");
+                        errors.send(anyhow::anyhow!("Got pong from unknown peer").into());
                         continue;
                     };
 
@@ -142,15 +151,19 @@ pub fn net_read(
                 }
             },
             NetEvent::Error(token, error) => {
-                error!("Network Error: Token: {token:?} Error: {error:?}");
+                errors.send(
+                    anyhow::anyhow!(error)
+                        .context(format!("Network Error: Token: {token:?}"))
+                        .into(),
+                );
             }
             NetEvent::Disconnect(token) => {
                 let Some(entity) = peers.by_token.remove(&token) else {
-                    error!("Unknown peer disconnected");
+                    errors.send(anyhow::anyhow!("Unknown peer disconnected").into());
                     continue;
                 };
                 let Ok(peer) = query.get_component::<Peer>(entity) else {
-                    error!("Unknown peer disconnected");
+                    errors.send(anyhow::anyhow!("Unknown peer disconnected").into());
                     continue;
                 };
 
@@ -164,22 +177,30 @@ pub fn net_read(
         }
     }
 }
-pub fn net_write(net: Res<Net>, mut changes: EventReader<SerializedChangeEventOut>) {
+pub fn net_write(
+    net: Res<Net>,
+    mut changes: EventReader<SerializedChangeEventOut>,
+    mut errors: EventWriter<ErrorEvent>,
+) {
     for change in changes.read() {
         let rst = net.0.brodcast_packet(Protocol::EcsUpdate(change.0.clone()));
 
         if let Err(_) = rst {
-            error!("Could not brodcast ECS update");
+            errors.send(anyhow::anyhow!("Could not brodcast ECS update").into());
         }
     }
 }
 
-pub fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>) {
+pub fn shutdown(
+    net: Res<Net>,
+    mut exit: EventReader<AppExit>,
+    mut errors: EventWriter<ErrorEvent>,
+) {
     for _event in exit.read() {
         let rst = net.0.shutdown();
 
         if let Err(_) = rst {
-            error!("Could not send shutdown event to net thread");
+            errors.send(anyhow::anyhow!("Could not send shutdown event to net thread").into());
         }
     }
 }
@@ -187,7 +208,12 @@ pub fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>) {
 const PING_INTERVAL: Duration = Duration::from_millis(40);
 const MAX_LATENCY: Duration = Duration::from_millis(25);
 
-pub fn ping(net: Res<Net>, time: Res<Time>, mut query: Query<(&Peer, &mut Latency)>) {
+pub fn ping(
+    net: Res<Net>,
+    time: Res<Time>,
+    mut query: Query<(&Peer, &mut Latency)>,
+    mut errors: EventWriter<ErrorEvent>,
+) {
     let now = time.elapsed();
 
     for (peer, mut latency) in &mut query {
@@ -205,7 +231,7 @@ pub fn ping(net: Res<Net>, time: Res<Time>, mut query: Query<(&Peer, &mut Latenc
             let rst = net.0.disconnect(peer.token);
 
             if let Err(_) = rst {
-                error!("Could not disconnect peer");
+                errors.send(anyhow::anyhow!("Could not disconnect peer").into());
             }
 
             continue;
@@ -224,7 +250,7 @@ pub fn ping(net: Res<Net>, time: Res<Time>, mut query: Query<(&Peer, &mut Latenc
             let rst = net.0.send_packet(peer.token, ping);
 
             if let Err(_) = rst {
-                error!("Could not send ping");
+                errors.send(anyhow::anyhow!("Could not send ping").into());
             }
 
             latency.last_ping_sent = now.into();
@@ -241,6 +267,7 @@ struct Deltas {
 pub fn flatten_outbound_deltas(
     mut deltas: ResMut<Deltas>,
     mut events: EventReader<SerializedChangeEventOut>,
+    mut errors: EventWriter<ErrorEvent>,
 ) {
     for SerializedChangeEventOut(change) in events.read() {
         match change {
@@ -258,7 +285,7 @@ pub fn flatten_outbound_deltas(
                         components.remove(token);
                     }
                 } else {
-                    error!("Got bad change event during flattening");
+                    errors.send(anyhow::anyhow!("Got bad change event during flattening").into());
                 }
             }
             SerializedChange::ResourceUpdated(token, raw) => {
@@ -272,7 +299,12 @@ pub fn flatten_outbound_deltas(
     }
 }
 
-pub fn sync_new_peers(net: Res<Net>, deltas: Res<Deltas>, query: Query<&Peer, Added<Peer>>) {
+pub fn sync_new_peers(
+    net: Res<Net>,
+    deltas: Res<Deltas>,
+    query: Query<&Peer, Added<Peer>>,
+    mut errors: EventWriter<ErrorEvent>,
+) {
     'outer: for peer in query.iter() {
         for entity in deltas.entities.keys() {
             let rst = net.0.send_packet(
@@ -281,7 +313,7 @@ pub fn sync_new_peers(net: Res<Net>, deltas: Res<Deltas>, query: Query<&Peer, Ad
             );
 
             if let Err(_) = rst {
-                error!("Could not send sync packet");
+                errors.send(anyhow::anyhow!("Could not send sync packet").into());
                 continue 'outer;
             }
         }
@@ -298,7 +330,7 @@ pub fn sync_new_peers(net: Res<Net>, deltas: Res<Deltas>, query: Query<&Peer, Ad
                 );
 
                 if let Err(_) = rst {
-                    error!("Could not send sync packet");
+                    errors.send(anyhow::anyhow!("Could not send sync packet").into());
                     continue 'outer;
                 }
             }
@@ -314,7 +346,7 @@ pub fn sync_new_peers(net: Res<Net>, deltas: Res<Deltas>, query: Query<&Peer, Ad
             );
 
             if let Err(_) = rst {
-                error!("Could not send sync packet");
+                errors.send(anyhow::anyhow!("Could not send sync packet").into());
                 continue 'outer;
             }
         }

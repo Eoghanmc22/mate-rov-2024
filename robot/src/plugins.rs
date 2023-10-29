@@ -1,5 +1,6 @@
 pub mod ctrlc;
 pub mod depth;
+pub mod error;
 pub mod leak;
 pub mod orientation;
 pub mod robot;
