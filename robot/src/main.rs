@@ -1,4 +1,4 @@
-#![allow(private_interfaces)]
+#![allow(private_interfaces, clippy::redundant_pattern_matching)]
 
 pub mod peripheral;
 pub mod plugins;

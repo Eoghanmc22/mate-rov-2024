@@ -76,7 +76,7 @@ pub struct Latency {
     pub last_acknowledged: Option<Duration>,
 }
 
-pub fn start_server(mut cmds: Commands, mut errors: Res<Errors>) -> anyhow::Result<()> {
+pub fn start_server(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let networking = Networking::new().context("Start networking")?;
     let handle = networking.messenger();
 
@@ -86,7 +86,7 @@ pub fn start_server(mut cmds: Commands, mut errors: Res<Errors>) -> anyhow::Resu
     thread::spawn(move || {
         networking.start(|event| {
             if tx.is_full() {
-                errors.send(anyhow::anyhow!("Net channel full"));
+                let _ = errors.send(anyhow::anyhow!("Net channel full"));
             }
 
             // Panicking here isnt terable because it will bring down the net threads if the main
