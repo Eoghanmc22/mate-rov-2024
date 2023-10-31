@@ -117,9 +117,9 @@ macro_rules! generate_adapters_resources {
 }
 #[macro_export]
 macro_rules! tokened {
-    ($(#[derive $traits:tt])? #[token($token:literal)] $vis:vis struct $name:ident $trailing1:tt $($trailing2:tt)?) => {
+    ($(#[derive $traits:tt])? #[token($token:literal)] $vis:vis $ident:ident $name:ident $trailing1:tt $($trailing2:tt)?) => {
         $(#[derive $traits])?
-        $vis struct $name $trailing1 $($trailing2)?
+        $vis $ident $name $trailing1 $($trailing2)?
 
         impl Tokened for $name {
             const TOKEN: Token<Self, Self::TokenMeta> = Token::new_const($token);
