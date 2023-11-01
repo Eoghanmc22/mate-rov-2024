@@ -1,9 +1,13 @@
+use std::net::SocketAddr;
+
 use bevy_ecs::component::Component;
 use glam::Quat;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    adapters, generate_adapters_components, generate_adapters_resources,
+    adapters,
+    ecs_sync::NetworkId,
+    generate_adapters_components, generate_adapters_resources,
     token::{Token, Tokened},
     tokened,
     types::{
@@ -21,7 +25,9 @@ generate_adapters_components! {
         Inertial::TOKEN,
         Magnetic::TOKEN,
         RobotStatus::TOKEN,
-        Armed::TOKEN
+        Armed::TOKEN,
+        Camera::TOKEN,
+        RobotId::TOKEN
     }
 }
 generate_adapters_resources! {
@@ -90,4 +96,19 @@ tokened! {
         #[default]
         Disarmed,
     }
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+    #[token("robot.camera")]
+    pub struct Camera {
+        pub name: String,
+        pub location: SocketAddr,
+    }
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone)]
+    #[token("robot.id")]
+    pub struct RobotId(pub NetworkId);
 }

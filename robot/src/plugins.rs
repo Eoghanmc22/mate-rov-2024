@@ -1,3 +1,4 @@
+pub mod cameras;
 pub mod ctrlc;
 pub mod depth;
 pub mod error;
