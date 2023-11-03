@@ -4,7 +4,7 @@ use std::{
 };
 
 use ahrs::{Ahrs, Madgwick};
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Inertial, Magnetic, Orientation, RobotMarker},
@@ -50,8 +50,9 @@ pub fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow:
     let mut mag = Mcc5983::new(Mcc5983::SPI_BUS, Mcc5983::SPI_SELECT, Mcc5983::SPI_CLOCK)
         .context("Magnmetic Sensor (MCC5983)")?;
 
-    let errors = errors.0.clone();
+    cmds.insert_resource(InertialChannels(rx_data, tx_exit));
 
+    let errors = errors.0.clone();
     thread::spawn(move || {
         let span = span!(Level::INFO, "Inertial sensor monitor thread");
         let _enter = span.enter();
@@ -117,8 +118,6 @@ pub fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow:
         }
     });
 
-    cmds.insert_resource(InertialChannels(rx_data, tx_exit));
-
     Ok(())
 }
 
@@ -139,7 +138,7 @@ pub fn read_new_data(
 
             let rst = madgwick_filter.0.update_imu(&gyro, &accel);
             if let Err(msg) = rst {
-                errors.send(anyhow::anyhow!("Process IMU frame: {msg}").into());
+                errors.send(anyhow!("Process IMU frame: {msg}").into());
             }
         }
 

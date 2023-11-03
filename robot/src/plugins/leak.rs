@@ -37,6 +37,7 @@ pub fn setup_leak_interupt(
 
     let robot = robot.single();
     let initial_leak = leak_pin.is_high();
+
     cmds.entity(robot).insert(Leak(initial_leak));
 
     leak_pin

@@ -56,7 +56,6 @@ pub fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
     cmds.insert_resource(CameraChannels(tx_events, rx_cameras));
 
     let errors = errors.0.clone();
-
     thread::spawn(move || {
         let span = span!(Level::INFO, "Camera manager");
         let _enter = span.enter();
@@ -216,6 +215,7 @@ pub fn handle_peers(
     }
 }
 
+// TODO: Only update the cameras that changed
 pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<CameraChannels>,

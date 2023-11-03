@@ -82,13 +82,18 @@ macro_rules! generate_adapters_components {
                 }))
             }
 
-            vec![
+            let vec = vec![
                 $(
                     from($token),
                 )*
-            ]
-            .into_iter()
-            .collect()
+            ];
+            let len = vec.len();
+
+            let map: ahash::HashMap<_, _> = vec.into_iter().collect();
+
+            assert_eq!(len, map.len());
+
+            map
         }
     };
 }
@@ -105,13 +110,18 @@ macro_rules! generate_adapters_resources {
                 (token.0, (std::boxed::Box::<$crate::adapters::Adapter<T>>::default(), std::any::TypeId::of::<T>()))
             }
 
-            vec![
+            let vec = vec![
                 $(
                     from($token),
                 )*
-            ]
-            .into_iter()
-            .collect()
+            ];
+            let len = vec.len();
+
+            let map: ahash::HashMap<_, _> = vec.into_iter().collect();
+
+            assert_eq!(len, map.len());
+
+            map
         }
     };
 }

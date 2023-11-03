@@ -37,8 +37,10 @@ pub fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Re
 
     let mut depth =
         Ms5837::new(Ms5837::I2C_BUS, Ms5837::I2C_ADDRESS).context("Depth sensor (Ms5837)")?;
-    let errors = errors.0.clone();
 
+    cmds.insert_resource(DepthChannels(rx_data, tx_exit));
+
+    let errors = errors.0.clone();
     thread::spawn(move || {
         let span = span!(Level::INFO, "Depth sensor monitor thread");
         let _enter = span.enter();
@@ -68,8 +70,6 @@ pub fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Re
             thread::sleep(remaining);
         }
     });
-
-    cmds.insert_resource(DepthChannels(rx_data, tx_exit));
 
     Ok(())
 }
