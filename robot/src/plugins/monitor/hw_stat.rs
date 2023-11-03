@@ -19,7 +19,7 @@ use sysinfo::{
 };
 use tracing::{span, Level};
 
-use super::error::Errors;
+use crate::plugins::core::error::Errors;
 
 pub struct HwStatPlugin;
 

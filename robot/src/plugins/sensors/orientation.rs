@@ -16,7 +16,7 @@ use tracing::{span, Level};
 
 use crate::peripheral::{icm20602::Icm20602, mmc5983::Mcc5983};
 
-use super::error::{self, ErrorEvent, Errors};
+use crate::plugins::core::error::{self, ErrorEvent, Errors};
 
 pub struct OrientationPlugin;
 

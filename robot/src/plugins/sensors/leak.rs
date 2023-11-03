@@ -4,7 +4,7 @@ use common::components::{Leak, RobotMarker};
 use crossbeam::channel::Receiver;
 use rppal::gpio::{Gpio, InputPin, Level, Trigger};
 
-use super::error;
+use crate::plugins::core::error;
 
 pub struct LeakPlugin;
 

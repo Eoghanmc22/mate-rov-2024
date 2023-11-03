@@ -14,7 +14,7 @@ use tracing::{span, Level};
 
 use crate::peripheral::ms5937::Ms5837;
 
-use super::error::{self, Errors};
+use crate::plugins::core::error::{self, Errors};
 
 pub struct DepthPlugin;
 

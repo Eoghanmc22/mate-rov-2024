@@ -1,13 +1,7 @@
-pub mod cameras;
-pub mod ctrlc;
-pub mod depth;
-pub mod error;
-pub mod hw_stat;
-pub mod leak;
-pub mod orientation;
-pub mod robot;
-pub mod state;
-pub mod sync;
+pub mod core;
+pub mod monitor;
+pub mod movement;
+pub mod sensors;
 
 // TODO: Add systems from mate-rov-2023
 // pub mod motor;

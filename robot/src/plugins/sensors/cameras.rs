@@ -17,7 +17,7 @@ use common::{
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use super::{
+use crate::plugins::core::{
     error::{ErrorEvent, Errors},
     sync::Peer,
 };
