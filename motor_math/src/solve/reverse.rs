@@ -50,12 +50,8 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
             .map(|(_, _, torque, _, _)| *torque)
             .sum::<Vec3>();
 
-        println!("force_total: {force_total:.5}, torque_total: {torque_total:.5}");
-
         let force_error = movement.force - force_total;
         let torque_error = movement.torque - torque_total;
-
-        println!("force_error: {force_error:.5}, torque_error: {torque_error:.5}");
 
         for (relation, force, torque, force_correction, torque_correction) in
             motor_contributions.values_mut()
@@ -73,22 +69,16 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
             .map(|(_, _, _, _, torque_correction)| *torque_correction)
             .sum::<Vec3>();
 
-        println!("force_correction_total: {force_correction_total:.5}, torque_correction_total: {torque_correction_total:.5}");
-
         // todo check
         if force_correction_total != Vec3::ZERO {
             let force_correction_total_norm = force_correction_total.normalize_or_zero();
             let force_correction_scale =
                 force_error.dot(force_correction_total_norm) / force_correction_total.length();
 
-            println!("force_correction_scale: {force_correction_scale:.5}");
-
             for (relation, force, torque, force_correction, torque_correction) in
                 motor_contributions.values_mut()
             {
                 *force += *force_correction * force_correction_scale;
-
-                println!("force: {force:.5}");
             }
         }
 
@@ -98,19 +88,12 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
             let torque_correction_scale =
                 torque_error.dot(torque_correction_total_norm) / torque_correction_total.length();
 
-            println!("torque_correction_total: {torque_correction_total:.5}");
-
             for (relation, force, torque, force_correction, torque_correction) in
                 motor_contributions.values_mut()
             {
                 *torque += *torque_correction * torque_correction_scale;
-
-                println!("torque: {torque:.5}");
             }
         }
-
-        println!();
-        println!();
 
         if force_correction_total == Vec3::ZERO && torque_correction_total == Vec3::ZERO {
             break;
@@ -133,6 +116,7 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
     if amperage_cap >= amperage_total {
         return motor_cmds;
     } else {
+        // TODO remove?
         println!("CURRENT LIMIT HIT");
     }
 
@@ -155,26 +139,4 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
 
 pub fn maximium_forces() {
     // TODO
-}
-
-// fn recip_or_zero(vec: Vec3) -> Vec3 {
-//     let x = vec.x.recip();
-//     let y = vec.y.recip();
-//     let z = vec.z.recip();
-//
-//     vec3(
-//         if x.is_finite() { x } else { 0.0 },
-//         if y.is_finite() { y } else { 0.0 },
-//         if z.is_finite() { z } else { 0.0 },
-//     )
-// }
-
-fn recip_or_zero(val: f32) -> f32 {
-    let val = val.recip();
-
-    if val.is_finite() {
-        val
-    } else {
-        0.0
-    }
 }

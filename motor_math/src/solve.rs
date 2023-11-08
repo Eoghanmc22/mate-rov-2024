@@ -3,6 +3,8 @@ pub mod reverse;
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use glam::vec3;
 
     use crate::{
@@ -48,9 +50,11 @@ mod tests {
             torque: vec3(0.2, 0.1, 0.3),
         };
 
+        let start = Instant::now();
         let motor_cmds = reverse::reverse_solve(movement, &motor_config, &motor_data, 50.0);
+        let elapsed = start.elapsed();
 
-        println!("motor_cmds: {motor_cmds:#?}");
+        println!("motor_cmds: {motor_cmds:#?} in {}us", elapsed.as_micros());
 
         let actual_movement = forward::forward_solve(
             &motor_config,
