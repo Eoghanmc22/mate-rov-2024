@@ -1,0 +1,14 @@
+[package]
+name = "motor_math"
+version = "0.1.0"
+edition = "2021"
+
+# TODO: Are all of these needed?
+[dependencies]
+csv = "1"
+serde = "1"
+ahash = "0.8" 
+glam = "0.23"
+
+anyhow = "1"
+tracing = "0.1"

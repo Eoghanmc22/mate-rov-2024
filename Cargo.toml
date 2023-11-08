@@ -6,6 +6,7 @@ members = [
     "runner-rpi",
     "common",
     "networking",
+    "motor_math",
 ]
 
 # Enable a small amount of optimization in debug mode
