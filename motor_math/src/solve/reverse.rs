@@ -3,7 +3,7 @@
 use std::{fmt::Debug, hash::Hash};
 
 use ahash::HashMap;
-use glam::{vec3, Vec3};
+use glam::Vec3A;
 
 use crate::{
     motor_preformance::{MotorData, MotorRecord},
@@ -30,10 +30,10 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
                 id,
                 (
                     relation,
-                    Vec3::default(),
-                    Vec3::default(),
-                    Vec3::default(),
-                    Vec3::default(),
+                    Vec3A::default(),
+                    Vec3A::default(),
+                    Vec3A::default(),
+                    Vec3A::default(),
                 ),
             )
         })
@@ -44,11 +44,11 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
         let force_total = motor_contributions
             .values()
             .map(|(_, force, _, _, _)| *force)
-            .sum::<Vec3>();
+            .sum::<Vec3A>();
         let torque_total = motor_contributions
             .values()
             .map(|(_, _, torque, _, _)| *torque)
-            .sum::<Vec3>();
+            .sum::<Vec3A>();
 
         let force_error = movement.force - force_total;
         let torque_error = movement.torque - torque_total;
@@ -63,14 +63,14 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
         let force_correction_total = motor_contributions
             .values()
             .map(|(_, _, _, force_correction, _)| *force_correction)
-            .sum::<Vec3>();
+            .sum::<Vec3A>();
         let torque_correction_total = motor_contributions
             .values()
             .map(|(_, _, _, _, torque_correction)| *torque_correction)
-            .sum::<Vec3>();
+            .sum::<Vec3A>();
 
         // todo check
-        if force_correction_total != Vec3::ZERO {
+        if force_correction_total != Vec3A::ZERO {
             let force_correction_total_norm = force_correction_total.normalize_or_zero();
             let force_correction_scale =
                 force_error.dot(force_correction_total_norm) / force_correction_total.length();
@@ -83,7 +83,7 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
         }
 
         // todo check
-        if torque_correction_total != Vec3::ZERO {
+        if torque_correction_total != Vec3A::ZERO {
             let torque_correction_total_norm = torque_correction_total.normalize_or_zero();
             let torque_correction_scale =
                 torque_error.dot(torque_correction_total_norm) / torque_correction_total.length();
@@ -95,7 +95,7 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
             }
         }
 
-        if force_correction_total == Vec3::ZERO && torque_correction_total == Vec3::ZERO {
+        if force_correction_total == Vec3A::ZERO && torque_correction_total == Vec3A::ZERO {
             break;
         }
     }

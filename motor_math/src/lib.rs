@@ -13,7 +13,7 @@ pub mod x3d;
 use std::hash::Hash;
 
 use ahash::HashMap;
-use glam::Vec3;
+use glam::Vec3A;
 use serde::{Deserialize, Serialize};
 
 pub struct MotorConfig<MotorId: Hash + Eq> {
@@ -23,9 +23,9 @@ pub struct MotorConfig<MotorId: Hash + Eq> {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Motor {
     /// Offset from origin
-    pub position: Vec3,
+    pub position: Vec3A,
     /// Unit vector
-    pub orientation: Vec3,
+    pub orientation: Vec3A,
 
     pub direction: Direction,
 }
@@ -55,6 +55,6 @@ impl Direction {
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Movement {
-    pub force: Vec3,
-    pub torque: Vec3,
+    pub force: Vec3A,
+    pub torque: Vec3A,
 }

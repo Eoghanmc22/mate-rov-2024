@@ -7,7 +7,7 @@ mod tests {
     use std::time::Instant;
     use test::Bencher;
 
-    use glam::vec3;
+    use glam::vec3a;
 
     use crate::{
         blue_rov::HeavyMotorId,
@@ -23,7 +23,7 @@ mod tests {
     #[test]
     fn solve_roundtrip() {
         let seed_motor = Motor {
-            position: vec3(1.0, 1.0, 1.0).normalize(),
+            position: vec3a(1.0, 1.0, 1.0).normalize(),
             orientation: vec_from_angles(60.0, 40.0),
             direction: Direction::Clockwise,
         };
@@ -48,8 +48,8 @@ mod tests {
         // let motor_config = MotorConfig::<HeavyMotorId>::new(lateral, vertical);
 
         let movement = Movement {
-            force: vec3(0.6, 0.0, 0.3),
-            torque: vec3(0.2, 0.1, 0.3),
+            force: vec3a(0.6, 0.0, 0.3),
+            torque: vec3a(0.2, 0.1, 0.3),
         };
 
         let start = Instant::now();
@@ -72,7 +72,7 @@ mod tests {
     #[bench]
     fn bench_reverse_solver(b: &mut Bencher) {
         let seed_motor = Motor {
-            position: vec3(0.3, 0.5, 0.4).normalize(),
+            position: vec3a(0.3, 0.5, 0.4).normalize(),
             orientation: vec_from_angles(60.0, 40.0),
             direction: Direction::Clockwise,
         };
@@ -82,8 +82,8 @@ mod tests {
         let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor);
 
         let movement = Movement {
-            force: vec3(0.6, 0.0, 0.3),
-            torque: vec3(0.2, 0.1, 0.3),
+            force: vec3a(0.6, 0.0, 0.3),
+            torque: vec3a(0.2, 0.1, 0.3),
         };
 
         b.iter(|| reverse::reverse_solve(movement, &motor_config, &motor_data, 50.0));

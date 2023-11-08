@@ -1,12 +1,12 @@
-use glam::Vec3;
+use glam::Vec3A;
 
 use crate::Motor;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MotorRelation {
-    pub force: Vec3,
-    pub torque: Vec3,
-    pub torque_norm: Vec3,
+    pub force: Vec3A,
+    pub torque: Vec3A,
+    pub torque_norm: Vec3A,
 }
 
 impl From<Motor> for MotorRelation {
