@@ -113,4 +113,49 @@ mod tests {
 
         b.iter(|| reverse::reverse_solve(movement, &motor_config, &motor_data, 50.0));
     }
+
+    #[bench]
+    fn bench_reverse_solver_x3d_current_limited(b: &mut Bencher) {
+        let seed_motor = Motor {
+            position: vec3a(0.3, 0.5, 0.4).normalize(),
+            orientation: vec_from_angles(60.0, 40.0),
+            direction: Direction::Clockwise,
+        };
+
+        let motor_data =
+            motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
+        let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor);
+
+        let movement = Movement {
+            force: vec3a(0.6, 0.0, 0.3),
+            torque: vec3a(0.2, 0.1, 0.3),
+        };
+
+        b.iter(|| reverse::reverse_solve(movement, &motor_config, &motor_data, 1.0));
+    }
+
+    #[bench]
+    fn bench_reverse_solver_blue_rov_current_limited(b: &mut Bencher) {
+        let lateral = Motor {
+            position: vec3a(1.0, 1.0, 0.0),
+            orientation: vec3a(-1.0, 1.0, 0.0).normalize(),
+            direction: Direction::Clockwise,
+        };
+        let vertical = Motor {
+            position: vec3a(1.0, 1.0, 0.0),
+            orientation: vec3a(0.0, 0.0, 1.0).normalize(),
+            direction: Direction::Clockwise,
+        };
+
+        let motor_data =
+            motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
+        let motor_config = MotorConfig::<HeavyMotorId>::new(lateral, vertical);
+
+        let movement = Movement {
+            force: vec3a(0.6, 0.0, 0.3),
+            torque: vec3a(0.2, 0.1, 0.3),
+        };
+
+        b.iter(|| reverse::reverse_solve(movement, &motor_config, &motor_data, 1.0));
+    }
 }
