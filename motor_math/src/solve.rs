@@ -18,37 +18,37 @@ mod tests {
 
     #[test]
     fn solve_roundtrip() {
-        // let seed_motor = Motor {
-        //     position: vec3(1.0, 1.0, 1.0).normalize(),
-        //     orientation: vec_from_angles(45.0, 45.0),
-        //     direction: Direction::Clockwise,
-        // };
-        //
-        // let motor_data =
-        //     motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
-        // let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor);
-
-        let lateral = Motor {
-            position: vec3(1.0, 1.0, 0.0),
-            orientation: vec3(-1.0, 1.0, 0.0).normalize(),
-            direction: Direction::Clockwise,
-        };
-        let vertical = Motor {
-            position: vec3(1.0, 1.0, 0.0),
-            orientation: vec3(0.0, 0.0, 1.0).normalize(),
+        let seed_motor = Motor {
+            position: vec3(1.0, 1.0, 1.0).normalize(),
+            orientation: vec_from_angles(60.0, 40.0),
             direction: Direction::Clockwise,
         };
 
         let motor_data =
             motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
-        let motor_config = MotorConfig::<HeavyMotorId>::new(lateral, vertical);
+        let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor);
+        //
+        // let lateral = Motor {
+        //     position: vec3(1.0, 1.0, 0.0),
+        //     orientation: vec3(-1.0, 1.0, 0.0).normalize(),
+        //     direction: Direction::Clockwise,
+        // };
+        // let vertical = Motor {
+        //     position: vec3(1.0, 1.0, 0.0),
+        //     orientation: vec3(0.0, 0.0, 1.0).normalize(),
+        //     direction: Direction::Clockwise,
+        // };
+        //
+        // let motor_data =
+        //     motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
+        // let motor_config = MotorConfig::<HeavyMotorId>::new(lateral, vertical);
 
         let movement = Movement {
             force: vec3(0.6, 0.0, 0.3),
             torque: vec3(0.2, 0.1, 0.3),
         };
 
-        let motor_cmds = reverse::reverse_solve(movement, &motor_config, &motor_data, 30.0);
+        let motor_cmds = reverse::reverse_solve(movement, &motor_config, &motor_data, 50.0);
 
         println!("motor_cmds: {motor_cmds:#?}");
 

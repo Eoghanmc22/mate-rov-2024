@@ -40,7 +40,7 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
         .collect::<HashMap<_, _>>();
 
     // Iterative force solver
-    for _ in 0..20 {
+    for _ in 0..100 {
         let force_total = motor_contributions
             .values()
             .map(|(_, force, _, _, _)| *force)
@@ -111,6 +111,10 @@ pub fn reverse_solve<MotorId: Hash + Eq + Clone + Debug>(
 
         println!();
         println!();
+
+        if force_correction_total == Vec3::ZERO && torque_correction_total == Vec3::ZERO {
+            break;
+        }
     }
 
     let mut motor_cmds = HashMap::default();
