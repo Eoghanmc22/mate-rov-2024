@@ -3,7 +3,9 @@ pub mod reverse;
 
 #[cfg(test)]
 mod tests {
+    extern crate test;
     use std::time::Instant;
+    use test::Bencher;
 
     use glam::vec3;
 
@@ -65,5 +67,25 @@ mod tests {
         );
 
         assert_eq!(movement, actual_movement);
+    }
+
+    #[bench]
+    fn bench_reverse_solver(b: &mut Bencher) {
+        let seed_motor = Motor {
+            position: vec3(0.3, 0.5, 0.4).normalize(),
+            orientation: vec_from_angles(60.0, 40.0),
+            direction: Direction::Clockwise,
+        };
+
+        let motor_data =
+            motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
+        let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor);
+
+        let movement = Movement {
+            force: vec3(0.6, 0.0, 0.3),
+            torque: vec3(0.2, 0.1, 0.3),
+        };
+
+        b.iter(|| reverse::reverse_solve(movement, &motor_config, &motor_data, 50.0));
     }
 }
