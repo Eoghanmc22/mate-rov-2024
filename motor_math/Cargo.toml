@@ -6,9 +6,15 @@ edition = "2021"
 # TODO: Are all of these needed?
 [dependencies]
 csv = "1"
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 ahash = "0.8" 
-glam = "0.23"
+fxhash = "0.2"
+# TODO: Pick one?
+# TODO: Remove glam-assert
+glam = { version = "0.23", features = ["glam-assert", "serde"] }
+nalgebra = { version = "0.31", features = ["mint"] }
+
+num_enum = "0.7"
 
 anyhow = "1"
 tracing = "0.1"

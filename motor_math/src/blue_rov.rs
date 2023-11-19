@@ -1,7 +1,12 @@
-use crate::{utils::VectorTransform, Direction, Motor, MotorConfig};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-/// Motor ids for blue rov heaby
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+use crate::{utils::VectorTransform, Motor, MotorConfig};
+
+/// Motor ids for blue rov heavy
+#[derive(
+    Clone, Copy, Debug, PartialOrd, Ord, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive,
+)]
+#[repr(u8)]
 pub enum HeavyMotorId {
     LateralFrontLeft,
     LateralFrontRight,
@@ -41,21 +46,16 @@ impl MotorConfig<HeavyMotorId> {
                     },
                 );
 
-                let direction = Direction::from_sign(
-                    seed.direction.get_sign() * (-1.0f32).powi(transforms.len() as _),
-                );
-
                 (
                     motor_id,
                     Motor {
                         position,
                         orientation,
-                        direction,
                     },
                 )
             })
             .collect();
 
-        Self { motors }
+        Self::new_raw(motors)
     }
 }

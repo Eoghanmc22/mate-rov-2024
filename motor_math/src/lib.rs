@@ -5,20 +5,50 @@
 
 pub mod blue_rov;
 pub mod motor_preformance;
-pub mod motor_relations;
 pub mod solve;
 pub mod utils;
 pub mod x3d;
 
-use std::hash::Hash;
+use std::{
+    collections::BTreeMap,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
+};
 
-use ahash::HashMap;
 use glam::Vec3A;
+use nalgebra::{Matrix6xX, MatrixXx6};
 use serde::{Deserialize, Serialize};
 
-pub struct MotorConfig<MotorId: Hash + Eq> {
-    motors: HashMap<MotorId, Motor>,
+pub struct MotorConfig<MotorId> {
+    motors: BTreeMap<MotorId, Motor>,
+
+    matrix: Matrix6xX<f32>,
+    pseudo_inverse: MatrixXx6<f32>,
 }
+
+impl<MotorId> MotorConfig<MotorId> {
+    pub fn new_raw(motors: BTreeMap<MotorId, Motor>) -> Self {
+        let matrix = Matrix6xX::from_iterator(
+            motors.len(),
+            motors
+                .iter()
+                .flat_map(|it| {
+                    [it.1.orientation, it.1.position.cross(it.1.orientation)].into_iter()
+                })
+                .flat_map(|it| it.to_array().into_iter()),
+        );
+
+        let pseudo_inverse = matrix.clone().pseudo_inverse(0.0001).unwrap();
+
+        Self {
+            motors,
+            matrix,
+            pseudo_inverse,
+        }
+    }
+}
+
+// TODO: Related changes
+pub type MotorId = u8;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Motor {
@@ -26,35 +56,78 @@ pub struct Motor {
     pub position: Vec3A,
     /// Unit vector
     pub orientation: Vec3A,
-
-    pub direction: Direction,
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
-pub enum Direction {
-    Clockwise,
-    CounterClockwise,
-}
-
-impl Direction {
-    pub fn get_sign(&self) -> f32 {
-        match self {
-            Direction::Clockwise => 1.0,
-            Direction::CounterClockwise => -1.0,
-        }
-    }
-
-    pub fn from_sign(value: f32) -> Direction {
-        if value.signum() > 0.0 {
-            Direction::Clockwise
-        } else {
-            Direction::CounterClockwise
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Movement {
     pub force: Vec3A,
     pub torque: Vec3A,
+}
+
+impl Add for Movement {
+    type Output = Movement;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            force: self.force + rhs.force,
+            torque: self.torque + rhs.torque,
+        }
+    }
+}
+
+impl AddAssign for Movement {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+impl Sub for Movement {
+    type Output = Movement;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            force: self.force - rhs.force,
+            torque: self.torque - rhs.torque,
+        }
+    }
+}
+
+impl SubAssign for Movement {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
+
+impl Mul<f32> for Movement {
+    type Output = Movement;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            force: self.force * rhs,
+            torque: self.torque * rhs,
+        }
+    }
+}
+
+impl MulAssign<f32> for Movement {
+    fn mul_assign(&mut self, rhs: f32) {
+        *self = *self * rhs;
+    }
+}
+
+impl Div<f32> for Movement {
+    type Output = Movement;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            force: self.force / rhs,
+            torque: self.torque / rhs,
+        }
+    }
+}
+
+impl DivAssign<f32> for Movement {
+    fn div_assign(&mut self, rhs: f32) {
+        *self = *self / rhs;
+    }
 }

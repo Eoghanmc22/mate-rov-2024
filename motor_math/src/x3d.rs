@@ -1,6 +1,11 @@
-use crate::{utils::VectorTransform, Direction, Motor, MotorConfig};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+use crate::{utils::VectorTransform, Motor, MotorConfig};
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, TryFromPrimitive,
+)]
+#[repr(u8)]
 pub enum X3dMotorId {
     FrontLeftBottom,
     FrontLeftTop,
@@ -42,23 +47,16 @@ impl MotorConfig<X3dMotorId> {
                     },
                 );
 
-                // TODO/FIXME
-                // let direction = Direction::from_sign(
-                //     front_right_top.direction.get_sign() * (-1.0f32).powi(transforms.len() as _),
-                // );
-                let direction = Direction::Clockwise;
-
                 (
                     motor_id,
                     Motor {
                         position,
                         orientation,
-                        direction,
                     },
                 )
             })
             .collect();
 
-        Self { motors }
+        Self::new_raw(motors)
     }
 }
