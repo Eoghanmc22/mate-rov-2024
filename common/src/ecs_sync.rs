@@ -29,6 +29,12 @@ impl NetworkId {
     }
 }
 
+impl Default for NetworkId {
+    fn default() -> Self {
+        Self::random()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SerializedChange {
     EntitySpawned(NetworkId),

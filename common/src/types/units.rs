@@ -5,6 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+// TODO: Make a macro for these
+
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
 pub struct Meters(pub f64);
 
@@ -74,6 +76,33 @@ pub struct Gauss(pub f64);
 impl Display for Gauss {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.pad(&format!("{:.2}Gs", self.0))
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
+pub struct Newtons(pub f64);
+
+impl Display for Newtons {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.pad(&format!("{:.2}N", self.0))
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
+pub struct Volts(pub f64);
+
+impl Display for Volts {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.pad(&format!("{:.2}V", self.0))
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
+pub struct Amperes(pub f64);
+
+impl Display for Amperes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.pad(&format!("{:.2}A", self.0))
     }
 }
 

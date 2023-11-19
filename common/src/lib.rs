@@ -8,3 +8,4 @@ pub mod ecs_sync;
 pub mod protocol;
 pub mod token;
 pub mod types;
+pub mod bundles;

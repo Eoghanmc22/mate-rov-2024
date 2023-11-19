@@ -1,10 +1,8 @@
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize};
 
 use super::units::Celsius;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Process {
     pub name: String,
     pub pid: u32,
@@ -13,25 +11,14 @@ pub struct Process {
     pub user: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Cpu {
     pub frequency: u64,
     pub usage: f32,
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Memory {
-    pub total_mem: u64,
-    pub used_mem: u64,
-    pub free_mem: u64,
-
-    pub total_swap: u64,
-    pub used_swap: u64,
-    pub free_swap: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct ComponentTemperature {
     pub tempature: Celsius,
     pub tempature_max: Celsius,
@@ -39,7 +26,7 @@ pub struct ComponentTemperature {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Disk {
     pub name: String,
     pub mount_point: String,
@@ -48,7 +35,7 @@ pub struct Disk {
     pub removable: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Network {
     pub name: String,
     pub rx_bytes: u64,
@@ -58,4 +45,3 @@ pub struct Network {
     pub rx_errors: u64,
     pub tx_errors: u64,
 }
-
