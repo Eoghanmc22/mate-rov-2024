@@ -1,113 +1,104 @@
 use std::{
     fmt::{Display, Formatter},
-    ops::{Add, Neg, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 use serde::{Deserialize, Serialize};
 
-// TODO: Make a macro for these
+macro_rules! unit {
+    ($name:ident, $repr:ty, $fmt:expr) => {
+        #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
+        pub struct $name(pub $repr);
 
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Meters(pub f64);
+        impl Display for $name {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.pad(&format!($fmt, self.0))
+            }
+        }
 
-impl Display for Meters {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}M", self.0))
-    }
+        impl Add for $name {
+            type Output = $name;
+
+            fn add(self, rhs: Self) -> Self::Output {
+                Self(self.0 + rhs.0)
+            }
+        }
+
+        impl AddAssign for $name {
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
+        }
+
+        impl Sub for $name {
+            type Output = $name;
+
+            fn sub(self, rhs: Self) -> Self::Output {
+                Self(self.0 - rhs.0)
+            }
+        }
+
+        impl SubAssign for $name {
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = *self - rhs;
+            }
+        }
+
+        impl Mul<$name> for $name {
+            type Output = $name;
+
+            fn mul(self, rhs: $name) -> Self::Output {
+                Self(self.0 * rhs.0)
+            }
+        }
+
+        impl MulAssign<$name> for $name {
+            fn mul_assign(&mut self, rhs: $name) {
+                *self = *self * rhs;
+            }
+        }
+
+        impl Div<$name> for $name {
+            type Output = $name;
+
+            fn div(self, rhs: $name) -> Self::Output {
+                Self(self.0 / rhs.0)
+            }
+        }
+
+        impl DivAssign<$name> for $name {
+            fn div_assign(&mut self, rhs: $name) {
+                *self = *self / rhs;
+            }
+        }
+
+        impl Neg for $name {
+            type Output = $name;
+
+            fn neg(self) -> Self::Output {
+                $name(-self.0)
+            }
+        }
+    };
 }
 
+type Repr = f32;
+
+unit!(Meters, Repr, "{:.2}M");
+unit!(Mbar, Repr, "{:.2}mbar");
+unit!(Celsius, Repr, "{:.2}°C");
+unit!(GForce, Repr, "{:.2}g");
+unit!(Radians, Repr, "{:.2}rad");
+unit!(Degrees, Repr, "{:.2}°");
+unit!(Dps, Repr, "{:.2}°/s");
+unit!(Gauss, Repr, "{:.2}Gs");
+unit!(Newtons, Repr, "{:.2}N");
+unit!(Volts, Repr, "{:.2}V");
+unit!(Amperes, Repr, "{:.2}A");
+
+// Unfortuationally percent is a little different :(
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Mbar(pub f64);
-
-impl Display for Mbar {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}mbar", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Celsius(pub f64);
-
-impl Display for Celsius {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}°C", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct GForce(pub f64);
-
-impl Display for GForce {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}g", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Radians(pub f64);
-
-impl Display for Radians {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}rad", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Degrees(pub f64);
-
-impl Display for Degrees {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}deg", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Dps(pub f64);
-
-impl Display for Dps {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}dps", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Gauss(pub f64);
-
-impl Display for Gauss {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}Gs", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Newtons(pub f64);
-
-impl Display for Newtons {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}N", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Volts(pub f64);
-
-impl Display for Volts {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}V", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Amperes(pub f64);
-
-impl Display for Amperes {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(&format!("{:.2}A", self.0))
-    }
-}
-
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
-pub struct Percent(f64);
+pub struct Percent(Repr);
 
 impl Percent {
     pub const MAX_VAL: Percent = Percent(1.0);
@@ -115,7 +106,7 @@ impl Percent {
     pub const ZERO: Percent = Percent(0.0);
 
     /// Creates a new `Speed`. Input should be between -1.0 and 1.0
-    pub const fn new(speed: f64) -> Self {
+    pub const fn new(speed: Repr) -> Self {
         if !speed.is_normal() {
             return Self::ZERO;
         }
@@ -134,7 +125,7 @@ impl Percent {
     }
 
     /// Get the speed as a float between -1.0 and 1.0
-    pub const fn get(self) -> f64 {
+    pub const fn get(self) -> Repr {
         self.0
     }
 }
@@ -147,11 +138,51 @@ impl Add<Percent> for Percent {
     }
 }
 
+impl AddAssign for Percent {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
 impl Sub<Percent> for Percent {
     type Output = Percent;
 
     fn sub(self, rhs: Percent) -> Self::Output {
         Percent::new(self.0 - rhs.0)
+    }
+}
+
+impl SubAssign for Percent {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
+
+impl Mul<Percent> for Percent {
+    type Output = Percent;
+
+    fn mul(self, rhs: Percent) -> Self::Output {
+        Percent::new(self.0 * rhs.0)
+    }
+}
+
+impl MulAssign<Percent> for Percent {
+    fn mul_assign(&mut self, rhs: Percent) {
+        *self = *self * rhs;
+    }
+}
+
+impl Div<Percent> for Percent {
+    type Output = Percent;
+
+    fn div(self, rhs: Percent) -> Self::Output {
+        Percent::new(self.0 / rhs.0)
+    }
+}
+
+impl DivAssign<Percent> for Percent {
+    fn div_assign(&mut self, rhs: Percent) {
+        *self = *self / rhs;
     }
 }
 
