@@ -18,15 +18,18 @@ use glam::Vec3A;
 use nalgebra::{Matrix6xX, MatrixXx6};
 use serde::{Deserialize, Serialize};
 
-pub struct MotorConfig<MotorId> {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MotorConfig<MotorId: Ord> {
     motors: BTreeMap<MotorId, Motor>,
 
     matrix: Matrix6xX<f32>,
     pseudo_inverse: MatrixXx6<f32>,
 }
 
-impl<MotorId> MotorConfig<MotorId> {
-    pub fn new_raw(motors: BTreeMap<MotorId, Motor>) -> Self {
+impl<MotorId: Ord> MotorConfig<MotorId> {
+    pub fn new_raw(motors: impl IntoIterator<Item = (MotorId, Motor)>) -> Self {
+        let motors: BTreeMap<_, _> = motors.into_iter().collect();
+
         let matrix = Matrix6xX::from_iterator(
             motors.len(),
             motors
@@ -45,12 +48,65 @@ impl<MotorId> MotorConfig<MotorId> {
             pseudo_inverse,
         }
     }
+
+    pub fn motor(&self, motor: &MotorId) -> Option<&Motor> {
+        self.motors.get(motor)
+    }
+
+    pub fn motors(&self) -> impl Iterator<Item = (&MotorId, &Motor)> {
+        self.motors.iter()
+    }
 }
 
-// TODO: Related changes
-pub type MotorId = u8;
+pub type ErasedMotorId = u8;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+impl<MotorId: Ord + Into<ErasedMotorId> + Clone> MotorConfig<MotorId> {
+    /// Order of ErasedMotorIds must match the order of MotorId given by the ord trait
+    pub fn erase(self) -> MotorConfig<ErasedMotorId> {
+        let MotorConfig {
+            motors,
+            matrix,
+            pseudo_inverse,
+        } = self;
+
+        let motors = motors
+            .into_iter()
+            .map(|(id, motor)| (id.into(), motor))
+            .collect();
+
+        MotorConfig {
+            motors,
+            matrix,
+            pseudo_inverse,
+        }
+    }
+}
+
+impl MotorConfig<ErasedMotorId> {
+    /// Order of ErasedMotorIds must match the order of MotorId given by the ord trait
+    pub fn unerase<MotorId: Ord + TryFrom<ErasedMotorId>>(
+        self,
+    ) -> Result<MotorConfig<MotorId>, <MotorId as TryFrom<ErasedMotorId>>::Error> {
+        let MotorConfig {
+            motors,
+            matrix,
+            pseudo_inverse,
+        } = self;
+
+        let motors = motors
+            .into_iter()
+            .map(|(id, motor)| MotorId::try_from(id).map(|it| (it, motor)))
+            .collect::<Result<_, _>>()?;
+
+        Ok(MotorConfig {
+            motors,
+            matrix,
+            pseudo_inverse,
+        })
+    }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Motor {
     /// Offset from origin
     pub position: Vec3A,

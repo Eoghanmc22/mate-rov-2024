@@ -12,7 +12,7 @@ fxhash = "0.2"
 # TODO: Pick one?
 # TODO: Remove glam-assert
 glam = { version = "0.23", features = ["glam-assert", "serde"] }
-nalgebra = { version = "0.31", features = ["mint"] }
+nalgebra = { version = "0.31", features = ["mint", "serde-serialize"] }
 
 num_enum = "0.7"
 

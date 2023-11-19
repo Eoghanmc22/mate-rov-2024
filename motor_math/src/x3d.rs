@@ -34,28 +34,25 @@ impl MotorConfig<X3dMotorId> {
             (X3dMotorId::BackLeftBottom, [VectorTransform::ReflectXY, VectorTransform::ReflectYZ, VectorTransform::ReflectXZ].as_slice()),
         ];
 
-        let motors = motors
-            .into_iter()
-            .map(|(motor_id, transforms)| {
-                let (position, orientation) = transforms.iter().fold(
-                    (front_right_top.position, front_right_top.orientation),
-                    |(position, orientation), transform| {
-                        (
-                            transform.transform(position),
-                            transform.transform(orientation),
-                        )
-                    },
-                );
+        let motors = motors.into_iter().map(|(motor_id, transforms)| {
+            let (position, orientation) = transforms.iter().fold(
+                (front_right_top.position, front_right_top.orientation),
+                |(position, orientation), transform| {
+                    (
+                        transform.transform(position),
+                        transform.transform(orientation),
+                    )
+                },
+            );
 
-                (
-                    motor_id,
-                    Motor {
-                        position,
-                        orientation,
-                    },
-                )
-            })
-            .collect();
+            (
+                motor_id,
+                Motor {
+                    position,
+                    orientation,
+                },
+            )
+        });
 
         Self::new_raw(motors)
     }
