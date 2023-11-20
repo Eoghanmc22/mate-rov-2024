@@ -7,7 +7,7 @@ edition = "2021"
 motor_math = { path = "../motor_math" }
 
 networking = { path = "../networking" }
-glam = { version = "0.23", features = ["serde", "mint"] }
+glam = { version = "0.24", features = ["serde"] }
 serde = { version = "1", features = ["derive", "rc"] }
 bincode = "1"
 
@@ -19,6 +19,3 @@ rand = "0.8"
 ahash = "0.8"
 
 bevy_ecs = { path = "../../bevy-fork/crates/bevy_ecs/" }
-
-[dev-dependencies]
-tracing-subscriber = "0.3"

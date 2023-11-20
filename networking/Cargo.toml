@@ -12,7 +12,5 @@ tracing = "0.1"
 anyhow = "1"
 
 [dev-dependencies]
-clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 bincode = "1"
-ctrlc = "3"

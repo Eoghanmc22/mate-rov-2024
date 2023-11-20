@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use plugins::{
-    core::CorePlugins, monitor::MonitorPlugins, movement::MovementPlugins, sensors::SensorPlugins,
+    actuators::MovementPlugins, core::CorePlugins, monitor::MonitorPlugins, sensors::SensorPlugins,
 };
 use tracing::Level;
 

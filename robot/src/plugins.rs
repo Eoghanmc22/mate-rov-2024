@@ -1,6 +1,6 @@
+pub mod actuators;
 pub mod core;
 pub mod monitor;
-pub mod movement;
 pub mod sensors;
 
 // TODO: Add systems from mate-rov-2023

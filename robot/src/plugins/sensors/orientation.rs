@@ -39,7 +39,7 @@ struct InertialChannels(
 );
 
 #[derive(Resource)]
-struct MadgwickFilter(Madgwick<f64>);
+struct MadgwickFilter(Madgwick<f32>);
 
 pub fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let (tx_data, rx_data) = channel::bounded(5);
@@ -57,7 +57,7 @@ pub fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow:
         let span = span!(Level::INFO, "Inertial sensor monitor thread");
         let _enter = span.enter();
 
-        let interval = Duration::from_secs_f64(1.0 / 1000.0);
+        let interval = Duration::from_secs_f32(1.0 / 1000.0);
         let counts = 10;
 
         let mut counter = 0;
@@ -133,7 +133,7 @@ pub fn read_new_data(
         // TODO: Calibrate the compass
         for inertial in inertial {
             let gyro = Vector3::new(inertial.gyro_x.0, inertial.gyro_y.0, inertial.gyro_z.0)
-                * (std::f64::consts::PI / 180.0);
+                * (std::f32::consts::PI / 180.0);
             let accel = Vector3::new(inertial.accel_x.0, inertial.accel_y.0, inertial.accel_z.0);
 
             let rst = madgwick_filter.0.update_imu(&gyro, &accel);
@@ -142,9 +142,7 @@ pub fn read_new_data(
             }
         }
 
-        let quat: nalgebra::UnitQuaternion<f64> = madgwick_filter.0.quat;
-        let quat: mint::Quaternion<f32> = quat.cast().into();
-        let quat: glam::Quat = quat.into();
+        let quat: glam::Quat = madgwick_filter.0.quat.into();
         let orientation = Orientation(quat);
 
         let inertial = inertial.last().unwrap();

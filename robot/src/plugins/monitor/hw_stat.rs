@@ -125,11 +125,11 @@ fn collect_system_state(system: &System) -> anyhow::Result<SystemInfo> {
                 })
                 .collect(),
         ),
-        load_average: LoadAverage(
-            system.load_average().one,
-            system.load_average().five,
-            system.load_average().fifteen,
-        ),
+        load_average: LoadAverage {
+            one_min: system.load_average().one,
+            five_min: system.load_average().five,
+            fifteen_min: system.load_average().fifteen,
+        },
         networks: Networks(
             system
                 .networks()
@@ -174,9 +174,9 @@ fn collect_system_state(system: &System) -> anyhow::Result<SystemInfo> {
                 .components()
                 .iter()
                 .map(|component| ComponentTemperature {
-                    tempature: Celsius(component.temperature() as f64),
-                    tempature_max: Celsius(component.max() as f64),
-                    tempature_critical: component.critical().map(|it| Celsius(it as f64)),
+                    tempature: Celsius(component.temperature() as f32),
+                    tempature_max: Celsius(component.max() as f32),
+                    tempature_critical: component.critical().map(|it| Celsius(it as f32)),
                     name: component.label().to_owned(),
                 })
                 .collect(),

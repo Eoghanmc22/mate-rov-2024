@@ -8,11 +8,8 @@ edition = "2021"
 csv = "1"
 serde = { version = "1", features = ["derive"] }
 ahash = "0.8" 
-fxhash = "0.2"
-# TODO: Pick one?
-# TODO: Remove glam-assert
-glam = { version = "0.23", features = ["glam-assert", "serde"] }
-nalgebra = { version = "0.31", features = ["mint", "serde-serialize"] }
+glam = { version = "0.24", features = ["serde"] }
+nalgebra = { version = "0.32", features = ["serde-serialize"] }
 
 num_enum = "0.7"
 

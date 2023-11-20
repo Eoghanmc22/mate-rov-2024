@@ -41,15 +41,15 @@ impl Icm20602 {
         let raw_gyro_native_y = (raw[10] as u16) << 8 | raw[11] as u16;
         let raw_gyro_native_z = (raw[12] as u16) << 8 | raw[13] as u16;
 
-        let accel_native_x = raw_accel_native_x as i16 as f64 / 16384.0;
-        let accel_native_y = raw_accel_native_y as i16 as f64 / 16384.0;
-        let accel_native_z = raw_accel_native_z as i16 as f64 / 16384.0;
+        let accel_native_x = raw_accel_native_x as i16 as f32 / 16384.0;
+        let accel_native_y = raw_accel_native_y as i16 as f32 / 16384.0;
+        let accel_native_z = raw_accel_native_z as i16 as f32 / 16384.0;
 
-        let tempature = raw_tempature as i16 as f64 / 326.8 + 25.0;
+        let tempature = raw_tempature as i16 as f32 / 326.8 + 25.0;
 
-        let gyro_native_x = raw_gyro_native_x as i16 as f64 / 65.5;
-        let gyro_native_y = raw_gyro_native_y as i16 as f64 / 65.5;
-        let gyro_native_z = raw_gyro_native_z as i16 as f64 / 65.5;
+        let gyro_native_x = raw_gyro_native_x as i16 as f32 / 65.5;
+        let gyro_native_y = raw_gyro_native_y as i16 as f32 / 65.5;
+        let gyro_native_z = raw_gyro_native_z as i16 as f32 / 65.5;
 
         let accel_x = -accel_native_y;
         let accel_y = -accel_native_x;

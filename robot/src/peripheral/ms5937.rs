@@ -10,7 +10,7 @@ use rppal::i2c::I2c;
 pub struct Ms5837 {
     i2c: I2c,
     calibration: [u16; 8],
-    fluid_density: f64,
+    fluid_density: f32,
 }
 
 impl Ms5837 {
@@ -50,7 +50,7 @@ impl Ms5837 {
         })
     }
 
-    pub fn set_fluid_density(&mut self, density: f64) {
+    pub fn set_fluid_density(&mut self, density: f32) {
         self.fluid_density = density;
     }
 }
@@ -163,18 +163,18 @@ fn calculate_pressure_and_temperature(raw: (u32, u32), calibration: &[u16; 8]) -
     let temperature_raw = temp - t_i as i32;
 
     // Wrap in newtypes
-    let pressure = Mbar(pressure_raw as f64 / 10.0);
-    let temperature = Celsius(temperature_raw as f64 / 100.0);
+    let pressure = Mbar(pressure_raw as f32 / 10.0);
+    let temperature = Celsius(temperature_raw as f32 / 100.0);
 
     (pressure, temperature)
 }
 
-fn pressure_to_depth(pressure: Mbar, density: f64) -> Meters {
+fn pressure_to_depth(pressure: Mbar, density: f32) -> Meters {
     Meters((pressure.0 * 100.0 - 101300.0) / (density * 9.80665))
 }
 
 fn pressure_to_altitude(pressure: Mbar) -> Meters {
-    Meters((1.0 - f64::powf(pressure.0 / 1013.25, 0.190284)) * 145366.45 * 0.3048)
+    Meters((1.0 - f32::powf(pressure.0 / 1013.25, 0.190284)) * 145366.45 * 0.3048)
 }
 
 fn crc4(mut data: [u16; 8]) -> u8 {

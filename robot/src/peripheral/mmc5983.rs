@@ -7,7 +7,7 @@ use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
 
 pub struct Mcc5983 {
     spi: Spi,
-    offset: [f64; 3],
+    offset: [f32; 3],
 }
 
 impl Mcc5983 {
@@ -42,9 +42,9 @@ impl Mcc5983 {
         let raw_mag_native_z =
             (raw[4] as u32) << 10 | (raw[5] as u32) << 2 | (raw[6] as u32 & 0x0C) >> 2;
 
-        let mag_native_x = (raw_mag_native_x as i32 - 131072) as f64 / 16384.0;
-        let mag_native_y = (raw_mag_native_y as i32 - 131072) as f64 / 16384.0;
-        let mag_native_z = (raw_mag_native_z as i32 - 131072) as f64 / 16384.0;
+        let mag_native_x = (raw_mag_native_x as i32 - 131072) as f32 / 16384.0;
+        let mag_native_y = (raw_mag_native_y as i32 - 131072) as f32 / 16384.0;
+        let mag_native_z = (raw_mag_native_z as i32 - 131072) as f32 / 16384.0;
 
         let mag_x = mag_native_y;
         let mag_y = mag_native_x;
