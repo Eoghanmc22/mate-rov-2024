@@ -49,6 +49,7 @@ impl MotorConfig<HeavyMotorId> {
                 Motor {
                     position,
                     orientation,
+                    direction: seed.direction.flip_n(transforms.len() as _),
                 },
             )
         });

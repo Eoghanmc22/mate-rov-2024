@@ -1,7 +1,9 @@
-use std::path::Path;
+use std::{default, path::Path};
 
 use anyhow::Context;
 use serde::Deserialize;
+
+use crate::Direction;
 
 pub struct MotorData {
     pub force_index: Vec<MotorRecord>,
@@ -9,42 +11,83 @@ pub struct MotorData {
 }
 
 impl MotorData {
-    // TODO: Fix handeling for extreme values
-    pub fn lookup_by_force(&self, force: f32, interpolate: bool) -> MotorRecord {
-        // FIXME: Subtraction can under flow
-        let idx = self.force_index.partition_point(|x| x.force < force) - 1;
-        // FIXME: This can panic
-        let val = self.force_index[idx];
+    pub fn lookup_by_force(&self, force: f32, interpolation: Interpolation) -> MotorRecord {
+        let partition_point = self.force_index.partition_point(|x| x.force < force);
 
-        if interpolate && idx + 1 < self.force_index.len() {
-            let next = &self.force_index[idx + 1];
-            let alpha = (force - val.force) / (next.force - val.force);
+        let idx_b = partition_point.max(1).min(self.force_index.len() - 1);
+        let idx_a = idx_b - 1;
 
-            val.interpolate(next, alpha)
-        } else {
-            val
-        }
+        let a = &self.force_index[idx_a];
+        let b = &self.force_index[idx_b];
+
+        Self::interpolate(a, b, force, a.force, b.force, interpolation)
     }
 
-    // TODO: Fix handeling for extreme values
-    pub fn lookup_by_current(&self, signed_current: f32, interpolate: bool) -> MotorRecord {
-        // FIXME: Subtraction can under flow
-        let idx = self
+    pub fn lookup_by_current(
+        &self,
+        signed_current: f32,
+        interpolation: Interpolation,
+    ) -> MotorRecord {
+        let partition_point = self
             .current_index
-            .partition_point(|x| x.current.copysign(x.force) < signed_current)
-            - 1;
-        // FIXME: This can panic
-        let val = self.current_index[idx];
+            .partition_point(|x| x.current.copysign(x.force) < signed_current);
 
-        if interpolate && idx + 1 < self.force_index.len() {
-            let next = &self.current_index[idx + 1];
-            let alpha = (signed_current - val.current.copysign(val.force))
-                / (next.current.copysign(next.force) - val.current.copysign(val.force));
+        let idx_b = partition_point.max(1).min(self.current_index.len() - 1);
+        let idx_a = idx_b - 1;
 
-            val.interpolate(next, alpha)
-        } else {
-            val
-        }
+        let a = &self.current_index[idx_a];
+        let b = &self.current_index[idx_b];
+
+        Self::interpolate(
+            a,
+            b,
+            signed_current,
+            a.current.copysign(a.force),
+            b.current.copysign(b.force),
+            interpolation,
+        )
+    }
+
+    fn interpolate(
+        a: &MotorRecord,
+        b: &MotorRecord,
+        value: f32,
+        value_a: f32,
+        value_b: f32,
+        interpolation: Interpolation,
+    ) -> MotorRecord {
+        let record = match interpolation {
+            Interpolation::LerpDirection(_) | Interpolation::Lerp => {
+                let alpha = (value - value_a) / (value_b - value_a);
+                a.lerp(b, alpha)
+            }
+            Interpolation::Direction(_) | Interpolation::OriginalData => {
+                let dist_a = (value_a - value).abs();
+                let dist_b = (value_b - value).abs();
+
+                if dist_a <= dist_b {
+                    *a
+                } else {
+                    *b
+                }
+            }
+        };
+
+        let record = match interpolation {
+            Interpolation::LerpDirection(direction) | Interpolation::Direction(direction) => {
+                if let Direction::CounterClockwise = direction {
+                    MotorRecord {
+                        pwm: 3000.0 - record.pwm,
+                        ..record
+                    }
+                } else {
+                    record
+                }
+            }
+            Interpolation::Lerp | Interpolation::OriginalData => record,
+        };
+
+        record
     }
 }
 
@@ -69,6 +112,22 @@ impl From<Vec<MotorRecord>> for MotorData {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub enum Interpolation {
+    /// Return the linear interpolation betwwn the two data entries closest to the the requested data point
+    /// and modifies the pwm field to match the direction of the propeller
+    LerpDirection(Direction),
+    /// Return the raw data entry closest to the the requested data point
+    /// Only modifies the pwm field to match the direction of the propeller
+    Direction(Direction),
+    /// Return the linear interpolation betwwn the two data entries closest to the the requested data point
+    #[default]
+    Lerp,
+    /// Return the raw data entry closest to the the requested data point
+    /// Make no modifications to the data
+    OriginalData,
+}
+
 #[derive(Deserialize, Debug, Clone, Copy)]
 pub struct MotorRecord {
     pub pwm: f32,
@@ -81,7 +140,7 @@ pub struct MotorRecord {
 }
 
 impl MotorRecord {
-    pub fn interpolate(&self, other: &Self, alpha: f32) -> Self {
+    pub fn lerp(&self, other: &Self, alpha: f32) -> Self {
         debug_assert!((0.0..=1.0).contains(&alpha));
 
         Self {

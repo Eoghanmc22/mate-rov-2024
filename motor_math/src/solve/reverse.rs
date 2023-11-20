@@ -6,7 +6,7 @@ use ahash::{HashMap, HashMapExt};
 use nalgebra::Vector6;
 
 use crate::{
-    motor_preformance::{MotorData, MotorRecord},
+    motor_preformance::{Interpolation, MotorData, MotorRecord},
     MotorConfig, Movement,
 };
 
@@ -24,12 +24,12 @@ pub fn reverse_solve<MotorId: Hash + Ord + Clone>(
     let forces = motor_config.pseudo_inverse.clone() * movement_vec;
 
     let mut motor_cmds = HashMap::new();
-    for (idx, (motor, _)) in motor_config.motors.iter().enumerate() {
+    for (idx, (motor_id, motor)) in motor_config.motors.iter().enumerate() {
         let force = forces[idx];
 
-        let data = motor_data.lookup_by_force(force, true);
+        let data = motor_data.lookup_by_force(force, Interpolation::LerpDirection(motor.direction));
 
-        motor_cmds.insert(motor.clone(), data);
+        motor_cmds.insert(motor_id.clone(), data);
     }
 
     motor_cmds
@@ -38,6 +38,7 @@ pub fn reverse_solve<MotorId: Hash + Ord + Clone>(
 // TODO: Preserve force ratios
 pub fn clamp_amperage<MotorId: Hash + Ord + Clone>(
     motor_cmds: HashMap<MotorId, MotorRecord>,
+    motor_config: &MotorConfig<MotorId>,
     motor_data: &MotorData,
     amperage_cap: f32,
 ) -> HashMap<MotorId, MotorRecord> {
@@ -58,8 +59,15 @@ pub fn clamp_amperage<MotorId: Hash + Ord + Clone>(
 
     let mut adjusted_motor_cmds = HashMap::default();
     for (motor_id, data) in motor_cmds {
+        // FIXME: Fails silently
+        let direction = motor_config
+            .motor(&motor_id)
+            .map(|it| it.direction)
+            .unwrap_or_default();
+
         let adjusted_current = data.current.copysign(data.force) * amperage_ratio;
-        let data_adjusted = motor_data.lookup_by_current(adjusted_current, true);
+        let data_adjusted =
+            motor_data.lookup_by_current(adjusted_current, Interpolation::LerpDirection(direction));
 
         adjusted_motor_cmds.insert(motor_id.clone(), data_adjusted);
     }

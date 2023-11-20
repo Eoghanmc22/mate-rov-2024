@@ -50,6 +50,7 @@ impl MotorConfig<X3dMotorId> {
                 Motor {
                     position,
                     orientation,
+                    direction: front_right_top.direction.flip_n(transforms.len() as _),
                 },
             )
         });

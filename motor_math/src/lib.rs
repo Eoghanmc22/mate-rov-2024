@@ -11,6 +11,7 @@ pub mod x3d;
 
 use std::{
     collections::BTreeMap,
+    default,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -106,12 +107,44 @@ impl MotorConfig<ErasedMotorId> {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Motor {
     /// Offset from origin
     pub position: Vec3A,
     /// Unit vector
     pub orientation: Vec3A,
+
+    pub direction: Direction,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum Direction {
+    #[default]
+    Clockwise,
+    CounterClockwise,
+}
+
+impl Direction {
+    pub fn get_sign(&self) -> f32 {
+        match self {
+            Direction::Clockwise => 1.0,
+            Direction::CounterClockwise => -1.0,
+        }
+    }
+
+    pub fn from_sign(sign: f32) -> Self {
+        if sign.signum() == 1.0 {
+            Direction::Clockwise
+        } else {
+            Direction::CounterClockwise
+        }
+    }
+
+    pub fn flip_n(&self, count: i32) -> Self {
+        let sign = self.get_sign();
+        let new_sign = sign * (-1.0f32).powi(count);
+        Self::from_sign(new_sign)
+    }
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]

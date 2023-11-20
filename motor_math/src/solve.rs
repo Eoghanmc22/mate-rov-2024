@@ -16,7 +16,7 @@ mod tests {
         solve::forward,
         utils::vec_from_angles,
         x3d::X3dMotorId,
-        Motor, MotorConfig, Movement,
+        Direction, Motor, MotorConfig, Movement,
     };
 
     use super::reverse;
@@ -26,6 +26,7 @@ mod tests {
         let seed_motor = Motor {
             position: vec3a(1.0, 1.0, 1.0).normalize(),
             orientation: vec_from_angles(60.0, 40.0),
+            direction: Direction::Clockwise,
         };
 
         let motor_data =
@@ -61,10 +62,12 @@ mod tests {
         let lateral = Motor {
             position: vec3a(1.0, 1.0, 0.0),
             orientation: vec3a(-1.0, 1.0, 0.0).normalize(),
+            direction: Direction::Clockwise,
         };
         let vertical = Motor {
             position: vec3a(1.0, 1.0, 0.0),
             orientation: vec3a(0.0, 0.0, 1.0).normalize(),
+            direction: Direction::Clockwise,
         };
 
         let motor_data =
@@ -117,6 +120,7 @@ mod tests {
             Motor {
                 position: vec3a(1.0, 1.0, 0.0).normalize(),
                 orientation: vec3a(0.0, 1.0, 0.0),
+                direction: Direction::Clockwise,
             },
         );
 
@@ -125,6 +129,7 @@ mod tests {
             Motor {
                 position: vec3a(-1.0, 1.0, 0.0).normalize(),
                 orientation: vec3a(0.0, 1.0, 0.0),
+                direction: Direction::CounterClockwise,
             },
         );
 
@@ -133,6 +138,7 @@ mod tests {
             Motor {
                 position: vec3a(0.0, 0.0, 0.0),
                 orientation: vec3a(1.0, 0.0, 0.0),
+                direction: Direction::Clockwise,
             },
         );
 
@@ -141,6 +147,7 @@ mod tests {
             Motor {
                 position: vec3a(1.0, 1.0, 0.0).normalize() * 2.0,
                 orientation: vec3a(0.0, 0.0, 1.0),
+                direction: Direction::Clockwise,
             },
         );
 
@@ -149,6 +156,7 @@ mod tests {
             Motor {
                 position: vec3a(-1.0, 1.0, 0.0).normalize() * 2.0,
                 orientation: vec3a(0.0, 0.0, 1.0),
+                direction: Direction::CounterClockwise,
             },
         );
 
@@ -157,6 +165,7 @@ mod tests {
             Motor {
                 position: vec3a(0.0, -1.0, 0.0).normalize() * 2.0,
                 orientation: vec3a(0.0, 0.0, 1.0),
+                direction: Direction::Clockwise,
             },
         );
 
@@ -191,6 +200,7 @@ mod tests {
         let seed_motor = Motor {
             position: vec3a(0.3, 0.5, 0.4).normalize(),
             orientation: vec_from_angles(60.0, 40.0),
+            direction: Direction::Clockwise,
         };
 
         let motor_data =
@@ -210,10 +220,12 @@ mod tests {
         let lateral = Motor {
             position: vec3a(1.0, 1.0, 0.0),
             orientation: vec3a(-1.0, 1.0, 0.0).normalize(),
+            direction: Direction::Clockwise,
         };
         let vertical = Motor {
             position: vec3a(1.0, 1.0, 0.0),
             orientation: vec3a(0.0, 0.0, 1.0).normalize(),
+            direction: Direction::Clockwise,
         };
 
         let motor_data =
