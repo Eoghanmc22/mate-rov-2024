@@ -73,7 +73,7 @@ impl MotorData {
             }
         };
 
-        let record = match interpolation {
+        match interpolation {
             Interpolation::LerpDirection(direction) | Interpolation::Direction(direction) => {
                 if let Direction::CounterClockwise = direction {
                     MotorRecord {
@@ -85,9 +85,7 @@ impl MotorData {
                 }
             }
             Interpolation::Lerp | Interpolation::OriginalData => record,
-        };
-
-        record
+        }
     }
 }
 

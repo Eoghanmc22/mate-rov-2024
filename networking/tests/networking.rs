@@ -1,7 +1,7 @@
 use std::{
     net::ToSocketAddrs,
     sync::{
-        atomic::{AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Barrier,
     },
     thread,
@@ -21,6 +21,7 @@ fn test_real_server_client() -> anyhow::Result<()> {
     let mut connected = AtomicU32::new(0);
     let mut accepted = AtomicU32::new(0);
     let mut pong = AtomicU64::new(0);
+    let shutting_down = AtomicBool::new(false);
 
     let peer_a = Networking::<Protocol>::new()?;
     let messenger_a = peer_a.messenger();
@@ -31,133 +32,163 @@ fn test_real_server_client() -> anyhow::Result<()> {
     let barrier = Barrier::new(2);
 
     thread::scope(|scope| -> Result<(), anyhow::Error> {
-        scope.spawn(|| {
-            peer_a.start(|event| match event {
-                Event::Conected(_token, _socket) => {
-                    connected.fetch_add(1, Ordering::Relaxed);
-                }
-                Event::Accepted(_token, _socket) => {
-                    accepted.fetch_add(1, Ordering::Relaxed);
-                }
-                Event::Data(token, packet) => match packet {
-                    Protocol::Ping(id) => {
-                        messenger_a.send_packet(token, Protocol::Pong(id)).unwrap();
+        thread::Builder::new()
+            .name("Peer A".to_owned())
+            .spawn_scoped(scope, || {
+                peer_a.start(|event| match event {
+                    Event::Conected(_token, _socket) => {
+                        connected.fetch_add(1, Ordering::Relaxed);
                     }
-                    Protocol::Pong(id) => {
-                        pong.fetch_add(id, Ordering::Relaxed);
+                    Event::Accepted(_token, _socket) => {
+                        accepted.fetch_add(1, Ordering::Relaxed);
                     }
-                },
-                Event::Disconnect(_token) => {
-                    // Dont care
-                }
-                Event::Error(_token, error) => {
-                    panic!("Error: {error}");
-                }
-            });
-        });
-
-        scope.spawn(|| {
-            peer_b.start(|event| match event {
-                Event::Conected(_token, _socket) => {
-                    connected.fetch_add(1, Ordering::Relaxed);
-                }
-                Event::Accepted(_token, _socket) => {
-                    accepted.fetch_add(1, Ordering::Relaxed);
-                }
-                Event::Data(token, packet) => match packet {
-                    Protocol::Ping(id) => {
-                        messenger_b.send_packet(token, Protocol::Pong(id)).unwrap();
+                    Event::Data(token, packet) => match packet {
+                        Protocol::Ping(id) => {
+                            messenger_a.send_packet(token, Protocol::Pong(id)).unwrap();
+                        }
+                        Protocol::Pong(id) => {
+                            pong.fetch_add(id, Ordering::Relaxed);
+                        }
+                    },
+                    Event::Disconnect(_token) => {
+                        // Dont care
                     }
-                    Protocol::Pong(id) => {
-                        pong.fetch_add(id, Ordering::Relaxed);
+                    Event::Error(_token, error) => {
+                        if !shutting_down.load(Ordering::SeqCst) {
+                            panic!("Error: {error}");
+                        } else {
+                            eprintln!("Error: {error}");
+                        }
                     }
-                },
-                Event::Disconnect(_token) => {
-                    // Dont care
+                });
+            })
+            .unwrap();
+
+        thread::Builder::new()
+            .name("Peer B".to_owned())
+            .spawn_scoped(scope, || {
+                peer_b.start(|event| match event {
+                    Event::Conected(_token, _socket) => {
+                        connected.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Event::Accepted(_token, _socket) => {
+                        accepted.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Event::Data(token, packet) => match packet {
+                        Protocol::Ping(id) => {
+                            messenger_b.send_packet(token, Protocol::Pong(id)).unwrap();
+                        }
+                        Protocol::Pong(id) => {
+                            pong.fetch_add(id, Ordering::Relaxed);
+                        }
+                    },
+                    Event::Disconnect(_token) => {
+                        // Dont care
+                    }
+                    Event::Error(_token, error) => {
+                        if !shutting_down.load(Ordering::SeqCst) {
+                            panic!("Error: {error}");
+                        } else {
+                            eprintln!("Error: {error}");
+                        }
+                    }
+                });
+            })
+            .unwrap();
+
+        thread::Builder::new()
+            .name("Commander A".to_owned())
+            .spawn_scoped(scope, || {
+                for port in &servers_a {
+                    messenger_a
+                        .bind_at(
+                            ("127.0.0.1", *port)
+                                .to_socket_addrs()
+                                .expect("DNS")
+                                .next()
+                                .expect("Find SocketAddr"),
+                        )
+                        .unwrap()
                 }
-                Event::Error(_token, error) => {
-                    panic!("Error: {error}");
+
+                thread::sleep(Duration::from_micros(300));
+                barrier.wait();
+
+                for port in &servers_b {
+                    messenger_a
+                        .connect_to(
+                            ("127.0.0.1", *port)
+                                .to_socket_addrs()
+                                .expect("DNS")
+                                .next()
+                                .expect("Find SocketAddr"),
+                        )
+                        .unwrap()
                 }
-            });
-        });
 
-        scope.spawn(|| {
-            for port in &servers_a {
-                messenger_a
-                    .bind_at(
-                        ("127.0.0.1", *port)
-                            .to_socket_addrs()
-                            .expect("DNS")
-                            .next()
-                            .expect("Find SocketAddr"),
-                    )
-                    .unwrap()
-            }
+                thread::sleep(Duration::from_micros(300));
+                barrier.wait();
 
-            barrier.wait();
+                for i in 0..100 {
+                    messenger_a.brodcast_packet(Protocol::Ping(i)).unwrap();
+                    thread::sleep(Duration::from_micros(1000));
+                }
 
-            for port in &servers_b {
-                messenger_a
-                    .connect_to(
-                        ("127.0.0.1", *port)
-                            .to_socket_addrs()
-                            .expect("DNS")
-                            .next()
-                            .expect("Find SocketAddr"),
-                    )
-                    .unwrap()
-            }
+                thread::sleep(Duration::from_micros(1000));
+                barrier.wait();
 
-            barrier.wait();
+                shutting_down.store(true, Ordering::SeqCst);
 
-            for i in 0..100 {
-                messenger_a.brodcast_packet(Protocol::Ping(i)).unwrap();
-                thread::sleep(Duration::from_micros(100));
-            }
+                messenger_a.shutdown()
+            })
+            .unwrap();
 
-            barrier.wait();
+        thread::Builder::new()
+            .name("Commander B".to_owned())
+            .spawn_scoped(scope, || {
+                for port in &servers_b {
+                    messenger_b
+                        .bind_at(
+                            ("127.0.0.1", *port)
+                                .to_socket_addrs()
+                                .expect("DNS")
+                                .next()
+                                .expect("Find SocketAddr"),
+                        )
+                        .unwrap()
+                }
 
-            messenger_a.shutdown()
-        });
+                thread::sleep(Duration::from_micros(300));
+                barrier.wait();
 
-        scope.spawn(|| {
-            for port in &servers_b {
-                messenger_b
-                    .bind_at(
-                        ("127.0.0.1", *port)
-                            .to_socket_addrs()
-                            .expect("DNS")
-                            .next()
-                            .expect("Find SocketAddr"),
-                    )
-                    .unwrap()
-            }
+                for port in &servers_a {
+                    messenger_b
+                        .connect_to(
+                            ("127.0.0.1", *port)
+                                .to_socket_addrs()
+                                .expect("DNS")
+                                .next()
+                                .expect("Find SocketAddr"),
+                        )
+                        .unwrap()
+                }
 
-            barrier.wait();
+                thread::sleep(Duration::from_micros(300));
+                barrier.wait();
 
-            for port in &servers_a {
-                messenger_b
-                    .connect_to(
-                        ("127.0.0.1", *port)
-                            .to_socket_addrs()
-                            .expect("DNS")
-                            .next()
-                            .expect("Find SocketAddr"),
-                    )
-                    .unwrap()
-            }
+                for i in 0..100 {
+                    messenger_b.brodcast_packet(Protocol::Ping(i)).unwrap();
+                    thread::sleep(Duration::from_micros(1000));
+                }
 
-            barrier.wait();
+                thread::sleep(Duration::from_micros(1000));
+                barrier.wait();
 
-            for i in 0..100 {
-                messenger_b.brodcast_packet(Protocol::Ping(i)).unwrap();
-                thread::sleep(Duration::from_micros(100));
-            }
+                shutting_down.store(true, Ordering::SeqCst);
 
-            barrier.wait();
-
-            messenger_b.shutdown()
-        });
+                messenger_b.shutdown()
+            })
+            .unwrap();
 
         Ok(())
     })?;
