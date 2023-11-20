@@ -3,7 +3,7 @@ use std::{net::SocketAddr, time::Duration};
 use ahash::HashMap;
 use bevy_ecs::component::Component;
 use glam::Quat;
-use motor_math::{ErasedMotorId, Movement};
+use motor_math::{ErasedMotorId, Motor, Movement};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
     types::{
         sensors::{DepthFrame, InertialFrame, MagneticFrame},
         system::{ComponentTemperature, Cpu, Disk, Network, Process},
-        units::{Amperes, Newtons, Percent, Volts},
+        units::{Amperes, Newtons, Volts},
     },
 };
 
@@ -98,7 +98,7 @@ tokened! {
         /// Peer is connected and robot is armed
         Ready,
         /// The robot is moving, includes speed
-        Moving(Percent),
+        Moving(Newtons),
     }
 }
 
@@ -216,6 +216,12 @@ tokened! {
     #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
     #[token("robot.motor.real")]
     pub struct ActualForce(pub Newtons);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[token("robot.motor")]
+    pub struct MotorDefinition(pub Motor);
 }
 
 tokened! {

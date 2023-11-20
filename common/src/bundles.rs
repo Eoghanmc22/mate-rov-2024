@@ -3,9 +3,9 @@ use bevy_ecs::bundle::Bundle;
 use crate::{
     components::{
         ActualForce, ActualMovement, Armed, Camera, Cores, CpuTotal, CurrentDraw, Depth, Disks,
-        Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory, MovementContribution,
-        Networks, OperatingSystem, Orientation, Processes, RobotId, RobotMarker, RobotStatus,
-        TargetForce, TargetMovement, Temperatures, Uptime,
+        Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory, MotorDefinition,
+        MovementContribution, Networks, OperatingSystem, Orientation, Processes, RobotId,
+        RobotMarker, RobotStatus, TargetForce, TargetMovement, Temperatures, Uptime,
     },
     ecs_sync::NetworkId,
 };
@@ -73,6 +73,8 @@ pub struct CameraBundle {
 
 #[derive(Bundle, PartialEq)]
 pub struct MotorBundle {
+    pub motor: MotorDefinition,
+
     pub target_force: TargetForce,
     pub actual_force: ActualForce,
     pub current_draw: CurrentDraw,
