@@ -55,7 +55,7 @@ impl<P: Packet> Networking<P> {
 
 pub trait Packet: Clone {
     fn expected_size(&self) -> anyhow::Result<u64>;
-    fn write_buf(self, buffer: &mut &mut [u8]) -> anyhow::Result<()>;
+    fn write_buf(&self, buffer: &mut &mut [u8]) -> anyhow::Result<()>;
     fn read_buf(buffer: &mut &[u8]) -> anyhow::Result<Self>;
 }
 

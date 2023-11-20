@@ -27,9 +27,9 @@ impl networking::Packet for Protocol {
             .context("Could not compute expected size")
     }
 
-    fn write_buf(self, buffer: &mut &mut [u8]) -> anyhow::Result<()> {
+    fn write_buf(&self, buffer: &mut &mut [u8]) -> anyhow::Result<()> {
         options()
-            .serialize_into(buffer, &self)
+            .serialize_into(buffer, self)
             .context("Could not serialize packet")
     }
 

@@ -128,7 +128,7 @@ pub fn start_worker<P: Packet>(
                         Message::Packet(peer_token, packet) => {
                             // Lookup peer and send packet
                             if let Some(peer) = peers.get_mut(&peer_token) {
-                                let res = peer.write_packet(packet, &mut temp_buf);
+                                let res = peer.write_packet(&packet, &mut temp_buf);
                                 if let Err(err) = res {
                                     (handler)(Event::Error(
                                         Some(peer_token),
@@ -153,7 +153,7 @@ pub fn start_worker<P: Packet>(
 
                             // Send packet to every peer
                             'peer: for (token, peer) in &mut peers {
-                                let res = peer.write_packet(packet.clone(), &mut temp_buf);
+                                let res = peer.write_packet(&packet, &mut temp_buf);
                                 if let Err(err) = res {
                                     (handler)(Event::Error(
                                         Some(*token),
