@@ -17,10 +17,7 @@ use common::{
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use crate::plugins::core::{
-    error::{ErrorEvent, Errors},
-    sync::Peer,
-};
+use crate::plugins::core::{error::Errors, sync::Peer};
 
 // TODO: Use multicast udp
 pub struct CameraPlugin;
@@ -228,7 +225,7 @@ pub fn read_new_data(
     }
 
     if let Some(new_cameras) = new_cameras {
-        let (robot, id) = robot.single();
+        let (_robot, id) = robot.single();
 
         for (entity, camera_robot) in &cameras {
             if camera_robot.0 == *id {
@@ -244,11 +241,7 @@ pub fn read_new_data(
     }
 }
 
-pub fn shutdown(
-    channels: Res<CameraChannels>,
-    mut exit: EventReader<AppExit>,
-    mut errors: EventWriter<ErrorEvent>,
-) {
+pub fn shutdown(channels: Res<CameraChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let _ = channels.0.send(CameraEvent::Shutdown);
     }

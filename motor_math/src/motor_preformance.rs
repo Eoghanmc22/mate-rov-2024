@@ -1,4 +1,4 @@
-use std::{default, path::Path};
+use std::path::Path;
 
 use anyhow::Context;
 use serde::Deserialize;

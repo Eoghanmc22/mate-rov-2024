@@ -42,12 +42,6 @@ enum PwmEvent {
     Shutdown,
 }
 
-enum BatchState {
-    NotStarted,
-    InProgress,
-    Complete,
-}
-
 // TODO: Output should be disabled when disarmed
 pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let interval = Duration::from_secs_f32(1.0 / 100.0);
@@ -121,7 +115,7 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
             // Update state
             if last_batch.elapsed() > max_inactive {
                 // TODO: Should this notify bevy?
-                errors.send(anyhow!("Motors disarmed due to inactivity"));
+                let _ = errors.send(anyhow!("Motors disarmed due to inactivity"));
                 armed = Armed::Disarmed;
             }
 
@@ -163,7 +157,7 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
                 .context("Could not communicate with PCA9685");
 
             if let Err(err) = rst {
-                errors.send(err);
+                let _ = errors.send(err);
             }
 
             deadline += interval;
