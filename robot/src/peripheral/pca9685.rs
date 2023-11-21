@@ -54,20 +54,21 @@ impl Pca9685 {
         let raw = pwm_to_raw(pwm, self.period);
         let upper = ((raw & 0x0f00) >> 8) as u8;
         let lower = ((raw & 0x00ff) >> 0) as u8;
-        // let expected = [lower, upper];
 
         let register = channel_to_reg(channel);
-        self.i2c
-            .write(&[register, lower, upper])
-            .context("Write pwm")?;
+        let message = [register, lower, upper];
+        self.i2c.write(&message).context("Write pwm")?;
 
-        // let mut observed = [0, 0];
-        // self.i2c
-        //     .write_read(&[register], &mut observed)
-        //     .context("Validate pwm")?;
-        // if observed != expected {
-        //     bail!("Attempted to set pwm to {expected:?}. Instead, {observed:?} was read");
-        // }
+        if cfg!(debug_assertions) {
+            let mut observed = [0; 2];
+
+            self.i2c
+                .write_read(&[register], &mut observed)
+                .context("Validate pwm")?;
+            if observed != message[1..] {
+                bail!("Attempted to set pwm to {message:?}. Instead, {observed:?} was read");
+            }
+        }
 
         Ok(())
     }
@@ -88,13 +89,15 @@ impl Pca9685 {
 
         self.i2c.write(&message).context("Write pwm")?;
 
-        // let mut observed = [0; 64];
-        // self.i2c
-        //     .write_read(&[Self::REG_LED0_ON_L], &mut observed)
-        //     .context("Validate pwm")?;
-        // if observed != message[1..] {
-        //     bail!("Attempted to set pwm to {message:?}. Instead, {observed:?} was read");
-        // }
+        if cfg!(debug_assertions) {
+            let mut observed = [0; 64];
+            self.i2c
+                .write_read(&[Self::REG_LED0_ON_L], &mut observed)
+                .context("Validate pwm")?;
+            if observed != message[1..] {
+                bail!("Attempted to set pwm to {message:?}. Instead, {observed:?} was read");
+            }
+        }
 
         Ok(())
     }
