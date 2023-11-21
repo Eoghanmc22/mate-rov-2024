@@ -174,9 +174,9 @@ fn collect_system_state(system: &System) -> anyhow::Result<SystemInfo> {
                 .components()
                 .iter()
                 .map(|component| ComponentTemperature {
-                    tempature: Celsius(component.temperature() as f32),
-                    tempature_max: Celsius(component.max() as f32),
-                    tempature_critical: component.critical().map(|it| Celsius(it as f32)),
+                    tempature: Celsius(component.temperature()),
+                    tempature_max: Celsius(component.max()),
+                    tempature_critical: component.critical().map(Celsius),
                     name: component.label().to_owned(),
                 })
                 .collect(),
