@@ -5,7 +5,7 @@ use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{
         Cores, CpuTotal, Disks, LoadAverage, Memory, Networks, OperatingSystem, Processes,
-        RobotMarker, Temperatures, Uptime,
+        Temperatures, Uptime,
     },
     types::{
         system::{ComponentTemperature, Cpu, Disk, Network, Process},
@@ -19,7 +19,7 @@ use sysinfo::{
 };
 use tracing::{span, Level};
 
-use crate::plugins::core::error::Errors;
+use crate::plugins::core::{error::Errors, robot::LocalRobotMarker};
 
 pub struct HwStatPlugin;
 
@@ -91,7 +91,7 @@ pub fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
 pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<HwStatChannels>,
-    robot: Query<Entity, With<RobotMarker>>,
+    robot: Query<Entity, With<LocalRobotMarker>>,
 ) {
     for info in channels.0.try_iter() {
         let robot = robot.single();

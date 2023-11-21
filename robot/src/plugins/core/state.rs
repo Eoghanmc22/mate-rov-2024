@@ -1,7 +1,7 @@
 use bevy::prelude::*;
-use common::components::{Armed, RobotMarker, RobotStatus};
+use common::components::{Armed, RobotStatus};
 
-use super::sync::Peer;
+use super::{robot::LocalRobotMarker, sync::Peer};
 
 pub struct StatePlugin;
 
@@ -14,7 +14,7 @@ impl Plugin for StatePlugin {
 pub fn update_state(
     mut cmds: Commands,
     peers: Query<&Peer>,
-    robot: Query<(Entity, Option<&Armed>), With<RobotMarker>>,
+    robot: Query<(Entity, Option<&Armed>), With<LocalRobotMarker>>,
 ) {
     let (robot, armed) = robot.single();
     let mut robot = cmds.entity(robot);

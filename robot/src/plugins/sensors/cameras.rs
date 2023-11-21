@@ -11,13 +11,13 @@ use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, bail, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
-    components::{Camera, RobotId, RobotMarker},
+    components::{Camera, RobotId},
     ecs_sync::NetworkId,
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use crate::plugins::core::{error::Errors, sync::Peer};
+use crate::plugins::core::{error::Errors, robot::LocalRobotMarker, sync::Peer};
 
 // TODO: Use multicast udp
 pub struct CameraPlugin;
@@ -216,7 +216,7 @@ pub fn handle_peers(
 pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<CameraChannels>,
-    robot: Query<(Entity, &NetworkId), With<RobotMarker>>,
+    robot: Query<(Entity, &NetworkId), With<LocalRobotMarker>>,
     cameras: Query<(Entity, &RobotId), With<Camera>>,
 ) {
     let mut new_cameras = None;

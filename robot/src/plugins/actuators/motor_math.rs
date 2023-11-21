@@ -5,8 +5,7 @@ use bevy::prelude::*;
 use common::{
     components::{
         ActualForce, ActualMovement, CurrentDraw, MotorContribution, MotorDefinition, Motors,
-        MovementContribution, MovementCurrentCap, PwmSignal, RobotId, RobotMarker, TargetForce,
-        TargetMovement,
+        MovementContribution, MovementCurrentCap, PwmSignal, RobotId, TargetForce, TargetMovement,
     },
     ecs_sync::NetworkId,
 };
@@ -14,6 +13,8 @@ use motor_math::{
     motor_preformance::{Interpolation, MotorData},
     solve, Direction, Movement,
 };
+
+use crate::plugins::core::robot::LocalRobotMarker;
 
 pub struct MotorMathPlugin;
 
@@ -40,7 +41,7 @@ struct MotorDataRes(MotorData);
 
 pub fn accumulate_movements(
     mut cmds: Commands,
-    robot: Query<(Entity, &NetworkId, &Motors), With<RobotMarker>>,
+    robot: Query<(Entity, &NetworkId, &Motors), With<LocalRobotMarker>>,
     movements: Query<(&RobotId, &MovementContribution)>,
 
     motor_data: Res<MotorDataRes>,
@@ -68,7 +69,7 @@ pub fn accumulate_movements(
 // TODO: Split into smaller systems
 pub fn accumulate_motor_forces(
     mut cmds: Commands,
-    robot: Query<(Entity, &NetworkId, &Motors, &MovementCurrentCap), With<RobotMarker>>,
+    robot: Query<(Entity, &NetworkId, &Motors, &MovementCurrentCap), With<LocalRobotMarker>>,
     motor_forces: Query<(&RobotId, &MotorContribution)>,
     motors: Query<(Entity, &MotorDefinition, &RobotId)>,
 

@@ -1,10 +1,10 @@
 use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
-use common::components::{Leak, RobotMarker};
+use common::components::Leak;
 use crossbeam::channel::Receiver;
 use rppal::gpio::{Gpio, InputPin, Level, Trigger};
 
-use crate::plugins::core::error;
+use crate::plugins::core::{error, robot::LocalRobotMarker};
 
 pub struct LeakPlugin;
 
@@ -25,7 +25,7 @@ const LEAK_PIN: u8 = 27;
 
 pub fn setup_leak_interupt(
     mut cmds: Commands,
-    robot: Query<Entity, With<RobotMarker>>,
+    robot: Query<Entity, With<LocalRobotMarker>>,
 ) -> anyhow::Result<()> {
     let (tx, rx) = crossbeam::channel::bounded(5);
 
@@ -60,7 +60,7 @@ pub fn setup_leak_interupt(
 pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<LeakChannels>,
-    robot: Query<Entity, With<RobotMarker>>,
+    robot: Query<Entity, With<LocalRobotMarker>>,
 ) {
     let mut leak = None;
 

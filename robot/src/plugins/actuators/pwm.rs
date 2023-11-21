@@ -7,7 +7,7 @@ use ahash::HashMap;
 use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
-    components::{Armed, PwmChannel, PwmSignal, RobotId, RobotMarker},
+    components::{Armed, PwmChannel, PwmSignal, RobotId},
     ecs_sync::NetworkId,
     types::PwmChannelId,
 };
@@ -16,7 +16,10 @@ use tracing::{span, Level};
 
 use crate::{
     peripheral::pca9685::Pca9685,
-    plugins::core::error::{self, Errors},
+    plugins::core::{
+        error::{self, Errors},
+        robot::LocalRobotMarker,
+    },
 };
 
 pub struct PwmOutputPlugin;
@@ -42,7 +45,6 @@ enum PwmEvent {
     Shutdown,
 }
 
-// TODO: Output should be disabled when disarmed
 pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let interval = Duration::from_secs_f32(1.0 / 100.0);
     let max_inactive = Duration::from_secs_f32(1.0 / 10.0);
@@ -169,10 +171,9 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
     Ok(())
 }
 
-// TODO: Handle errors
 pub fn listen_to_pwms(
     channels: Res<PwmChannels>,
-    robot: Query<(&NetworkId, &Armed), With<RobotMarker>>,
+    robot: Query<(&NetworkId, &Armed), With<LocalRobotMarker>>,
     pwms: Query<(&RobotId, &PwmChannel, &PwmSignal)>,
 ) -> anyhow::Result<()> {
     let (net_id, armed) = robot.single();

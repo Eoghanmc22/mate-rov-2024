@@ -7,14 +7,17 @@ use ahrs::{Ahrs, Madgwick};
 use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
-    components::{Inertial, Magnetic, Orientation, RobotMarker},
+    components::{Inertial, Magnetic, Orientation},
     types::sensors::{InertialFrame, MagneticFrame},
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use nalgebra::Vector3;
 use tracing::{span, Level};
 
-use crate::peripheral::{icm20602::Icm20602, mmc5983::Mcc5983};
+use crate::{
+    peripheral::{icm20602::Icm20602, mmc5983::Mcc5983},
+    plugins::core::robot::LocalRobotMarker,
+};
 
 use crate::plugins::core::error::{self, ErrorEvent, Errors};
 
@@ -125,7 +128,7 @@ pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<InertialChannels>,
     mut madgwick_filter: ResMut<MadgwickFilter>,
-    robot: Query<Entity, With<RobotMarker>>,
+    robot: Query<Entity, With<LocalRobotMarker>>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
     for (inertial, magnetic) in channels.0.try_iter() {

@@ -5,14 +5,11 @@ use std::{
 
 use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
-use common::{
-    components::{Depth, RobotMarker},
-    types::sensors::DepthFrame,
-};
+use common::{components::Depth, types::sensors::DepthFrame};
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use crate::peripheral::ms5937::Ms5837;
+use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobotMarker};
 
 use crate::plugins::core::error::{self, Errors};
 
@@ -77,7 +74,7 @@ pub fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Re
 pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<DepthChannels>,
-    robot: Query<Entity, With<RobotMarker>>,
+    robot: Query<Entity, With<LocalRobotMarker>>,
 ) {
     for depth in channels.0.try_iter() {
         let depth = Depth(depth);
