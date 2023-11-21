@@ -16,7 +16,7 @@ use tracing::{span, Level};
 
 use crate::{
     peripheral::{icm20602::Icm20602, mmc5983::Mcc5983},
-    plugins::core::robot::LocalRobotMarker,
+    plugins::core::robot::LocalRobot,
 };
 
 use crate::plugins::core::error::{self, ErrorEvent, Errors};
@@ -128,7 +128,7 @@ pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<InertialChannels>,
     mut madgwick_filter: ResMut<MadgwickFilter>,
-    robot: Query<Entity, With<LocalRobotMarker>>,
+    robot: Res<LocalRobot>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
     for (inertial, magnetic) in channels.0.try_iter() {
@@ -154,8 +154,8 @@ pub fn read_new_data(
         let magnetic = magnetic.last().unwrap();
         let magnetic = Magnetic(*magnetic);
 
-        let robot = robot.single();
-        cmds.entity(robot).insert((orientation, inertial, magnetic));
+        cmds.entity(robot.0)
+            .insert((orientation, inertial, magnetic));
     }
 }
 

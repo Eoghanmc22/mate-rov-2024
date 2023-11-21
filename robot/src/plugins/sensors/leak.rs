@@ -4,7 +4,7 @@ use common::components::Leak;
 use crossbeam::channel::Receiver;
 use rppal::gpio::{Gpio, InputPin, Level, Trigger};
 
-use crate::plugins::core::{error, robot::LocalRobotMarker};
+use crate::plugins::core::{error, robot::LocalRobot};
 
 pub struct LeakPlugin;
 
@@ -23,10 +23,7 @@ struct LeakChannels(Receiver<bool>, InputPin);
 
 const LEAK_PIN: u8 = 27;
 
-pub fn setup_leak_interupt(
-    mut cmds: Commands,
-    robot: Query<Entity, With<LocalRobotMarker>>,
-) -> anyhow::Result<()> {
+pub fn setup_leak_interupt(mut cmds: Commands, robot: Res<LocalRobot>) -> anyhow::Result<()> {
     let (tx, rx) = crossbeam::channel::bounded(5);
 
     let gpio = Gpio::new().context("Open gpio")?;
@@ -35,10 +32,8 @@ pub fn setup_leak_interupt(
         .context("Open leak pin")?
         .into_input_pulldown();
 
-    let robot = robot.single();
     let initial_leak = leak_pin.is_high();
-
-    cmds.entity(robot).insert(Leak(initial_leak));
+    cmds.entity(robot.0).insert(Leak(initial_leak));
 
     leak_pin
         .set_async_interrupt(Trigger::Both, move |level| {
@@ -57,11 +52,7 @@ pub fn setup_leak_interupt(
     Ok(())
 }
 
-pub fn read_new_data(
-    mut cmds: Commands,
-    channels: Res<LeakChannels>,
-    robot: Query<Entity, With<LocalRobotMarker>>,
-) {
+pub fn read_new_data(mut cmds: Commands, channels: Res<LeakChannels>, robot: Res<LocalRobot>) {
     let mut leak = None;
 
     for event in channels.0.try_iter() {
@@ -69,8 +60,7 @@ pub fn read_new_data(
     }
 
     if let Some(leak) = leak {
-        let robot = robot.single();
-        cmds.entity(robot).insert(Leak(leak));
+        cmds.entity(robot.0).insert(Leak(leak));
     }
 }
 

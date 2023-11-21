@@ -9,7 +9,7 @@ use common::{components::Depth, types::sensors::DepthFrame};
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobotMarker};
+use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobot};
 
 use crate::plugins::core::error::{self, Errors};
 
@@ -71,16 +71,11 @@ pub fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Re
     Ok(())
 }
 
-pub fn read_new_data(
-    mut cmds: Commands,
-    channels: Res<DepthChannels>,
-    robot: Query<Entity, With<LocalRobotMarker>>,
-) {
+pub fn read_new_data(mut cmds: Commands, channels: Res<DepthChannels>, robot: Res<LocalRobot>) {
     for depth in channels.0.try_iter() {
         let depth = Depth(depth);
 
-        let robot = robot.single();
-        cmds.entity(robot).insert(depth);
+        cmds.entity(robot.0).insert(depth);
     }
 }
 

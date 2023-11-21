@@ -19,7 +19,7 @@ use sysinfo::{
 };
 use tracing::{span, Level};
 
-use crate::plugins::core::{error::Errors, robot::LocalRobotMarker};
+use crate::plugins::core::{error::Errors, robot::LocalRobot};
 
 pub struct HwStatPlugin;
 
@@ -88,15 +88,10 @@ pub fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
     });
 }
 
-pub fn read_new_data(
-    mut cmds: Commands,
-    channels: Res<HwStatChannels>,
-    robot: Query<Entity, With<LocalRobotMarker>>,
-) {
+pub fn read_new_data(mut cmds: Commands, channels: Res<HwStatChannels>, robot: Res<LocalRobot>) {
     for info in channels.0.try_iter() {
-        let robot = robot.single();
         // FIXME/TODO: This will clobber change detection
-        cmds.entity(robot).insert(info);
+        cmds.entity(robot.0).insert(info);
     }
 }
 
