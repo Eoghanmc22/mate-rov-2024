@@ -79,6 +79,18 @@ macro_rules! unit {
                 $name(-self.0)
             }
         }
+
+        impl From<$repr> for $name {
+            fn from(value: $repr) -> Self {
+                Self(value)
+            }
+        }
+
+        impl From<$name> for $repr {
+            fn from(value: $name) -> Self {
+                value.0
+            }
+        }
     };
 }
 

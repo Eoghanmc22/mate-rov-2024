@@ -3,7 +3,7 @@ use std::{net::SocketAddr, time::Duration};
 use ahash::HashMap;
 use bevy_ecs::component::Component;
 use glam::Quat;
-use motor_math::{ErasedMotorId, Motor, Movement};
+use motor_math::{ErasedMotorId, Motor, MotorConfig, Movement};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -16,6 +16,7 @@ use crate::{
         sensors::{DepthFrame, InertialFrame, MagneticFrame},
         system::{ComponentTemperature, Cpu, Disk, Network, Process},
         units::{Amperes, Newtons, Volts},
+        PwmChannelId,
     },
 };
 
@@ -63,19 +64,19 @@ tokened! {
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
     #[token("robot.sensors.inertial")]
     pub struct Inertial(pub InertialFrame);
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
     #[token("robot.sensors.magnetic")]
     pub struct Magnetic(pub MagneticFrame);
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
     #[token("robot.sensors.depth")]
     pub struct Depth(pub DepthFrame);
 }
@@ -134,7 +135,7 @@ tokened! {
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.system.load_average")]
     pub struct LoadAverage {
         pub one_min: f64,
@@ -150,7 +151,7 @@ tokened! {
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.system.cpu")]
     // Total of each core
     pub struct CpuTotal(pub Cpu);
@@ -163,7 +164,7 @@ tokened! {
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.system.mem")]
     pub struct Memory {
         pub total_mem: u64,
@@ -189,13 +190,13 @@ tokened! {
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.system.uptime")]
     pub struct Uptime(pub Duration);
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.system.os")]
     pub struct OperatingSystem{
         pub name: Option<String>,
@@ -207,37 +208,43 @@ tokened! {
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.motor.goal")]
     pub struct TargetForce(pub Newtons);
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.motor.real")]
     pub struct ActualForce(pub Newtons);
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.motor")]
-    pub struct MotorDefinition(pub Motor);
+    pub struct MotorDefinition(pub ErasedMotorId, pub Motor);
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+    #[token("robot.motors")]
+    pub struct Motors(pub MotorConfig<ErasedMotorId>);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.movement.goal")]
     pub struct TargetMovement(pub Movement);
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.movement.real")]
     pub struct ActualMovement(pub Movement);
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.voltage")]
     pub struct MeasuredVoltage(pub Volts);
 }
@@ -246,6 +253,7 @@ tokened! {
     #[token("robot.movement")]
     pub struct MovementContribution(pub Movement);
 }
+
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
     #[token("robot.movement.raw")]
@@ -253,7 +261,25 @@ tokened! {
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+    #[token("robot.movement.cap")]
+    pub struct MovementCurrentCap(pub Amperes);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot.current")]
     pub struct CurrentDraw(pub Amperes);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+    #[token("robot.pwm.id")]
+    pub struct PwmChannel(pub PwmChannelId);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+    #[token("robot.pwm.id")]
+    pub struct PwmSignal(pub Duration);
 }

@@ -11,7 +11,6 @@ pub mod x3d;
 
 use std::{
     collections::BTreeMap,
-    default,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
@@ -107,7 +106,7 @@ impl MotorConfig<ErasedMotorId> {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Motor {
     /// Offset from origin
     pub position: Vec3A,
@@ -117,9 +116,8 @@ pub struct Motor {
     pub direction: Direction,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Direction {
-    #[default]
     Clockwise,
     CounterClockwise,
 }

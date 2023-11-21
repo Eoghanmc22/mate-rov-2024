@@ -3,14 +3,15 @@ use bevy_ecs::bundle::Bundle;
 use crate::{
     components::{
         ActualForce, ActualMovement, Armed, Camera, Cores, CpuTotal, CurrentDraw, Depth, Disks,
-        Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory, MotorDefinition,
-        MovementContribution, Networks, OperatingSystem, Orientation, Processes, RobotId,
-        RobotMarker, RobotStatus, TargetForce, TargetMovement, Temperatures, Uptime,
+        Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory, MotorDefinition, Motors,
+        MovementContribution, MovementCurrentCap, Networks, OperatingSystem, Orientation,
+        Processes, PwmChannel, PwmSignal, RobotId, RobotMarker, RobotStatus, TargetForce,
+        TargetMovement, Temperatures, Uptime,
     },
     ecs_sync::NetworkId,
 };
 
-#[derive(Default, Bundle, PartialEq)]
+#[derive(Bundle, PartialEq)]
 pub struct RobotBundle {
     pub core: RobotCoreBundle,
     pub sensors: RobotSensorBundle,
@@ -19,15 +20,17 @@ pub struct RobotBundle {
     pub power: RobotPowerBundle,
 }
 
-#[derive(Default, Bundle, PartialEq)]
+#[derive(Bundle, PartialEq)]
 pub struct RobotCoreBundle {
     pub status: RobotStatus,
     pub net_id: NetworkId,
+    // TODO: BAD
+    pub robot_id: RobotId,
 
     pub marker: RobotMarker,
 }
 
-#[derive(Default, Bundle, PartialEq)]
+#[derive(Bundle, PartialEq)]
 pub struct RobotSensorBundle {
     pub orientation: Orientation,
     pub inertial: Inertial,
@@ -36,7 +39,7 @@ pub struct RobotSensorBundle {
     pub leak: Leak,
 }
 
-#[derive(Default, Bundle, PartialEq)]
+#[derive(Bundle, PartialEq)]
 pub struct RobotSystemBundle {
     pub processes: Processes,
     pub load_average: LoadAverage,
@@ -50,14 +53,18 @@ pub struct RobotSystemBundle {
     pub os: OperatingSystem,
 }
 
-#[derive(Default, Bundle, PartialEq)]
+#[derive(Bundle, PartialEq)]
 pub struct RobotActuatorBundle {
     pub movement_target: TargetMovement,
     pub movement_actual: ActualMovement,
+
+    pub motor_config: Motors,
+    pub current_cap: MovementCurrentCap,
+
     pub armed: Armed,
 }
 
-#[derive(Default, Bundle, PartialEq)]
+#[derive(Bundle, PartialEq)]
 pub struct RobotPowerBundle {
     pub voltage: MeasuredVoltage,
     pub current_draw: CurrentDraw,
@@ -73,15 +80,24 @@ pub struct CameraBundle {
 
 #[derive(Bundle, PartialEq)]
 pub struct MotorBundle {
+    pub actuator: PwmActuatorBundle,
+
     pub motor: MotorDefinition,
 
     pub target_force: TargetForce,
     pub actual_force: ActualForce,
     pub current_draw: CurrentDraw,
+}
+
+#[derive(Bundle, PartialEq)]
+pub struct PwmActuatorBundle {
+    pub pwm_channel: PwmChannel,
+    pub pwm_signal: PwmSignal,
 
     pub robot: RobotId,
 }
 
+#[derive(Bundle, PartialEq)]
 pub struct MovementContributionBundle {
     pub contribution: MovementContribution,
 

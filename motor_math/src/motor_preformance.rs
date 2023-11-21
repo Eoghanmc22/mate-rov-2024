@@ -6,8 +6,8 @@ use serde::Deserialize;
 use crate::Direction;
 
 pub struct MotorData {
-    pub force_index: Vec<MotorRecord>,
-    pub current_index: Vec<MotorRecord>,
+    force_index: Vec<MotorRecord>,
+    current_index: Vec<MotorRecord>,
 }
 
 impl MotorData {

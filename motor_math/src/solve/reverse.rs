@@ -63,7 +63,7 @@ pub fn clamp_amperage<MotorId: Hash + Ord + Clone>(
         let direction = motor_config
             .motor(&motor_id)
             .map(|it| it.direction)
-            .unwrap_or_default();
+            .unwrap_or(crate::Direction::Clockwise);
 
         let adjusted_current = data.current.copysign(data.force) * amperage_ratio;
         let data_adjusted =
