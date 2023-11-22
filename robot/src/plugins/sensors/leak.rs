@@ -42,6 +42,8 @@ pub fn setup_leak_interupt(mut cmds: Commands, robot: Res<LocalRobot>) -> anyhow
                 Level::Low => false,
             };
 
+            warn!(?level, "Leak interrupt triggered");
+
             // TODO: Handle?
             let _ = tx.send(level);
         })

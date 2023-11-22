@@ -1,7 +1,10 @@
 use mio::net::TcpStream;
-use tracing::warn;
+use tracing::{instrument, trace, warn};
 
-use std::io::{Read, Write};
+use std::{
+    fmt::{self, Debug},
+    io::{Read, Write},
+};
 
 use crate::{
     buf::Buffer,
@@ -32,6 +35,17 @@ impl<S> Peer<S> {
     }
 }
 
+impl<S> Debug for Peer<S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Peer")
+            .field("connected", &self.conected)
+            .field("writeable", &self.writeable)
+            .field("write_buffer", &self.write_buffer)
+            .field("read_buffer", &self.read_buffer)
+            .finish_non_exhaustive()
+    }
+}
+
 impl Peer<TcpStream> {
     pub fn connect(&mut self) -> NetResult<()> {
         self.conected = true;
@@ -45,6 +59,7 @@ impl<S> Peer<S>
 where
     for<'a> &'a mut S: Write,
 {
+    #[instrument(level = "trace")]
     pub fn write_packet<P: Packet>(&mut self, packet: &P, temp: &mut Buffer) -> NetResult<()> {
         // Clear junk from buffer
         temp.reset();
@@ -57,15 +72,24 @@ where
             if self.conected && self.writeable {
                 let writeable = raw::raw_write(&mut self.socket, temp)?;
                 self.writeable = writeable;
+
+                trace!("Data written");
+            } else {
+                trace!("Data not writable");
             }
 
             // Store any data not written to the socket untill the next writeable event
             self.write_buffer.copy_from(temp.get_written());
+
+            if !temp.is_empty() {
+                trace!("Data buffered");
+            }
         }
 
         Ok(())
     }
 
+    #[instrument(level = "trace")]
     pub fn write_remaining(&mut self) -> NetResult<()> {
         let writeable = raw::raw_write(&mut self.socket, &mut self.write_buffer)?;
         self.writeable = writeable;
@@ -78,6 +102,7 @@ where
 }
 
 impl<S: Read> Peer<S> {
+    #[instrument(level = "trace")]
     pub fn read_packet<P: Packet>(&mut self, temp: &mut Buffer) -> NetResult<Option<P>> {
         temp.reset();
 
@@ -90,6 +115,7 @@ impl<S: Read> Peer<S> {
         let packet = loop {
             // Attempt to parse a packet
             if let Some(packet) = try_read_one_packet_from_buffer(temp)? {
+                trace!("Full packet");
                 break Some(packet);
             }
 
@@ -99,6 +125,7 @@ impl<S: Read> Peer<S> {
 
             if !readable {
                 // There was no more data to read
+                trace!("Incomplete read");
                 break None;
             }
         };
@@ -106,10 +133,15 @@ impl<S: Read> Peer<S> {
         // Keep unprocessed data for a future read
         self.read_buffer.copy_from(temp.get_written());
 
+        if !temp.is_empty() {
+            trace!("Data buffered");
+        }
+
         Ok(packet)
     }
 }
 
+#[instrument(level = "trace", skip_all)]
 fn write_packet_to_buffer<P: Packet>(packet: &P, temp: &mut Buffer) -> NetResult<()> {
     // Get a write slice of the correct size
     let expected_size =
@@ -139,20 +171,34 @@ fn write_packet_to_buffer<P: Packet>(packet: &P, temp: &mut Buffer) -> NetResult
         temp.advance_write(total_written);
     }
 
+    trace!(
+        expected_size,
+        available,
+        remaining,
+        packet_size,
+        total_written,
+        "Packet written",
+    );
+
     Ok(())
 }
 
+#[instrument(level = "trace", skip_all)]
 fn try_read_one_packet_from_buffer<P: Packet>(temp: &mut Buffer) -> NetResult<Option<P>> {
     let mut maybe_complete_packet_buf = temp.get_written();
 
     // Check if a complete packet is available
     let len = header::Header::read(&mut maybe_complete_packet_buf);
     if let Some(len) = len {
+        trace!(len, "Good header");
+
         let available = maybe_complete_packet_buf.len();
 
         // If there is a packet available
         // Read it
         if available >= len {
+            trace!(available, len, "Readable Packet");
+
             // We've already read the header, discard it
             temp.advance_read(header::HEADER_SIZE);
             // Get the packet slice
@@ -168,7 +214,11 @@ fn try_read_one_packet_from_buffer<P: Packet>(temp: &mut Buffer) -> NetResult<Op
 
             // Found a good packet
             return Ok(Some(packet));
+        } else {
+            trace!(len, "Incomplete packet");
         }
+    } else {
+        trace!(len, "Incomplete header");
     }
 
     // No complete packets found

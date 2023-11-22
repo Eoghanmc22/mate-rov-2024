@@ -3,6 +3,7 @@ use common::types::{
     units::{Celsius, Dps, GForce},
 };
 use std::{thread, time::Duration};
+use tracing::{debug, instrument};
 
 use anyhow::Context;
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
@@ -16,6 +17,7 @@ impl Icm20602 {
     pub const SPI_SELECT: SlaveSelect = SlaveSelect::Ss2;
     pub const SPI_CLOCK: u32 = 10_000_000;
 
+    #[instrument(level = "debug")]
     pub fn new(bus: Bus, slave_select: SlaveSelect, clock_speed: u32) -> anyhow::Result<Self> {
         let spi = Spi::new(bus, slave_select, clock_speed, Mode::Mode0).context("Open spi")?;
 
@@ -25,6 +27,7 @@ impl Icm20602 {
         Ok(this)
     }
 
+    #[instrument(level = "trace", skip(self), ret)]
     pub fn read_frame(&mut self) -> anyhow::Result<InertialFrame> {
         let raw = self.read_raw_frame().context("Read raw frame")?;
 
@@ -86,6 +89,8 @@ impl Icm20602 {
     const READ: u8 = 0x80;
 
     fn initialize(&mut self) -> anyhow::Result<()> {
+        debug!("Initializing ICM20602 (gyro + accelerometer)");
+
         let mut id = [0, 0];
         self.spi
             .transfer(&mut id, &[Self::REG_WHO_AM_I | Self::READ, 0])
@@ -128,6 +133,8 @@ impl Icm20602 {
 
         // Delay to allow sensors to start up and stabilize
         thread::sleep(Duration::from_millis(100));
+
+        debug!("Initializing ICM20602 complete");
 
         Ok(())
     }

@@ -1,16 +1,19 @@
 //! Desired Movement -> Motor Commands
 
+use std::fmt::Debug;
 use std::hash::Hash;
 
 use ahash::{HashMap, HashMapExt};
 use nalgebra::Vector6;
+use tracing::instrument;
 
 use crate::{
     motor_preformance::{Interpolation, MotorData, MotorRecord},
     MotorConfig, Movement,
 };
 
-pub fn reverse_solve<MotorId: Hash + Ord + Clone>(
+#[instrument(level = "trace", skip(motor_config, motor_data), ret)]
+pub fn reverse_solve<MotorId: Hash + Ord + Clone + Debug>(
     movement: Movement,
     motor_config: &MotorConfig<MotorId>,
     motor_data: &MotorData,
@@ -36,7 +39,8 @@ pub fn reverse_solve<MotorId: Hash + Ord + Clone>(
 }
 
 // TODO: Preserve force ratios
-pub fn clamp_amperage<MotorId: Hash + Ord + Clone>(
+#[instrument(level = "trace", skip(motor_config, motor_data), ret)]
+pub fn clamp_amperage<MotorId: Hash + Ord + Clone + Debug>(
     motor_cmds: HashMap<MotorId, MotorRecord>,
     motor_config: &MotorConfig<MotorId>,
     motor_data: &MotorData,

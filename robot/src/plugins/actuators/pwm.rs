@@ -38,6 +38,7 @@ impl Plugin for PwmOutputPlugin {
 #[derive(Resource)]
 struct PwmChannels(Sender<PwmEvent>);
 
+#[derive(Debug)]
 enum PwmEvent {
     Arm(Armed),
     UpdateChannel(PwmChannelId, Duration),
@@ -65,8 +66,7 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
 
     let errors = errors.0.clone();
     thread::spawn(move || {
-        let span = span!(Level::INFO, "Pwm Output Thread");
-        let _enter = span.enter();
+        let _span = span!(Level::INFO, "Pwm Output Thread").entered();
 
         let mut deadline = Instant::now();
 
@@ -80,8 +80,12 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
         let mut do_shutdown = false;
 
         while !do_shutdown {
+            let _span = span!(Level::TRACE, "Pwm Output Cycle").entered();
+
             // Process events
             for event in rx_data.try_iter() {
+                trace!(?event, "Got PwmEvent");
+
                 match event {
                     PwmEvent::Arm(Armed::Armed) => {
                         batch_started = true;
@@ -116,6 +120,8 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
 
             // Update state
             if last_batch.elapsed() > max_inactive {
+                warn!("Time since last batch exceeded max_inactive, disarming");
+
                 // TODO: Should this notify bevy?
                 let _ = errors.send(anyhow!("Motors disarmed due to inactivity"));
                 armed = Armed::Disarmed;
@@ -153,12 +159,16 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
                 pwms
             };
 
+            trace!(?armed, ?channel_pwms, ?pwms, "Writing Pwms");
+
             // Write the current pwms to the pwm chip
             let rst = pwm_controller
                 .set_pwms(pwms)
                 .context("Could not communicate with PCA9685");
 
             if let Err(err) = rst {
+                warn!("Could not write pwms");
+
                 let _ = errors.send(err);
             }
 

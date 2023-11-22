@@ -3,11 +3,13 @@
 use ahash::HashMap;
 use glam::Vec3A;
 use nalgebra::DVector;
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
+use tracing::instrument;
 
 use crate::{MotorConfig, Movement};
 
-pub fn forward_solve<MotorId: Hash + Ord>(
+#[instrument(level = "trace", skip(motor_config), ret)]
+pub fn forward_solve<MotorId: Hash + Ord + Debug>(
     motor_config: &MotorConfig<MotorId>,
     motor_forces: &HashMap<MotorId, f32>,
 ) -> Movement {

@@ -54,8 +54,7 @@ pub fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
 
     let errors = errors.0.clone();
     thread::spawn(move || {
-        let span = span!(Level::INFO, "Camera manager");
-        let _enter = span.enter();
+        let _span = span!(Level::INFO, "Camera manager").entered();
 
         let mut last_cameras: HashSet<String> = HashSet::default();
         let mut cameras: HashMap<String, (Child, SocketAddr)> = HashMap::default();

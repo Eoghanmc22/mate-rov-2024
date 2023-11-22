@@ -6,6 +6,7 @@ use rppal::{
     gpio::{Gpio, OutputPin},
     i2c::I2c,
 };
+use tracing::{debug, instrument};
 
 // PWM_OE (GPIO66) is active low
 // pwm chip is on i2c4 at address 0x40
@@ -21,6 +22,7 @@ impl Pca9685 {
     pub const I2C_BUS: u8 = 4;
     pub const I2C_ADDRESS: u8 = 0x40;
 
+    #[instrument(level = "debug")]
     pub fn new(bus: u8, address: u8, period: Duration) -> anyhow::Result<Self> {
         let gpio = Gpio::new().context("Open gpio")?;
         let mut i2c = I2c::with_bus(bus).context("Open i2c")?;
@@ -42,14 +44,17 @@ impl Pca9685 {
         Ok(this)
     }
 
+    #[instrument(level = "trace", skip(self))]
     pub fn output_enable(&mut self) {
         self.output_enable.set_low();
     }
 
+    #[instrument(level = "trace", skip(self))]
     pub fn output_disable(&mut self) {
         self.output_enable.set_high();
     }
 
+    #[instrument(level = "trace", skip(self), ret)]
     pub fn set_pwm(&mut self, channel: u8, pwm: Duration) -> anyhow::Result<()> {
         let raw = pwm_to_raw(pwm, self.period);
         let upper = ((raw & 0x0f00) >> 8) as u8;
@@ -73,6 +78,7 @@ impl Pca9685 {
         Ok(())
     }
 
+    #[instrument(level = "trace", skip(self), ret)]
     pub fn set_pwms(&mut self, pwm: [Duration; 16]) -> anyhow::Result<()> {
         let raw: [u16; 16] = array::from_fn(|idx| pwm_to_raw(pwm[idx], self.period));
 
@@ -118,10 +124,14 @@ impl Pca9685 {
     const EXT_CLOCK: f64 = 24.576e6;
 
     fn initialize(&mut self) -> anyhow::Result<()> {
+        debug!("Initializing PCA9685 (pwm controller)");
+
         self.i2c
             .write(&[Self::REG_MODE1, Self::MODE1_SLEEP | Self::MODE1_AI])
             .context("Init PCA9685")?;
         self.set_prescale().context("Set prescale")?;
+
+        debug!("Initializing PCA9685 complete");
 
         Ok(())
     }
@@ -131,6 +141,8 @@ impl Pca9685 {
         if prescale < 3 {
             bail!("Prescale must be greater then 3, got: {prescale}");
         }
+
+        debug!(prescale, "Setting prescale");
 
         self.i2c
             .write(&[

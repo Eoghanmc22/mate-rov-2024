@@ -1,7 +1,9 @@
 use anyhow::Context;
 use rgb::{ComponentMap, RGB8};
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
+use tracing::instrument;
 
+// TODO: Support a whole light strip
 pub struct NeoPixel {
     spi: Spi,
 }
@@ -11,6 +13,7 @@ impl NeoPixel {
     pub const SPI_SELECT: SlaveSelect = SlaveSelect::Ss0;
     pub const SPI_CLOCK: u32 = 6_000_000;
 
+    #[instrument(level = "debug")]
     pub fn new(bus: Bus, slave_select: SlaveSelect, clock_speed: u32) -> anyhow::Result<Self> {
         let spi = Spi::new(bus, slave_select, clock_speed, Mode::Mode0).context("Open spi")?;
 

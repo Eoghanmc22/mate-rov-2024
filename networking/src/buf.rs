@@ -1,6 +1,11 @@
-use std::ptr;
+use std::{
+    fmt::{self, Debug},
+    ptr,
+};
 
-#[derive(Clone, Debug)]
+use tracing::instrument;
+
+#[derive(Clone)]
 pub struct Buffer {
     vec: Vec<u8>,
     write_index: usize,
@@ -31,16 +36,19 @@ impl Buffer {
         self.len() == 0
     }
 
+    #[instrument(level = "trace")]
     pub fn reset(&mut self) {
         self.write_index = 0;
         self.read_index = 0;
     }
 
+    #[instrument(level = "trace")]
     pub fn get_written(&self) -> &[u8] {
         let ptr = self.vec.as_ptr();
         unsafe { std::slice::from_raw_parts(ptr.add(self.read_index), self.len()) }
     }
 
+    #[instrument(level = "trace")]
     pub fn get_unwritten(&mut self, capacity: usize) -> &mut [u8] {
         self.vec.reserve(self.write_index + capacity);
 
@@ -50,6 +58,7 @@ impl Buffer {
         }
     }
 
+    #[instrument(level = "trace")]
     pub fn copy_from(&mut self, bytes: &[u8]) {
         if bytes.is_empty() {
             return;
@@ -61,6 +70,7 @@ impl Buffer {
         }
     }
 
+    #[instrument(level = "trace")]
     pub fn consume(&mut self, amount: usize) {
         debug_assert!(
             amount <= self.len(),
@@ -87,6 +97,7 @@ impl Buffer {
     /// 1. `advance` must be at most the capacity requested in `get_unwritten`
     /// 2.  At least `advance` bytes must have been written to the slice returned by `get_unwritten`,
     ///     otherwise `get_written` will return uninitialized memory
+    #[instrument(level = "trace")]
     pub unsafe fn advance_write(&mut self, advance: usize) -> &[u8] {
         debug_assert!(
             self.write_index + advance <= self.vec.capacity(),
@@ -103,6 +114,7 @@ impl Buffer {
         slice
     }
 
+    #[instrument(level = "trace")]
     pub fn advance_read(&mut self, advance: usize) -> &[u8] {
         assert!(
             self.read_index + advance <= self.write_index,
@@ -126,5 +138,16 @@ impl Buffer {
 impl Default for Buffer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Debug for Buffer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Buffer")
+            .field("write_index", &self.write_index)
+            .field("read_index", &self.read_index)
+            .field("len", &self.vec.len())
+            .field("cap", &self.vec.capacity())
+            .finish_non_exhaustive()
     }
 }

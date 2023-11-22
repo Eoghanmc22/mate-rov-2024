@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::Context;
 use serde::Deserialize;
+use tracing::instrument;
 
 use crate::Direction;
 
@@ -11,6 +12,7 @@ pub struct MotorData {
 }
 
 impl MotorData {
+    #[instrument(level = "trace", skip(self), ret)]
     pub fn lookup_by_force(&self, force: f32, interpolation: Interpolation) -> MotorRecord {
         let partition_point = self.force_index.partition_point(|x| x.force < force);
 
@@ -23,6 +25,7 @@ impl MotorData {
         Self::interpolate(a, b, force, a.force, b.force, interpolation)
     }
 
+    #[instrument(level = "trace", skip(self), ret)]
     pub fn lookup_by_current(
         &self,
         signed_current: f32,

@@ -3,6 +3,7 @@
 use anyhow::Context;
 use bincode::{DefaultOptions, Options};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::ecs_sync::SerializedChange;
 
@@ -21,18 +22,21 @@ pub enum Protocol {
 }
 
 impl networking::Packet for Protocol {
+    #[instrument(level = "trace", ret)]
     fn expected_size(&self) -> anyhow::Result<u64> {
         options()
             .serialized_size(self)
             .context("Could not compute expected size")
     }
 
+    #[instrument(level = "trace", skip(buffer))]
     fn write_buf(&self, buffer: &mut &mut [u8]) -> anyhow::Result<()> {
         options()
             .serialize_into(buffer, self)
             .context("Could not serialize packet")
     }
 
+    #[instrument(level = "trace", skip(buffer), ret)]
     fn read_buf(buffer: &mut &[u8]) -> anyhow::Result<Self> {
         options()
             .deserialize_from(buffer)

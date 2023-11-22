@@ -7,6 +7,7 @@ use bevy_ecs::ptr::{OwningPtr, Ptr};
 use bincode::{DefaultOptions, Options};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::instrument;
 
 /// Repersents a type that can be serialized to and deserialized from another type
 pub trait TypeAdapter<Output> {
@@ -36,6 +37,7 @@ impl<T> TypeAdapter<BackingType> for Adapter<T>
 where
     for<'a> T: Serialize + Deserialize<'a> + Any + Send + Sync,
 {
+    #[instrument(level = "trace", skip_all)]
     unsafe fn serialize(&self, ptr: Ptr<'_>) -> Result<BackingType, AdapterError> {
         let val = unsafe { ptr.deref::<T>() };
         options()
@@ -45,6 +47,7 @@ where
             .map_err(AdapterError::SerializationError)
     }
 
+    #[instrument(level = "trace", skip_all)]
     fn deserialize(
         &self,
         data: &BackingType,

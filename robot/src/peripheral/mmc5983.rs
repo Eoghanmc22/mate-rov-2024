@@ -1,6 +1,7 @@
 use common::types::sensors::MagneticFrame;
 use common::types::units::Gauss;
 use std::{thread, time::Duration};
+use tracing::{debug, instrument, trace};
 
 use anyhow::Context;
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
@@ -15,6 +16,7 @@ impl Mcc5983 {
     pub const SPI_SELECT: SlaveSelect = SlaveSelect::Ss1;
     pub const SPI_CLOCK: u32 = 10_000_000;
 
+    #[instrument(level = "debug")]
     pub fn new(bus: Bus, slave_select: SlaveSelect, clock_speed: u32) -> anyhow::Result<Self> {
         let spi = Spi::new(bus, slave_select, clock_speed, Mode::Mode0).context("Open spi")?;
 
@@ -29,6 +31,7 @@ impl Mcc5983 {
 
     // TODO Hard and soft iron calibration?
 
+    #[instrument(level = "trace", skip(self), ret)]
     pub fn read_frame(&mut self) -> anyhow::Result<MagneticFrame> {
         let raw = self.read_raw_frame().context("Read raw frame")?;
 
@@ -70,6 +73,8 @@ impl Mcc5983 {
     const READ: u8 = 0x80;
 
     fn initialize(&mut self) -> anyhow::Result<()> {
+        debug!("Initializing MCC5982 (magnetometer)");
+
         // Software reset
         self.spi
             .write(&[Self::REG_CONTROL1, 0x80])
@@ -93,10 +98,14 @@ impl Mcc5983 {
             .write(&[Self::REG_CONTROL2, 0x0D])
             .context("Continous mode")?;
 
+        debug!("Initializing MCC5982 complete");
+
         Ok(())
     }
 
     pub fn calibrate_offset(&mut self) -> anyhow::Result<()> {
+        debug!("Calibrating MCC5982");
+
         self.offset = [0.0; 3];
 
         // SET
@@ -116,6 +125,7 @@ impl Mcc5983 {
         );
 
         let set = self.read_frame().context("Read Set")?;
+        trace!(?set, "Set calibration");
 
         // RESET
         self.spi
@@ -134,6 +144,7 @@ impl Mcc5983 {
         );
 
         let reset = self.read_frame().context("Read Reset")?;
+        trace!(?reset, "Reset calibration");
 
         let offset = [
             (set.mag_x.0 + reset.mag_x.0) / 2.0,
@@ -142,6 +153,8 @@ impl Mcc5983 {
         ];
 
         self.offset = offset;
+
+        debug!(?offset, "Calibration complete for MCC5982");
 
         Ok(())
     }

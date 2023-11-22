@@ -6,6 +6,7 @@ use common::types::{
     units::{Celsius, Mbar, Meters},
 };
 use rppal::i2c::I2c;
+use tracing::{debug, instrument};
 
 pub struct Ms5837 {
     i2c: I2c,
@@ -17,11 +18,12 @@ impl Ms5837 {
     pub const I2C_BUS: u8 = 6;
     pub const I2C_ADDRESS: u8 = 0x76;
 
+    #[instrument(level = "debug")]
     pub fn new(bus: u8, address: u8) -> anyhow::Result<Self> {
         let mut i2c = I2c::with_bus(bus).context("Open i2c")?;
 
         i2c.set_slave_address(address as u16)
-            .context("Set addres for MS5837")?;
+            .context("Set address for MS5837")?;
 
         let mut this = Self {
             i2c,
@@ -35,6 +37,7 @@ impl Ms5837 {
         Ok(this)
     }
 
+    #[instrument(level = "trace", skip(self), ret)]
     pub fn read_frame(&mut self) -> anyhow::Result<DepthFrame> {
         let raw = self.read_raw().context("Read raw frame")?;
 
@@ -63,6 +66,8 @@ impl Ms5837 {
     const CMD_READ_ADC: u8 = 0x00;
 
     fn initialize(&mut self) -> anyhow::Result<()> {
+        debug!("Initializing MS5837 (depth sensor)");
+
         self.i2c.write(&[Self::CMD_RESET]).context("Reset MS5837")?;
         thread::sleep(Duration::from_millis(10));
 
@@ -82,10 +87,14 @@ impl Ms5837 {
             bail!("Got bad crc");
         }
 
-        // let version = (self.calibration[0] & 0x0FE0) >> 5;
-        // if version != 0x1A {
-        //     bail!("Got bad version, {version}, {}", self.calibration[0]);
-        // }
+        if cfg!(debug_assertions) {
+            let version = (self.calibration[0] & 0x0FE0) >> 5;
+            if version != 0x1A {
+                bail!("Got bad version, {version}, {}", self.calibration[0]);
+            }
+        }
+
+        debug!("Initializing MS5837 complete");
 
         Ok(())
     }

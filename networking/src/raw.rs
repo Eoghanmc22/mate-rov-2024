@@ -1,5 +1,7 @@
 use std::io::{ErrorKind, Read, Write};
 
+use tracing::{instrument, trace};
+
 use crate::{
     buf::Buffer,
     error::{NetError, NetResult},
@@ -8,11 +10,14 @@ use crate::{
 
 // Returns if the socket is still writeable
 // Callees need to handle any data remaining in `buffer`
+#[instrument(level = "trace", skip(socket))]
 pub fn raw_write<S: Write>(mut socket: S, buffer: &mut Buffer) -> NetResult<bool> {
     while !buffer.is_empty() {
         let to_write = buffer.get_written();
 
         let res = socket.write(to_write);
+        trace!(to_write = to_write.len(), result = ?res, "Socket write");
+
         match res {
             Ok(0) => {
                 // Write zero means that the connection got closed
@@ -41,13 +46,17 @@ pub fn raw_write<S: Write>(mut socket: S, buffer: &mut Buffer) -> NetResult<bool
     Ok(true)
 }
 
-// Returns if the socket is still readable
+// Returns true if the socket is still readable
+#[allow(unreachable_code)]
+#[instrument(level = "trace", skip(socket))]
 pub fn raw_read_once<S: Read>(mut socket: S, buffer: &mut Buffer) -> NetResult<bool> {
     let read_dest = buffer.get_unwritten(PROBE_LENGTH);
 
     // Need loop in the unlikely case of an interruption
     loop {
         let res = socket.read(read_dest);
+        trace!(result = ?res, "Socket read");
+
         match res {
             Ok(0) => {
                 // Read zero means that the connection got closed
@@ -60,6 +69,8 @@ pub fn raw_read_once<S: Read>(mut socket: S, buffer: &mut Buffer) -> NetResult<b
                 unsafe {
                     buffer.advance_write(count);
                 }
+
+                return Ok(true);
             }
 
             // An error case means nothing has been read
@@ -75,6 +86,6 @@ pub fn raw_read_once<S: Read>(mut socket: S, buffer: &mut Buffer) -> NetResult<b
             }
         }
 
-        return Ok(true);
+        unreachable!()
     }
 }

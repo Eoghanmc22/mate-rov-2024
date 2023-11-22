@@ -11,12 +11,14 @@ pub mod x3d;
 
 use std::{
     collections::BTreeMap,
+    fmt::Debug,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
 use glam::Vec3A;
 use nalgebra::{Matrix6xX, MatrixXx6};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MotorConfig<MotorId: Ord> {
@@ -26,7 +28,8 @@ pub struct MotorConfig<MotorId: Ord> {
     pseudo_inverse: MatrixXx6<f32>,
 }
 
-impl<MotorId: Ord> MotorConfig<MotorId> {
+impl<MotorId: Ord + Debug> MotorConfig<MotorId> {
+    #[instrument(level = "trace", skip_all, ret)]
     pub fn new_raw(motors: impl IntoIterator<Item = (MotorId, Motor)>) -> Self {
         let motors: BTreeMap<_, _> = motors.into_iter().collect();
 

@@ -12,6 +12,9 @@ use plugins::{
 use tracing::Level;
 
 fn main() {
+    // TODO: Rotating log file
+    // TODO: tracy support
+    // TODO: Could tracing replace the current error system?
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();

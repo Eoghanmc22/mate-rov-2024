@@ -88,6 +88,8 @@ pub fn start_server(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
     thread::spawn(move || {
         networking.start(|event| {
             if tx.is_full() {
+                warn!("Not consuming packets fast enough, Network threads will block");
+
                 let _ = errors.send(anyhow!("Net channel full"));
             }
 
@@ -115,6 +117,8 @@ pub fn net_read(
     for event in net.1.try_iter() {
         match event {
             NetEvent::Conected(token, addrs) | NetEvent::Accepted(token, addrs) => {
+                info!(?token, ?addrs, "Peer connected");
+
                 let entity = cmds.spawn((Peer { addrs, token }, Latency::default())).id();
 
                 peers.by_token.insert(token, entity);
@@ -172,7 +176,7 @@ pub fn net_read(
 
                 cmds.entity(entity).despawn();
 
-                error!("Peer ({token:?}) at {} disconnected", peer.addrs);
+                info!("Peer ({token:?}) at {} disconnected", peer.addrs);
             }
         }
     }

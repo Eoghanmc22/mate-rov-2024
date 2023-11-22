@@ -22,6 +22,8 @@ pub fn setup_handler(mut cmds: Commands) -> anyhow::Result<()> {
     cmds.insert_resource(CtrlcChannel(rx));
 
     ctrlc::set_handler(move || {
+        info!("Interrupt handler triggered");
+
         let _ = tx.send(());
     })
     .context("Set ctrl-c")?;
