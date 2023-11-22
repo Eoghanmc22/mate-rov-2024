@@ -64,6 +64,7 @@ pub struct RobotActuatorBundle {
     pub armed: Armed,
 }
 
+// TODO: Sensor not implemented
 #[derive(Bundle, PartialEq)]
 pub struct RobotPowerBundle {
     pub voltage: MeasuredVoltage,

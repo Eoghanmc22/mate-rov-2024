@@ -22,6 +22,7 @@ use tracing::instrument;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MotorConfig<MotorId: Ord> {
+    // TODO/FIXME: Is there any reason this isnt a Vec?
     motors: BTreeMap<MotorId, Motor>,
 
     matrix: Matrix6xX<f32>,

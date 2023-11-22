@@ -1,10 +1,22 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use serde::{Deserialize, Serialize};
 
 use crate::{utils::VectorTransform, Motor, MotorConfig};
 
 /// Motor ids for blue rov heavy
 #[derive(
-    Clone, Copy, Debug, PartialOrd, Ord, PartialEq, Eq, Hash, IntoPrimitive, TryFromPrimitive,
+    Clone,
+    Copy,
+    Debug,
+    PartialOrd,
+    Ord,
+    PartialEq,
+    Eq,
+    Hash,
+    IntoPrimitive,
+    TryFromPrimitive,
+    Serialize,
+    Deserialize,
 )]
 #[repr(u8)]
 pub enum HeavyMotorId {

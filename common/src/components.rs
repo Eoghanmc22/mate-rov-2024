@@ -52,9 +52,9 @@ generate_adapters_resources! {
 }
 
 tokened! {
-    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Default)]
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot")]
-    pub struct RobotMarker;
+    pub struct RobotMarker(pub String);
 }
 
 tokened! {

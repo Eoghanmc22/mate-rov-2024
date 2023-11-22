@@ -3,6 +3,7 @@ use std::{thread, time::Duration};
 use anyhow::anyhow;
 use bevy::{app::AppExit, prelude::*};
 use common::{
+    bundles::RobotSystemBundle,
     components::{
         Cores, CpuTotal, Disks, LoadAverage, Memory, Networks, OperatingSystem, Processes,
         Temperatures, Uptime,
@@ -31,21 +32,7 @@ impl Plugin for HwStatPlugin {
 }
 
 #[derive(Resource)]
-struct HwStatChannels(Receiver<SystemInfo>, Sender<()>);
-
-#[derive(Bundle, Debug, Clone)]
-pub struct SystemInfo {
-    pub processes: Processes,
-    pub load_average: LoadAverage,
-    pub networks: Networks,
-    pub cpu_total: CpuTotal,
-    pub cpus: Cores,
-    pub memory: Memory,
-    pub components: Temperatures,
-    pub disks: Disks,
-    pub uptime: Uptime,
-    pub os: OperatingSystem,
-}
+struct HwStatChannels(Receiver<RobotSystemBundle>, Sender<()>);
 
 pub fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
     let (tx_data, rx_data) = channel::bounded(10);
@@ -101,9 +88,9 @@ pub fn shutdown(channels: Res<HwStatChannels>, mut exit: EventReader<AppExit>) {
     }
 }
 
-fn collect_system_state(system: &System) -> anyhow::Result<SystemInfo> {
+fn collect_system_state(system: &System) -> anyhow::Result<RobotSystemBundle> {
     // TODO sorting?
-    let hw_state = SystemInfo {
+    let hw_state = RobotSystemBundle {
         processes: Processes(
             system
                 .processes()
@@ -140,12 +127,12 @@ fn collect_system_state(system: &System) -> anyhow::Result<SystemInfo> {
                 })
                 .collect(),
         ),
-        cpu_total: CpuTotal(Cpu {
+        cpu: CpuTotal(Cpu {
             frequency: system.global_cpu_info().frequency(),
             usage: system.global_cpu_info().cpu_usage(),
             name: system.global_cpu_info().name().to_owned(),
         }),
-        cpus: Cores(
+        cores: Cores(
             system
                 .cpus()
                 .iter()
@@ -164,7 +151,7 @@ fn collect_system_state(system: &System) -> anyhow::Result<SystemInfo> {
             used_swap: system.used_swap(),
             free_swap: system.free_swap(),
         },
-        components: Temperatures(
+        temps: Temperatures(
             system
                 .components()
                 .iter()

@@ -24,6 +24,7 @@ glam = { version = "0.24", features = ["serde"] }
 
 anyhow = "1"
 serde = { version = "1", features = ["derive"]}
+toml = "0.8"
 crossbeam = "0.8"
 ahash = "0.8"
 ctrlc = "3"
