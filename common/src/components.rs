@@ -19,7 +19,6 @@ use crate::{
     },
 };
 
-// TODO: Update
 generate_adapters_components! {
     name = adapters_components,
     output = adapters::BackingType,

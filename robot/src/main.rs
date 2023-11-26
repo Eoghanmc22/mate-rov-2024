@@ -26,6 +26,7 @@ fn main() -> anyhow::Result<()> {
     let config: RobotConfig = toml::from_str(&config).context("Parse config")?;
 
     // TODO: Make sure commands from Update get flushed before the network write system runs in PostUpdate
+    // TODO: Generally make sure that update order is correct
 
     let bevy_plugins = MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
         1.0 / 100.0,
