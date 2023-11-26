@@ -10,7 +10,7 @@ use common::{
     ecs_sync::NetworkId,
 };
 use motor_math::{
-    motor_preformance::{Interpolation, MotorData},
+    motor_preformance::{self, Interpolation, MotorData},
     solve, Direction, Movement,
 };
 
@@ -20,7 +20,10 @@ pub struct MotorMathPlugin;
 
 impl Plugin for MotorMathPlugin {
     fn build(&self, app: &mut App) {
-        // app.add_systems(Startup, start_hw_stat_thread);
+        // TODO/FIXME: This is kinda bad
+        let motor_data =
+            motor_preformance::read_motor_data("motor_data.csv").expect("Read motor data");
+
         app.add_systems(
             Update,
             (
@@ -28,16 +31,12 @@ impl Plugin for MotorMathPlugin {
                 accumulate_motor_forces.after(accumulate_movements),
             ),
         );
-
-        // TODO: Setup MotorDataRes
+        app.insert_resource(MotorDataRes(motor_data));
     }
 }
 
 #[derive(Resource)]
 struct MotorDataRes(MotorData);
-
-// TODO: Startup system to setup MotorDataRes
-// Maybe look into using asset system for this?
 
 pub fn accumulate_movements(
     mut cmds: Commands,

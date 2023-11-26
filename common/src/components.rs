@@ -2,7 +2,7 @@ use std::{net::SocketAddr, time::Duration};
 
 use ahash::HashMap;
 use bevy_ecs::component::Component;
-use glam::Quat;
+use glam::{Quat, Vec3A};
 use motor_math::{ErasedMotorId, Motor, MotorConfig, Movement};
 use serde::{Deserialize, Serialize};
 
@@ -13,13 +13,13 @@ use crate::{
     token::{Token, Tokened},
     tokened,
     types::{
-        sensors::{DepthFrame, InertialFrame, MagneticFrame},
+        hw::{DepthFrame, InertialFrame, MagneticFrame, PwmChannelId},
         system::{ComponentTemperature, Cpu, Disk, Network, Process},
-        units::{Amperes, Newtons, Volts},
-        PwmChannelId,
+        units::{Amperes, Meters, Newtons, Volts},
     },
 };
 
+// TODO: Update
 generate_adapters_components! {
     name = adapters_components,
     output = adapters::BackingType,
@@ -28,20 +28,40 @@ generate_adapters_components! {
         Orientation::TOKEN,
         Inertial::TOKEN,
         Magnetic::TOKEN,
+        Depth::TOKEN,
+        DepthTarget::TOKEN,
+        OrientationTarget::TOKEN,
+        Leak::TOKEN,
         RobotStatus::TOKEN,
         Armed::TOKEN,
         Camera::TOKEN,
         RobotId::TOKEN,
         Processes::TOKEN,
-        Cores::TOKEN,
-        Networks::TOKEN,
         LoadAverage::TOKEN,
+        Networks::TOKEN,
+        CpuTotal::TOKEN,
         Cores::TOKEN,
         Memory::TOKEN,
         Temperatures::TOKEN,
         Disks::TOKEN,
         Uptime::TOKEN,
-        OperatingSystem::TOKEN
+        OperatingSystem::TOKEN,
+        TargetForce::TOKEN,
+        ActualForce::TOKEN,
+        MotorDefinition::TOKEN,
+        Motors::TOKEN,
+        TargetMovement::TOKEN,
+        ActualMovement::TOKEN,
+        MeasuredVoltage::TOKEN,
+        ActuatorContributionMarker::TOKEN,
+        MovementContribution::TOKEN,
+        MotorContribution::TOKEN,
+        MovementCurrentCap::TOKEN,
+        CurrentDraw::TOKEN,
+        PwmChannel::TOKEN,
+        PwmSignal::TOKEN,
+        PidConfig::TOKEN,
+        PidResult::TOKEN
     }
 }
 generate_adapters_resources! {
@@ -79,6 +99,19 @@ tokened! {
     #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
     #[token("robot.sensors.depth")]
     pub struct Depth(pub DepthFrame);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
+    #[token("robot.sensors.depth.hold")]
+    pub struct DepthTarget(pub Meters);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq)]
+    #[token("robot.sensors.orientation.hold")]
+    // Desired up vector
+    pub struct OrientationTarget(pub Vec3A);
 }
 
 tokened! {
@@ -248,6 +281,13 @@ tokened! {
     #[token("robot.voltage")]
     pub struct MeasuredVoltage(pub Volts);
 }
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+    #[token("robot.movement.marker")]
+    pub struct ActuatorContributionMarker(pub String);
+}
+
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
     #[token("robot.movement")]
@@ -280,6 +320,30 @@ tokened! {
 
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
-    #[token("robot.pwm.id")]
+    #[token("robot.pwm")]
     pub struct PwmSignal(pub Duration);
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+    #[token("robot.pid.config")]
+    pub struct PidConfig {
+        pub kp: f32,
+        pub ki: f32,
+        pub kd: f32,
+
+        pub max_integral: f32,
+    }
+}
+
+tokened! {
+    #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
+    #[token("robot.pid.result")]
+    pub struct PidResult {
+        pub p: f32,
+        pub i: f32,
+        pub d: f32,
+
+        pub correction: f32,
+    }
 }

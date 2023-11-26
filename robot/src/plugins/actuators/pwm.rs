@@ -9,7 +9,7 @@ use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Armed, PwmChannel, PwmSignal, RobotId},
     ecs_sync::NetworkId,
-    types::PwmChannelId,
+    types::hw::PwmChannelId,
 };
 use crossbeam::channel::{self, Sender};
 use tracing::{span, Level};

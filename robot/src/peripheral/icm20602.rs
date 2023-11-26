@@ -1,5 +1,5 @@
 use common::types::{
-    sensors::InertialFrame,
+    hw::InertialFrame,
     units::{Celsius, Dps, GForce},
 };
 use std::{thread, time::Duration};

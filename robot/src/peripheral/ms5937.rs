@@ -2,7 +2,7 @@ use std::{thread, time::Duration};
 
 use anyhow::{bail, Context};
 use common::types::{
-    sensors::DepthFrame,
+    hw::DepthFrame,
     units::{Celsius, Mbar, Meters},
 };
 use rppal::i2c::I2c;

@@ -1,4 +1,4 @@
-use common::types::sensors::MagneticFrame;
+use common::types::hw::MagneticFrame;
 use common::types::units::Gauss;
 use std::{thread, time::Duration};
 use tracing::{debug, instrument, trace};

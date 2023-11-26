@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
-use common::{components::Depth, types::sensors::DepthFrame};
+use common::{components::Depth, types::hw::DepthFrame};
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 

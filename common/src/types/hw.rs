@@ -2,6 +2,16 @@ use serde::{Deserialize, Serialize};
 
 use super::units::{Celsius, Dps, GForce, Gauss, Mbar, Meters};
 
+//
+// Output
+//
+
+pub type PwmChannelId = u8;
+
+//
+// Input
+//
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct InertialFrame {
     pub gyro_x: Dps,

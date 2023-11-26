@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Inertial, Magnetic, Orientation},
-    types::sensors::{InertialFrame, MagneticFrame},
+    types::hw::{InertialFrame, MagneticFrame},
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use nalgebra::Vector3;

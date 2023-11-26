@@ -1,6 +1,6 @@
 use ahash::HashMap;
 use bevy::ecs::system::Resource;
-use common::types::PwmChannelId;
+use common::types::hw::PwmChannelId;
 use motor_math::{blue_rov::HeavyMotorId, x3d::X3dMotorId, ErasedMotorId, Motor, MotorConfig};
 use serde::{Deserialize, Serialize};
 

@@ -13,6 +13,7 @@ impl Plugin for LeakPlugin {
         app.add_systems(Startup, setup_leak_interupt.pipe(error::handle_errors));
         app.add_systems(
             Update,
+            // TODO: What lol?
             (read_new_data, shutdown).run_if(resource_exists::<LeakChannels>()),
         );
     }

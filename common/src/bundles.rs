@@ -2,11 +2,11 @@ use bevy_ecs::bundle::Bundle;
 
 use crate::{
     components::{
-        ActualForce, ActualMovement, Armed, Camera, Cores, CpuTotal, CurrentDraw, Depth, Disks,
-        Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory, MotorDefinition, Motors,
-        MovementContribution, MovementCurrentCap, Networks, OperatingSystem, Orientation,
-        Processes, PwmChannel, PwmSignal, RobotId, RobotMarker, RobotStatus, TargetForce,
-        TargetMovement, Temperatures, Uptime,
+        ActualForce, ActualMovement, ActuatorContributionMarker, Armed, Camera, Cores, CpuTotal,
+        CurrentDraw, Depth, Disks, Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory,
+        MotorDefinition, Motors, MovementContribution, MovementCurrentCap, Networks,
+        OperatingSystem, Orientation, Processes, PwmChannel, PwmSignal, RobotId, RobotMarker,
+        RobotStatus, TargetForce, TargetMovement, Temperatures, Uptime,
     },
     ecs_sync::NetworkId,
 };
@@ -100,6 +100,8 @@ pub struct PwmActuatorBundle {
 
 #[derive(Bundle, PartialEq)]
 pub struct MovementContributionBundle {
+    pub marker: ActuatorContributionMarker,
+
     pub contribution: MovementContribution,
 
     pub robot: RobotId,

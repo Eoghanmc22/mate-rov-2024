@@ -1,8 +1,8 @@
+pub mod depth_hold;
 pub mod motor_math;
 pub mod motor_setup;
 pub mod pwm;
-// TODO: Depth control
-// TODO: Orientation control
+pub mod stabilize;
 
 use bevy::{app::PluginGroupBuilder, prelude::PluginGroup};
 
@@ -14,6 +14,8 @@ impl PluginGroup for MovementPlugins {
             .add(motor_setup::MotorSetupPlugin)
             .add(motor_math::MotorMathPlugin)
             .add(pwm::PwmOutputPlugin)
+            .add(stabilize::StabilizePlugin)
+            .add(depth_hold::DepthHoldPlugin)
             .build()
     }
 }
