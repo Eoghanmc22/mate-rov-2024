@@ -128,7 +128,7 @@ pub fn net_read(
             }
             NetEvent::Data(token, packet) => match packet {
                 Protocol::EcsUpdate(update) => {
-                    changes.send(SerializedChangeEventIn(update, token.0))
+                    changes.send(SerializedChangeEventIn(update, token.0));
                 }
                 Protocol::Ping { payload } => {
                     let response = Protocol::Pong { payload };

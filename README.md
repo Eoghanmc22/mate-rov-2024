@@ -104,4 +104,4 @@ TODO: Explain how it works after I rewrite it
 
 Thanks to all the people who made the libraries and tools I used in ways they could have never imagined.
 
-Made with :heart: in nvim
+Made with :heart: in :crab: :rocket: 
