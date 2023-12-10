@@ -12,12 +12,11 @@ use crate::{
     MotorConfig, Movement,
 };
 
-#[instrument(level = "trace", skip(motor_config, motor_data), ret)]
+#[instrument(level = "trace", skip(motor_config), ret)]
 pub fn reverse_solve<MotorId: Hash + Ord + Clone + Debug>(
     movement: Movement,
     motor_config: &MotorConfig<MotorId>,
-    motor_data: &MotorData,
-) -> HashMap<MotorId, MotorRecord> {
+) -> HashMap<MotorId, f32> {
     let movement_vec = Vector6::from_iterator(
         [movement.force, movement.torque]
             .into_iter()
@@ -26,9 +25,24 @@ pub fn reverse_solve<MotorId: Hash + Ord + Clone + Debug>(
 
     let forces = motor_config.pseudo_inverse.clone() * movement_vec;
 
+    let mut motor_forces = HashMap::new();
+    for (idx, (motor_id, _motor)) in motor_config.motors.iter().enumerate() {
+        motor_forces.insert(motor_id.clone(), forces[idx]);
+    }
+
+    motor_forces
+}
+
+#[instrument(level = "trace", skip(motor_config, motor_data), ret)]
+pub fn forces_to_cmds<MotorId: Hash + Ord + Clone + Debug>(
+    forces: HashMap<MotorId, f32>,
+    motor_config: &MotorConfig<MotorId>,
+    motor_data: &MotorData,
+) -> HashMap<MotorId, MotorRecord> {
     let mut motor_cmds = HashMap::new();
-    for (idx, (motor_id, motor)) in motor_config.motors.iter().enumerate() {
-        let force = forces[idx];
+    for (motor_id, force) in forces {
+        // TODO/FIXME: Remove
+        let motor = motor_config.motor(&motor_id).expect("Bad motor id");
 
         let data = motor_data.lookup_by_force(force, Interpolation::LerpDirection(motor.direction));
 
