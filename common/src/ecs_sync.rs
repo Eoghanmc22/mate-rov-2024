@@ -1,7 +1,7 @@
 pub mod apply_changes;
 pub mod detect_changes;
 
-use std::{any::TypeId, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 use ahash::HashMap;
 use bevy_ecs::{
@@ -15,138 +15,100 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     adapters::{self, TypeAdapter},
-    components, token,
+    token,
 };
 
-#[derive(Component, Hash, Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct NetworkId(pub(crate) u128);
+#[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct NetId(u128);
 
-impl NetworkId {
-    pub const SINGLETON: NetworkId = NetworkId(0);
-
-    pub fn random() -> Self {
+impl NetId {
+    fn random() -> Self {
         Self(rand::random())
-    }
-}
-
-impl Default for NetworkId {
-    fn default() -> Self {
-        Self::random()
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SerializedChange {
-    EntitySpawned(NetworkId),
-    EntityDespawned(NetworkId),
-    ComponentUpdated(NetworkId, token::Key, Option<adapters::BackingType>),
-    ResourceUpdated(token::Key, Option<adapters::BackingType>),
+    EntitySpawned(NetId),
+    EntityDespawned(NetId),
+    ComponentUpdated(NetId, token::Key, Option<adapters::BackingType>),
+    EventEmitted(token::Key, Option<adapters::BackingType>),
 }
 
 #[derive(Event, Debug)]
-pub struct SerializedChangeEventIn(pub SerializedChange, pub usize);
+pub struct SerializedChangeInEvent(pub SerializedChange);
 #[derive(Event, Debug)]
-pub struct SerializedChangeEventOut(pub SerializedChange);
-
-impl From<SerializedChange> for SerializedChangeEventOut {
-    fn from(value: SerializedChange) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Resource, Default, Debug)]
-pub struct SyncState {
-    components: HashMap<ComponentId, HashMap<Entity, (Semantics, Tick)>>,
-    resources: HashMap<ComponentId, (Semantics, Tick)>,
-
-    pub singleton_map: HashMap<usize, Entity>,
-}
-
-// #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-// pub enum Ownership {
-//     Local,
-//     Forign,
-// }
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Semantics {
-    LocalMutable,
-    ForignMutable,
-}
+pub struct SerializedChangeOutEvent(pub SerializedChange);
 
 #[derive(Resource)]
 pub struct SerializationSettings {
-    tracked_components: HashMap<
-        ComponentId,
-        (
-            token::Key,
-            Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
-        ),
-    >,
-    tracked_resources: HashMap<
-        TypeId,
-        (
-            token::Key,
-            Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
-        ),
-    >,
-
-    component_deserialization: HashMap<
-        token::Key,
-        (
-            Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
-            ComponentId,
-            fn(&mut EntityWorldMut),
-        ),
-    >,
-
-    resource_deserialization: HashMap<
-        token::Key,
-        (
-            Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
-            TypeId,
-        ),
-    >,
+    marker_id: ComponentId,
+    component_lookup: HashMap<token::Key, ComponentId>,
+    tracked_components: HashMap<ComponentId, ComponentInfo>,
 }
+
+#[derive(Resource)]
+pub struct EntityMap {
+    local_to_forign: HashMap<Entity, NetId>,
+    forign_to_local: HashMap<NetId, Entity>,
+
+    local_modified: HashMap<Entity, Tick>,
+}
+
+pub struct ComponentInfo {
+    net_id: token::Key,
+    ignore_component: ComponentId,
+    adapter: Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
+    remove_fn: RemoveFn,
+}
+
+pub type RemoveFn = fn(&mut EntityWorldMut);
+
+#[derive(Component)]
+pub struct Replicate;
+#[derive(Component)]
+pub struct Ignore<T>(PhantomData<fn(T)>);
 
 impl FromWorld for SerializationSettings {
     fn from_world(world: &mut World) -> Self {
-        let mut component_deserialization = HashMap::default();
+        // let mut component_deserialization = HashMap::default();
+        //
+        // let adapters_components = components::adapters_components();
+        // let tracked_components = adapters_components
+        //     .into_iter()
+        //     .map(|(key, (adapter, descriptor, remover))| {
+        //         let adapter = adapter.into();
+        //         let component_id = world.init_component_with_descriptor(descriptor);
+        //
+        //         component_deserialization
+        //             .insert(key.clone(), (Arc::clone(&adapter), component_id, remover));
+        //
+        //         (component_id, (key, adapter))
+        //     })
+        //     .collect();
+        //
+        // let mut resource_deserialization = HashMap::default();
+        //
+        // let adapters_resources = components::adapters_resources();
+        // let tracked_resources = adapters_resources
+        //     .into_iter()
+        //     .map(|(key, (adapter, type_id))| {
+        //         let adapter = adapter.into();
+        //
+        //         resource_deserialization.insert(key.clone(), (Arc::clone(&adapter), type_id));
+        //
+        //         (type_id, (key, adapter))
+        //     })
+        //     .collect();
+        //
+        // SerializationSettings {
+        //     tracked_components,
+        //     tracked_resources,
+        //     component_deserialization,
+        //     resource_deserialization,
+        // }
 
-        let adapters_components = components::adapters_components();
-        let tracked_components = adapters_components
-            .into_iter()
-            .map(|(key, (adapter, descriptor, remover))| {
-                let adapter = adapter.into();
-                let component_id = world.init_component_with_descriptor(descriptor);
-
-                component_deserialization
-                    .insert(key.clone(), (Arc::clone(&adapter), component_id, remover));
-
-                (component_id, (key, adapter))
-            })
-            .collect();
-
-        let mut resource_deserialization = HashMap::default();
-
-        let adapters_resources = components::adapters_resources();
-        let tracked_resources = adapters_resources
-            .into_iter()
-            .map(|(key, (adapter, type_id))| {
-                let adapter = adapter.into();
-
-                resource_deserialization.insert(key.clone(), (Arc::clone(&adapter), type_id));
-
-                (type_id, (key, adapter))
-            })
-            .collect();
-
-        SerializationSettings {
-            tracked_components,
-            tracked_resources,
-            component_deserialization,
-            resource_deserialization,
-        }
+        todo!()
     }
 }
 

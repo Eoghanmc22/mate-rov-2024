@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     adapters,
-    ecs_sync::NetworkId,
-    generate_adapters_components, generate_adapters_resources,
+    ecs_sync::NetId,
+    generate_adapters_components,
     token::{Token, Tokened},
     tokened,
     types::{
@@ -63,13 +63,6 @@ generate_adapters_components! {
         PidResult::TOKEN
     }
 }
-generate_adapters_resources! {
-    name = adapters_resources,
-    output = adapters::BackingType,
-    tokens = {
-    }
-}
-
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug, Clone, PartialEq)]
     #[token("robot")]
@@ -157,7 +150,7 @@ tokened! {
 tokened! {
     #[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
     #[token("robot.id")]
-    pub struct RobotId(pub NetworkId);
+    pub struct RobotId(pub NetId);
 }
 
 tokened! {

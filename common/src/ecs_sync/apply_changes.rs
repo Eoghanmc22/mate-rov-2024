@@ -1,231 +1,98 @@
-use ahash::HashMap;
 use bevy_ecs::{
-    component::Tick,
-    entity::Entity,
-    event::{Events, ManualEventReader},
-    system::{CommandQueue, Commands, Local, SystemChangeTick, SystemState},
+    event::EventReader,
+    system::{Commands, Res, ResMut, SystemChangeTick},
     world::World,
 };
 use tracing::error;
 
 use super::{
-    NetworkId, Semantics, SerializationSettings, SerializedChange, SerializedChangeEventIn,
-    SyncState,
+    EntityMap, Replicate, SerializationSettings, SerializedChange, SerializedChangeInEvent,
 };
 
-#[derive(Default)]
-pub struct ChangeApplicationState {
-    cached_forign_net_ids: HashMap<NetworkId, Entity>,
-}
-
 pub fn apply_changes(
-    world: &mut World,
-    tick: &mut SystemState<SystemChangeTick>,
+    mut cmds: Commands,
 
-    mut reader: Local<Option<ManualEventReader<SerializedChangeEventIn>>>,
-    mut state: Local<ChangeApplicationState>,
+    ticks: SystemChangeTick,
+    settings: Res<SerializationSettings>,
+    mut entity_map: ResMut<EntityMap>,
+    mut reader: EventReader<SerializedChangeInEvent>,
 ) {
-    // Reborrows
-    let mut sync_state = world.remove_resource::<SyncState>().unwrap();
-    let events = world
-        .get_resource::<Events<SerializedChangeEventIn>>()
-        .unwrap();
-    let settings = world.get_resource::<SerializationSettings>().unwrap();
-    let state = &mut *state;
-
-    let reader = reader.get_or_insert_with(|| events.get_reader());
-
-    let tick = tick.get(world);
-
-    let mut queue = CommandQueue::default();
-    let mut cmds = Commands::new(&mut queue, world);
-
-    for SerializedChangeEventIn(change, peer) in reader.read(events) {
+    for SerializedChangeInEvent(change) in reader.read() {
         match change {
-            SerializedChange::EntitySpawned(net_id) => {
-                let entity_id = if *net_id == NetworkId::SINGLETON {
-                    sync_state.singleton_map.get(peer).cloned()
-                } else {
-                    None
-                };
+            SerializedChange::EntitySpawned(forign) => {
+                let local = cmds.spawn((Replicate, *forign)).id();
 
-                let entity_id = entity_id.unwrap_or_else(|| cmds.spawn(*net_id).id());
+                entity_map.local_to_forign.insert(local, *forign);
+                entity_map.forign_to_local.insert(*forign, local);
 
-                state.cached_forign_net_ids.insert(*net_id, entity_id);
+                entity_map.local_modified.insert(local, ticks.this_run());
             }
-            SerializedChange::EntityDespawned(net_id) => {
-                let Some(entity_id) = state.cached_forign_net_ids.remove(net_id) else {
-                    error!("Got remove for unknown or local entity");
+            SerializedChange::EntityDespawned(forign) => {
+                let Some(local) = entity_map.forign_to_local.remove(forign) else {
+                    error!("Got despawn for unknown entity");
                     continue;
                 };
+                entity_map.local_to_forign.remove(&local);
+                entity_map.local_modified.remove(&local);
 
-                cmds.entity(entity_id).despawn();
+                cmds.entity(local).despawn();
             }
-            SerializedChange::ComponentUpdated(net_id, token, Some(serialized)) => {
-                let Some(&entity_id) = state.cached_forign_net_ids.get(net_id) else {
+            SerializedChange::ComponentUpdated(forign, token, Some(serialized)) => {
+                let Some(&local) = entity_map.forign_to_local.get(forign) else {
                     error!("Got update for unknown entity");
                     continue;
                 };
 
-                let Some(entity) = world.get_entity(entity_id) else {
-                    error!("Got update for despawned entity");
-                    state.cached_forign_net_ids.remove(net_id);
-                    continue;
-                };
-
-                let Some((type_adapter, component_id, _remover)) =
-                    settings.component_deserialization.get(token)
-                else {
+                let Some(&component_id) = settings.component_lookup.get(token) else {
                     error!("Got update for unknown entity token");
                     continue;
                 };
 
-                // Update the sync meta
-                let sync_meta = sync_state.components.entry(*component_id).or_default();
-                let sync_meta_entry = if !entity.contains_id(*component_id) {
-                    sync_meta
-                        .entry(entity_id)
-                        .or_insert((Semantics::ForignMutable, Tick::new(0)))
-                } else {
-                    sync_meta
-                        .entry(entity_id)
-                        .or_insert((Semantics::LocalMutable, Tick::new(0)))
+                let Some(sync_info) = settings.tracked_components.get(&component_id) else {
+                    unreachable!();
                 };
-                sync_meta_entry.1 = tick.this_run();
 
-                // Check if write is allowed
-                if sync_meta_entry.0 != Semantics::ForignMutable {
-                    error!("Forign modified local controlled component");
-                }
-
-                let type_adapter = type_adapter.clone();
-                let component_id = *component_id;
-
+                let type_adapter = sync_info.adapter.clone();
                 let serialized = serialized.clone();
+
                 cmds.add(move |world: &mut World| {
                     // TODO: error handling
                     type_adapter
                         .deserialize(&serialized, &mut |ptr|
                         // SAFETY: We used the type adapter associated with this component id
                         unsafe {
-                            world.entity_mut(entity_id).insert_by_id(component_id, ptr);
+                            world.entity_mut(local).insert_by_id(component_id, ptr);
                         })
                         .expect("Bad update");
                 });
+
+                entity_map.local_modified.insert(local, ticks.this_run());
             }
-            SerializedChange::ComponentUpdated(net_id, token, None) => {
-                let Some(&entity_id) = state.cached_forign_net_ids.get(net_id) else {
-                    error!("Got remove for unknown entity");
+            SerializedChange::ComponentUpdated(forign, token, None) => {
+                let Some(&local) = entity_map.forign_to_local.get(forign) else {
+                    error!("Got update for unknown entity");
                     continue;
                 };
 
-                let Some(entity) = world.get_entity(entity_id) else {
-                    error!("Got remove for despawned entity");
-                    state.cached_forign_net_ids.remove(net_id);
+                let Some(&component_id) = settings.component_lookup.get(token) else {
+                    error!("Got update for unknown entity token");
                     continue;
                 };
 
-                let Some((_type_adapter, component_id, remover)) =
-                    settings.component_deserialization.get(token)
-                else {
-                    error!("Got remove for unknown component token");
-                    continue;
+                let Some(sync_info) = settings.tracked_components.get(&component_id) else {
+                    unreachable!();
                 };
 
-                // Update the sync meta
-                let sync_meta = sync_state.components.entry(*component_id).or_default();
-                let sync_meta_entry = if !entity.contains_id(*component_id) {
-                    sync_meta
-                        .entry(entity_id)
-                        .or_insert((Semantics::ForignMutable, Tick::new(0)))
-                } else {
-                    sync_meta
-                        .entry(entity_id)
-                        .or_insert((Semantics::LocalMutable, Tick::new(0)))
-                };
-
-                // Check if write is allowed
-                if sync_meta_entry.0 == Semantics::ForignMutable {
-                    sync_meta_entry.1 = tick.this_run();
-
-                    // TODO: there doesnt seem to be a bevy api for this...
-                    let remover = *remover;
-                    cmds.add(move |world: &mut World| {
-                        let mut entity = world.entity_mut(entity_id);
-                        (remover)(&mut entity);
-                    });
-                } else {
-                    error!("Forign removed local controlled component");
-                }
-            }
-            SerializedChange::ResourceUpdated(token, Some(serialized)) => {
-                let Some((type_adapter, type_id)) = settings.resource_deserialization.get(token)
-                else {
-                    error!("Got update for unknown resource token");
-                    continue;
-                };
-
-                let Some(component_id) = world.components().get_resource_id(*type_id) else {
-                    error!("Got update for unknown resource");
-                    continue;
-                };
-
-                // Update the sync meta
-                let sync_meta_entry = sync_state
-                    .resources
-                    .entry(component_id)
-                    .or_insert((Semantics::ForignMutable, Tick::new(0)));
-                sync_meta_entry.1 = tick.this_run();
-
-                // Check if write is allowed
-                if sync_meta_entry.0 != Semantics::ForignMutable {
-                    error!("Forign modified local controlled resource");
-                }
-
-                let type_adapter = type_adapter.clone();
-                let serialized = serialized.clone();
+                // TODO: there doesnt seem to be a bevy api for this...
+                let remover = sync_info.remove_fn;
                 cmds.add(move |world: &mut World| {
-                    // TODO: error handling
-                    type_adapter
-                        .deserialize(&serialized, &mut |ptr|
-                        // SAFETY: We used the type adapter associated with this component id
-                        unsafe {
-                            world.insert_resource_by_id(component_id, ptr);
-                        })
-                        .expect("Bad update");
+                    let mut entity = world.entity_mut(local);
+                    (remover)(&mut entity);
                 });
+
+                entity_map.local_modified.insert(local, ticks.this_run());
             }
-            SerializedChange::ResourceUpdated(token, None) => {
-                let Some((_type_adapter, type_id)) = settings.resource_deserialization.get(token)
-                else {
-                    error!("Got remove for unknown resource token");
-                    continue;
-                };
-
-                let Some(component_id) = world.components().get_resource_id(*type_id) else {
-                    error!("Got remove for unknown resource");
-                    continue;
-                };
-
-                // Update the sync meta
-                let sync_meta_entry = sync_state
-                    .resources
-                    .entry(component_id)
-                    .or_insert((Semantics::ForignMutable, Tick::new(0)));
-
-                // Check if write is allowed
-                if sync_meta_entry.0 == Semantics::ForignMutable {
-                    sync_meta_entry.1 = tick.this_run();
-
-                    cmds.add(move |world: &mut World| {
-                        world.remove_resource_by_id(component_id);
-                    })
-                } else {
-                    error!("Forign modified local controlled resource");
-                }
-            }
+            SerializedChange::EventEmitted(_, _) => todo!(),
         }
     }
-
-    world.insert_resource(sync_state);
 }

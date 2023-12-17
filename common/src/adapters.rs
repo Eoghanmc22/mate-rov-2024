@@ -73,7 +73,7 @@ fn options() -> impl Options {
 #[macro_export]
 macro_rules! generate_adapters_components {
     (name = $name:ident, output = $output:ty, tokens = { $($token:expr),* }) => {
-        pub fn $name() -> ahash::HashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut))>
+        pub fn $name(world: &mut bevy_ecs::world::World) -> ahash::HashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut))>
         {
             fn from<T: bevy_ecs::component::Component, O>(token: $crate::token::Token<T, O>) -> ($crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut)))
             where
@@ -83,34 +83,6 @@ macro_rules! generate_adapters_components {
                 (token.0, (std::boxed::Box::<$crate::adapters::Adapter<T>>::default(), bevy_ecs::component::ComponentDescriptor::new::<T>(), |entity| {
                     entity.remove::<T>();
                 }))
-            }
-
-            let vec = vec![
-                $(
-                    from($token),
-                )*
-            ];
-            let len = vec.len();
-
-            let map: ahash::HashMap<_, _> = vec.into_iter().collect();
-
-            assert_eq!(len, map.len());
-
-            map
-        }
-    };
-}
-#[macro_export]
-macro_rules! generate_adapters_resources {
-    (name = $name:ident, output = $output:ty, tokens = { $($token:expr),* }) => {
-        pub fn $name() -> ahash::HashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, std::any::TypeId)>
-        {
-            fn from<T: bevy_ecs::system::Resource, O>(token: $crate::token::Token<T, O>) -> ($crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, std::any::TypeId))
-            where
-                for<'a> T: Send + Sync + serde::Serialize + serde::Deserialize<'a> + 'static,
-                $crate::adapters::Adapter<T>: $crate::adapters::TypeAdapter<$output>
-            {
-                (token.0, (std::boxed::Box::<$crate::adapters::Adapter<T>>::default(), std::any::TypeId::of::<T>()))
             }
 
             let vec = vec![
@@ -141,26 +113,6 @@ macro_rules! tokened {
         }
     }
 }
-
-/// Helper function to serialize an object
-// pub fn serialize<V: Serialize + Any + Send + Sync, M, Output>(
-//     key: &token::Key,
-//     value: &dyn Any,
-//     adapters: &HashMap<token::Key, Box<dyn TypeAdapter<Output> + Send + Sync>>,
-// ) -> Result<Output, AdapterError> {
-//     let adapter = adapters.get(key).ok_or(AdapterError::NoAdapter)?;
-//     adapter.serialize(value)
-// }
-
-/// Helper function to deserialize data;
-// pub fn deserialize<V: Serialize + Any + Send + Sync, M, Output>(
-//     key: &token::Key,
-//     value: &Output,
-//     adapters: &HashMap<token::Key, Box<dyn TypeAdapter<Output> + Send + Sync>>,
-// ) -> Result<Box<dyn Any + Send + Sync>, AdapterError> {
-//     let adapter = adapters.get(key).ok_or(AdapterError::NoAdapter)?;
-//     adapter.deserialize(value)
-// }
 
 /// Error type used by adapters
 #[derive(Error, Debug)]

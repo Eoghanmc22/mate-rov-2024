@@ -1,14 +1,11 @@
 use bevy_ecs::bundle::Bundle;
 
-use crate::{
-    components::{
-        ActualForce, ActualMovement, ActuatorContributionMarker, Armed, Camera, Cores, CpuTotal,
-        CurrentDraw, Depth, Disks, Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory,
-        MotorDefinition, Motors, MovementContribution, MovementCurrentCap, Networks,
-        OperatingSystem, Orientation, Processes, PwmChannel, PwmSignal, RobotId, RobotMarker,
-        RobotStatus, TargetForce, TargetMovement, Temperatures, Uptime,
-    },
-    ecs_sync::NetworkId,
+use crate::components::{
+    ActualForce, ActualMovement, ActuatorContributionMarker, Armed, Camera, Cores, CpuTotal,
+    CurrentDraw, Depth, Disks, Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory,
+    MotorDefinition, Motors, MovementContribution, MovementCurrentCap, Networks, OperatingSystem,
+    Orientation, Processes, PwmChannel, PwmSignal, RobotId, RobotMarker, RobotStatus, TargetForce,
+    TargetMovement, Temperatures, Uptime,
 };
 
 #[derive(Bundle, PartialEq)]
@@ -23,7 +20,6 @@ pub struct RobotBundle {
 #[derive(Bundle, PartialEq)]
 pub struct RobotCoreBundle {
     pub status: RobotStatus,
-    pub net_id: NetworkId,
     // TODO: BAD
     pub robot_id: RobotId,
 
