@@ -7,7 +7,7 @@ use common::{
         ActualForce, ActualMovement, CurrentDraw, MotorContribution, MotorDefinition, Motors,
         MovementContribution, MovementCurrentCap, PwmSignal, RobotId, TargetForce, TargetMovement,
     },
-    ecs_sync::NetworkId,
+    ecs_sync::NetId,
 };
 use motor_math::{
     motor_preformance::{self, Interpolation, MotorData},
@@ -40,7 +40,7 @@ struct MotorDataRes(MotorData);
 
 pub fn accumulate_movements(
     mut cmds: Commands,
-    robot: Query<(Entity, &NetworkId, &Motors), With<LocalRobotMarker>>,
+    robot: Query<(Entity, &NetId, &Motors), With<LocalRobotMarker>>,
     movements: Query<(&RobotId, &MovementContribution)>,
 
     motor_data: Res<MotorDataRes>,
@@ -56,7 +56,8 @@ pub fn accumulate_movements(
         }
     }
 
-    let motor_cmds = solve::reverse::reverse_solve(total_movement, motor_config, &motor_data.0);
+    let forces = solve::reverse::reverse_solve(total_movement, motor_config);
+    let motor_cmds = solve::reverse::forces_to_cmds(forces, motor_config, &motor_data.0);
     let forces = motor_cmds
         .into_iter()
         .map(|(motor, cmd)| (motor, cmd.force.into()))
@@ -68,7 +69,7 @@ pub fn accumulate_movements(
 // TODO: Split into smaller systems
 pub fn accumulate_motor_forces(
     mut cmds: Commands,
-    robot: Query<(Entity, &NetworkId, &Motors, &MovementCurrentCap), With<LocalRobotMarker>>,
+    robot: Query<(Entity, &NetId, &Motors, &MovementCurrentCap), With<LocalRobotMarker>>,
     motor_forces: Query<(&RobotId, &MotorContribution)>,
     motors: Query<(Entity, &MotorDefinition, &RobotId)>,
 

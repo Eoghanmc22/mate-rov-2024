@@ -5,13 +5,15 @@ use std::{
 
 use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
-use common::{components::Depth, types::hw::DepthFrame};
+use common::{
+    components::Depth,
+    error::{self, Errors},
+    types::hw::DepthFrame,
+};
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
 use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobot};
-
-use crate::plugins::core::error::{self, Errors};
 
 pub struct DepthPlugin;
 
@@ -75,7 +77,7 @@ pub fn read_new_data(mut cmds: Commands, channels: Res<DepthChannels>, robot: Re
     for depth in channels.0.try_iter() {
         let depth = Depth(depth);
 
-        cmds.entity(robot.0).insert(depth);
+        cmds.entity(robot.entity).insert(depth);
     }
 }
 

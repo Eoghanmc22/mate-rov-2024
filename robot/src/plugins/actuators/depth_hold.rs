@@ -5,7 +5,7 @@ use common::{
         ActuatorContributionMarker, Depth, DepthTarget, MovementContribution, Orientation,
         PidConfig, PidResult, RobotId,
     },
-    ecs_sync::NetworkId,
+    ecs_sync::Replicate,
     types::utils::PidController,
 };
 use glam::Vec3A;
@@ -19,13 +19,15 @@ impl Plugin for DepthHoldPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, depth_hold_system);
 
+        let robot_net_id = app.world.resource::<LocalRobot>().net_id;
+
         let entity = app
             .world
             .spawn((
                 MovementContributionBundle {
                     marker: ActuatorContributionMarker("Depth Hold".to_owned()),
                     contribution: MovementContribution(Movement::default()),
-                    robot: RobotId(NetworkId::SINGLETON),
+                    robot: RobotId(robot_net_id),
                 },
                 // TODO: Tune
                 // TODO: Load from disk?
@@ -35,6 +37,7 @@ impl Plugin for DepthHoldPlugin {
                     kd: 0.0,
                     max_integral: 0.0,
                 },
+                Replicate,
             ))
             .id();
         app.insert_resource(DepthHoldState(entity, PidController::default()));
@@ -52,7 +55,7 @@ pub fn depth_hold_system(
     entity_query: Query<&PidConfig>,
     time: Res<Time<Real>>,
 ) {
-    let robot = robot_query.get(robot.0);
+    let robot = robot_query.get(robot.entity);
     let pid_config = entity_query.get(state.0).unwrap();
 
     if let Ok((depth, depth_target, orientation)) = robot {

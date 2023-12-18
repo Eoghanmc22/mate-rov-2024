@@ -39,7 +39,8 @@ mod tests {
         };
 
         let start = Instant::now();
-        let motor_cmds = reverse::reverse_solve(movement, &motor_config, &motor_data);
+        let forces = reverse::reverse_solve(movement, &motor_config);
+        let motor_cmds = reverse::forces_to_cmds(forces, &motor_config, &motor_data);
         let elapsed = start.elapsed();
 
         println!("motor_cmds: {motor_cmds:#?} in {}us", elapsed.as_micros());
@@ -80,7 +81,8 @@ mod tests {
         };
 
         let start = Instant::now();
-        let motor_cmds = reverse::reverse_solve(movement, &motor_config, &motor_data);
+        let forces = reverse::reverse_solve(movement, &motor_config);
+        let motor_cmds = reverse::forces_to_cmds(forces, &motor_config, &motor_data);
         let elapsed = start.elapsed();
 
         println!("motor_cmds: {motor_cmds:#?} in {}us", elapsed.as_micros());
@@ -177,7 +179,8 @@ mod tests {
         };
 
         let start = Instant::now();
-        let motor_cmds = reverse::reverse_solve(movement, &motor_config, &motor_data);
+        let forces = reverse::reverse_solve(movement, &motor_config);
+        let motor_cmds = reverse::forces_to_cmds(forces, &motor_config, &motor_data);
         let elapsed = start.elapsed();
 
         println!("motor_cmds: {motor_cmds:#?} in {}us", elapsed.as_micros());
@@ -212,7 +215,11 @@ mod tests {
             torque: vec3a(0.2, 0.1, 0.3),
         };
 
-        b.iter(|| reverse::reverse_solve(movement, &motor_config, &motor_data));
+        b.iter(|| {
+            let forces = reverse::reverse_solve(movement, &motor_config);
+            let motor_cmds = reverse::forces_to_cmds(forces, &motor_config, &motor_data);
+            motor_cmds
+        });
     }
 
     #[bench]
@@ -237,6 +244,10 @@ mod tests {
             torque: vec3a(0.2, 0.1, 0.3),
         };
 
-        b.iter(|| reverse::reverse_solve(movement, &motor_config, &motor_data));
+        b.iter(|| {
+            let forces = reverse::reverse_solve(movement, &motor_config);
+            let motor_cmds = reverse::forces_to_cmds(forces, &motor_config, &motor_data);
+            motor_cmds
+        });
     }
 }

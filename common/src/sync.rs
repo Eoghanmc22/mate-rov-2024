@@ -51,13 +51,13 @@ struct Peers {
 }
 
 #[derive(Component, Debug)]
-struct Peer {
+pub struct Peer {
     pub addrs: SocketAddr,
     pub token: NetToken,
 }
 
 #[derive(Component, Debug, Default)]
-struct Latency {
+pub struct Latency {
     // In bevy time
     pub last_ping_sent: Option<Duration>,
     pub last_acknowledged: Option<Duration>,

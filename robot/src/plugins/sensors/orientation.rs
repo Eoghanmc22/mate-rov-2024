@@ -8,6 +8,7 @@ use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Inertial, Magnetic, Orientation},
+    error::{self, ErrorEvent, Errors},
     types::hw::{InertialFrame, MagneticFrame},
 };
 use crossbeam::channel::{self, Receiver, Sender};
@@ -18,8 +19,6 @@ use crate::{
     peripheral::{icm20602::Icm20602, mmc5983::Mcc5983},
     plugins::core::robot::LocalRobot,
 };
-
-use crate::plugins::core::error::{self, ErrorEvent, Errors};
 
 pub struct OrientationPlugin;
 
@@ -154,7 +153,7 @@ pub fn read_new_data(
         let magnetic = magnetic.last().unwrap();
         let magnetic = Magnetic(*magnetic);
 
-        cmds.entity(robot.0)
+        cmds.entity(robot.entity)
             .insert((orientation, inertial, magnetic));
     }
 }

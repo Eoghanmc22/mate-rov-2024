@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use common::{
     bundles::RobotCoreBundle,
     components::{RobotId, RobotMarker, RobotStatus},
-    ecs_sync::NetworkId,
+    ecs_sync::{NetId, Replicate},
 };
 
 use crate::config::RobotConfig;
@@ -13,25 +13,33 @@ pub struct RobotPlugin;
 pub struct LocalRobotMarker;
 
 #[derive(Resource)]
-pub struct LocalRobot(pub Entity);
+pub struct LocalRobot {
+    pub entity: Entity,
+    pub net_id: NetId,
+}
 
 impl Plugin for RobotPlugin {
     fn build(&self, app: &mut App) {
         let robot_config: &RobotConfig = app.world.resource();
+        let net_id = NetId::random();
 
         let robot = app
             .world
             .spawn((
                 RobotCoreBundle {
                     status: RobotStatus::default(),
-                    net_id: NetworkId::SINGLETON,
-                    robot_id: RobotId(NetworkId::SINGLETON),
+                    robot_id: RobotId(net_id),
                     marker: RobotMarker(robot_config.name.clone()),
                 },
                 LocalRobotMarker,
+                Replicate,
+                net_id,
             ))
             .id();
 
-        app.world.insert_resource(LocalRobot(robot))
+        app.world.insert_resource(LocalRobot {
+            entity: robot,
+            net_id,
+        })
     }
 }

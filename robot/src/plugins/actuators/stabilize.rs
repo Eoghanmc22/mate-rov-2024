@@ -7,7 +7,7 @@ use common::{
         ActuatorContributionMarker, MovementContribution, Orientation, OrientationTarget,
         PidConfig, PidResult, RobotId,
     },
-    ecs_sync::NetworkId,
+    ecs_sync::Replicate,
     types::utils::PidController,
 };
 use glam::{vec3a, Vec3A};
@@ -21,13 +21,15 @@ impl Plugin for StabilizePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, stabalize_system);
 
+        let robot_net_id = app.world.resource::<LocalRobot>().net_id;
+
         let pitch = app
             .world
             .spawn((
                 MovementContributionBundle {
                     marker: ActuatorContributionMarker("Stabalize Pitch".to_owned()),
                     contribution: MovementContribution(Movement::default()),
-                    robot: RobotId(NetworkId::SINGLETON),
+                    robot: RobotId(robot_net_id),
                 },
                 // TODO: Tune
                 // TODO: Load from disk?
@@ -37,6 +39,7 @@ impl Plugin for StabilizePlugin {
                     kd: 0.0,
                     max_integral: 0.0,
                 },
+                Replicate,
             ))
             .id();
 
@@ -46,7 +49,7 @@ impl Plugin for StabilizePlugin {
                 MovementContributionBundle {
                     marker: ActuatorContributionMarker("Stabalize Roll".to_owned()),
                     contribution: MovementContribution(Movement::default()),
-                    robot: RobotId(NetworkId::SINGLETON),
+                    robot: RobotId(robot_net_id),
                 },
                 // TODO: Tune
                 // TODO: Load from disk?
@@ -56,7 +59,8 @@ impl Plugin for StabilizePlugin {
                     kd: 0.0,
                     max_integral: 0.0,
                 },
-                RobotId(NetworkId::SINGLETON),
+                RobotId(robot_net_id),
+                Replicate,
             ))
             .id();
 
@@ -86,7 +90,7 @@ pub fn stabalize_system(
     entity_query: Query<&PidConfig>,
     time: Res<Time<Real>>,
 ) {
-    let robot = robot_query.get(robot.0);
+    let robot = robot_query.get(robot.entity);
     let pitch_pid_config = entity_query.get(state.pitch).unwrap();
     let roll_pid_config = entity_query.get(state.roll).unwrap();
 

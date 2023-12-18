@@ -1,7 +1,10 @@
 use bevy::prelude::*;
-use common::components::{Armed, RobotStatus};
+use common::{
+    components::{Armed, RobotStatus},
+    sync::Peer,
+};
 
-use super::{robot::LocalRobotMarker, sync::Peer};
+use super::robot::LocalRobotMarker;
 
 pub struct StatePlugin;
 

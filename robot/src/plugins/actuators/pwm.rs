@@ -8,19 +8,14 @@ use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Armed, PwmChannel, PwmSignal, RobotId},
-    ecs_sync::NetworkId,
+    ecs_sync::NetId,
+    error::{self, Errors},
     types::hw::PwmChannelId,
 };
 use crossbeam::channel::{self, Sender};
 use tracing::{span, Level};
 
-use crate::{
-    peripheral::pca9685::Pca9685,
-    plugins::core::{
-        error::{self, Errors},
-        robot::LocalRobotMarker,
-    },
-};
+use crate::{peripheral::pca9685::Pca9685, plugins::core::robot::LocalRobotMarker};
 
 pub struct PwmOutputPlugin;
 
@@ -183,7 +178,7 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
 
 pub fn listen_to_pwms(
     channels: Res<PwmChannels>,
-    robot: Query<(&NetworkId, &Armed), With<LocalRobotMarker>>,
+    robot: Query<(&NetId, &Armed), With<LocalRobotMarker>>,
     pwms: Query<(&RobotId, &PwmChannel, &PwmSignal)>,
 ) -> anyhow::Result<()> {
     let (net_id, armed) = robot.single();

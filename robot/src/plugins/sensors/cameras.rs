@@ -12,12 +12,14 @@ use anyhow::{anyhow, bail, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Camera, RobotId},
-    ecs_sync::NetworkId,
+    ecs_sync::{NetId, Replicate},
+    error::Errors,
+    sync::Peer,
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use crate::plugins::core::{error::Errors, robot::LocalRobotMarker, sync::Peer};
+use crate::plugins::core::robot::LocalRobotMarker;
 
 // TODO: Use multicast udp
 pub struct CameraPlugin;
@@ -215,7 +217,7 @@ pub fn handle_peers(
 pub fn read_new_data(
     mut cmds: Commands,
     channels: Res<CameraChannels>,
-    robot: Query<(Entity, &NetworkId), With<LocalRobotMarker>>,
+    robot: Query<(Entity, &NetId), With<LocalRobotMarker>>,
     cameras: Query<(Entity, &RobotId), With<Camera>>,
 ) {
     let mut new_cameras = None;
@@ -233,7 +235,7 @@ pub fn read_new_data(
         }
 
         for camera in new_cameras {
-            cmds.spawn((camera, RobotId(*id)));
+            cmds.spawn((camera, RobotId(*id), Replicate));
         }
 
         // TODO: put a component on the robot entity?

@@ -43,18 +43,23 @@ pub struct ChangeDetectionSet;
 // query for added sync component
 fn detect_new_entities(
     mut cmds: Commands,
-    new_entities: Query<Entity, (Added<Replicate>, Without<NetId>)>,
+    new_entities: Query<EntityRef, Added<Replicate>>,
     mut entity_map: ResMut<EntityMap>,
     mut events: EventWriter<SerializedChangeOutEvent>,
 ) {
     for entity in &new_entities {
-        let remote_entity = *entity_map
-            .local_to_forign
-            .entry(entity)
-            .or_insert_with(NetId::random);
-        entity_map.forign_to_local.insert(remote_entity, entity);
+        let entity_id = entity.id();
 
-        cmds.entity(entity).insert(remote_entity);
+        let remote_entity = entity
+            .get::<NetId>()
+            .or_else(|| entity_map.local_to_forign.get(&entity_id))
+            .copied()
+            .unwrap_or_else(NetId::random);
+
+        entity_map.local_to_forign.insert(entity_id, remote_entity);
+        entity_map.forign_to_local.insert(remote_entity, entity_id);
+
+        cmds.entity(entity_id).insert(remote_entity);
 
         events.send(SerializedChangeOutEvent(SerializedChange::EntitySpawned(
             remote_entity,

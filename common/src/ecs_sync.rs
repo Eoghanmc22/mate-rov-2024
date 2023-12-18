@@ -23,7 +23,7 @@ use crate::adapters::{self, ReflectTypeAdapter, TypeAdapter};
 pub struct NetId(u128);
 
 impl NetId {
-    fn random() -> Self {
+    pub fn random() -> Self {
         Self(rand::random())
     }
 }

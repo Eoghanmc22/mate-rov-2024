@@ -1,10 +1,10 @@
 use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
-use common::components::Leak;
+use common::{components::Leak, error};
 use crossbeam::channel::Receiver;
 use rppal::gpio::{Gpio, InputPin, Level, Trigger};
 
-use crate::plugins::core::{error, robot::LocalRobot};
+use crate::plugins::core::robot::LocalRobot;
 
 pub struct LeakPlugin;
 
@@ -34,7 +34,7 @@ pub fn setup_leak_interupt(mut cmds: Commands, robot: Res<LocalRobot>) -> anyhow
         .into_input_pulldown();
 
     let initial_leak = leak_pin.is_high();
-    cmds.entity(robot.0).insert(Leak(initial_leak));
+    cmds.entity(robot.entity).insert(Leak(initial_leak));
 
     leak_pin
         .set_async_interrupt(Trigger::Both, move |level| {
@@ -63,7 +63,7 @@ pub fn read_new_data(mut cmds: Commands, channels: Res<LeakChannels>, robot: Res
     }
 
     if let Some(leak) = leak {
-        cmds.entity(robot.0).insert(Leak(leak));
+        cmds.entity(robot.entity).insert(Leak(leak));
     }
 }
 
