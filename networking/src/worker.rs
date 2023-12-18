@@ -28,7 +28,7 @@ pub fn start_worker<P: Packet>(
     let mut accptors = HashMap::default();
     let mut temp_buf = Buffer::with_capacity(PROBE_LENGTH * 2);
 
-    let mut events = Events::with_capacity(100);
+    let mut events = Events::with_capacity(200);
 
     'outer: loop {
         let res = poll.poll(&mut events, None);
@@ -386,7 +386,7 @@ pub fn start_worker<P: Packet>(
                         }
 
                         trace!("New peer accepted");
-                        (handler)(Event::Accepted(event.token(), addr));
+                        (handler)(Event::Accepted(token, addr));
 
                         // Register peer
                         peers.insert(token, peer);

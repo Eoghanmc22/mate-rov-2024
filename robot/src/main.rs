@@ -8,7 +8,10 @@ use std::{fs, time::Duration};
 
 use anyhow::Context;
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
-use config::RobotConfig;
+use common::{sync::SyncRole, CommonPlugins};
+use config::{RobotConfig, X3dDefinition};
+use glam::vec3a;
+use motor_math::{x3d::X3dMotorId, Motor};
 use plugins::{
     actuators::MovementPlugins, core::CorePlugins, monitor::MonitorPlugins, sensors::SensorPlugins,
 };
@@ -36,6 +39,7 @@ fn main() -> anyhow::Result<()> {
         .insert_resource(config)
         .add_plugins((
             bevy_plugins,
+            CommonPlugins(SyncRole::Server),
             CorePlugins,
             SensorPlugins,
             MovementPlugins,

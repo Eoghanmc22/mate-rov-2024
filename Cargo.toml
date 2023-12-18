@@ -2,8 +2,7 @@
 resolver = "2"
 members = [
     "robot",
-    # "surface",
-    "runner-rpi",
+    "surface",
     "common",
     "networking",
     "motor_math",

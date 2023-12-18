@@ -1,5 +1,7 @@
 use bevy::app::{App, Plugin, PostUpdate};
+use bevy::ecs::event::{Event, EventReader};
 use bevy::ecs::schedule::SystemSet;
+use bevy::ecs::system::ParamSet;
 use bevy::ecs::{
     archetype::ArchetypeId,
     change_detection::DetectChanges,
@@ -7,15 +9,18 @@ use bevy::ecs::{
     entity::Entity,
     event::EventWriter,
     ptr::UnsafeCellDeref,
-    query::{Added, With, Without},
+    query::{Added, With},
     removal_detection::{RemovedComponentEvents, RemovedComponents},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, SystemChangeTick},
     world::{EntityRef, World},
 };
+use bevy::utils::HashSet;
+use tracing::error;
 
 use super::{
-    EntityMap, NetId, Replicate, SerializationSettings, SerializedChange, SerializedChangeOutEvent,
+    EntityMap, NetId, Replicate, SerializationSettings, SerializedChange, SerializedChangeInEvent,
+    SerializedChangeOutEvent,
 };
 
 // TODO: Events as RPC
@@ -23,6 +28,8 @@ pub struct ChangeDetectionPlugin;
 
 impl Plugin for ChangeDetectionPlugin {
     fn build(&self, app: &mut App) {
+        app.add_event::<SerializedChangeOutRawEvent>();
+
         app.add_systems(
             PostUpdate,
             (
@@ -30,6 +37,7 @@ impl Plugin for ChangeDetectionPlugin {
                 detect_changes.after(detect_new_entities),
                 detect_removals.after(detect_changes),
                 detect_despawns.after(detect_removals),
+                filter_detections.after(detect_despawns),
             )
                 .in_set(ChangeDetectionSet),
         );
@@ -39,19 +47,19 @@ impl Plugin for ChangeDetectionPlugin {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ChangeDetectionSet;
 
+#[derive(Event, Debug)]
+struct SerializedChangeOutRawEvent(pub SerializedChange);
+
 // Detect new entities
 // query for added sync component
 fn detect_new_entities(
     mut cmds: Commands,
-    new_entities: Query<EntityRef, Added<Replicate>>,
+    new_entities: Query<(Entity, Option<&NetId>), Added<Replicate>>,
     mut entity_map: ResMut<EntityMap>,
-    mut events: EventWriter<SerializedChangeOutEvent>,
+    mut events: EventWriter<SerializedChangeOutRawEvent>,
 ) {
-    for entity in &new_entities {
-        let entity_id = entity.id();
-
-        let remote_entity = entity
-            .get::<NetId>()
+    for (entity_id, net_id) in &new_entities {
+        let remote_entity = net_id
             .or_else(|| entity_map.local_to_forign.get(&entity_id))
             .copied()
             .unwrap_or_else(NetId::random);
@@ -61,9 +69,9 @@ fn detect_new_entities(
 
         cmds.entity(entity_id).insert(remote_entity);
 
-        events.send(SerializedChangeOutEvent(SerializedChange::EntitySpawned(
-            remote_entity,
-        )));
+        events.send(SerializedChangeOutRawEvent(
+            SerializedChange::EntitySpawned(remote_entity),
+        ));
     }
 }
 
@@ -74,12 +82,19 @@ fn detect_new_entities(
 // if any non ignored components have changed, sync them
 // TODO: Can this be merged with detect new?
 fn detect_changes(
-    world: &World,
-    settings: Res<SerializationSettings>,
-    entity_map: Res<EntityMap>,
-    ticks: SystemChangeTick,
-    mut events: EventWriter<SerializedChangeOutEvent>,
+    mut set: ParamSet<(
+        (
+            &World,
+            Res<SerializationSettings>,
+            Res<EntityMap>,
+            SystemChangeTick,
+        ),
+        EventWriter<SerializedChangeOutRawEvent>,
+    )>,
 ) {
+    let mut changes = Vec::new();
+
+    let (world, settings, entity_map, ticks) = set.p0();
     for archetype in world
         .archetypes()
         .iter()
@@ -129,20 +144,8 @@ fn detect_changes(
 
                 // SAFETY: Since we have an &World, no one should have mutable access to world
                 let last_changed = unsafe { tick.changed.read() };
+                let changed = last_changed.is_newer_than(ticks.last_run(), ticks.this_run());
 
-                let last_updated = entity_map
-                    .local_modified
-                    .get(&entity.entity())
-                    .copied()
-                    .unwrap_or(ticks.last_run());
-
-                let last_run = if last_updated.is_newer_than(ticks.last_run(), ticks.this_run()) {
-                    last_updated
-                } else {
-                    ticks.last_run()
-                };
-
-                let changed = last_changed.is_newer_than(last_run, ticks.this_run());
                 if changed || added {
                     // SAFETY: Pointer and type adapter should match
                     let serialized = unsafe {
@@ -157,7 +160,7 @@ fn detect_changes(
                         .get(&entity.entity())
                         .expect("Unmapped entity changed");
 
-                    events.send(SerializedChangeOutEvent(
+                    changes.push(SerializedChangeOutRawEvent(
                         SerializedChange::ComponentUpdated(
                             *remote_entity,
                             sync_info.type_name.into(),
@@ -168,18 +171,27 @@ fn detect_changes(
             }
         }
     }
+
+    let mut events = set.p1();
+    events.send_batch(changes);
 }
 
 // Detect when components are removed
 // TODO: Can this be merged with detect change?
 fn detect_removals(
-    settings: Res<SerializationSettings>,
-    entity_map: Res<EntityMap>,
-    removals: &RemovedComponentEvents,
-    entities: Query<EntityRef, With<Replicate>>,
-    ticks: SystemChangeTick,
-    mut events: EventWriter<SerializedChangeOutEvent>,
+    mut set: ParamSet<(
+        (
+            Res<SerializationSettings>,
+            Res<EntityMap>,
+            &RemovedComponentEvents,
+            Query<EntityRef, With<Replicate>>,
+        ),
+        EventWriter<SerializedChangeOutRawEvent>,
+    )>,
 ) {
+    let mut changes = Vec::new();
+
+    let (settings, entity_map, removals, entities) = set.p0();
     for (component_id, sync_info) in &settings.tracked_components {
         let Some(removal_events) = removals.get(*component_id) else {
             continue;
@@ -200,22 +212,12 @@ fn detect_removals(
                 continue;
             }
 
-            let last_updated = entity_map
-                .local_modified
-                .get(&entity_id)
-                .copied()
-                .unwrap_or(ticks.last_run());
-
-            if last_updated.is_newer_than(ticks.last_run(), ticks.this_run()) {
-                continue;
-            }
-
             let remote_entity = entity_map
                 .local_to_forign
                 .get(&entity_id)
                 .expect("Unmapped entity removed component");
 
-            events.send(SerializedChangeOutEvent(
+            changes.push(SerializedChangeOutRawEvent(
                 SerializedChange::ComponentUpdated(
                     *remote_entity,
                     sync_info.type_name.into(),
@@ -224,6 +226,9 @@ fn detect_removals(
             ));
         }
     }
+
+    let mut events = set.p1();
+    events.send_batch(changes);
 }
 
 // Detect when entities despawn
@@ -231,7 +236,7 @@ fn detect_removals(
 fn detect_despawns(
     mut entity_map: ResMut<EntityMap>,
     mut despawns: RemovedComponents<Replicate>,
-    mut events: EventWriter<SerializedChangeOutEvent>,
+    mut events: EventWriter<SerializedChangeOutRawEvent>,
 ) {
     for entity in despawns.read() {
         let remote_entity = entity_map
@@ -240,8 +245,23 @@ fn detect_despawns(
             .expect("Unmapped entity despawned");
         entity_map.forign_to_local.remove(&remote_entity);
 
-        events.send(SerializedChangeOutEvent(SerializedChange::EntityDespawned(
-            remote_entity,
-        )));
+        events.send(SerializedChangeOutRawEvent(
+            SerializedChange::EntityDespawned(remote_entity),
+        ));
     }
+}
+
+fn filter_detections(
+    mut raw: EventReader<SerializedChangeOutRawEvent>,
+    mut inbound: EventReader<SerializedChangeInEvent>,
+    mut events: EventWriter<SerializedChangeOutEvent>,
+) {
+    let inbound = inbound.read().map(|it| &it.0).collect::<HashSet<_>>();
+
+    events.send_batch(
+        raw.read()
+            .map(|it| it.0.clone())
+            .filter(|it| !inbound.contains(it))
+            .map(SerializedChangeOutEvent),
+    );
 }

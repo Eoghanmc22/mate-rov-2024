@@ -30,7 +30,7 @@ impl NetId {
 
 pub type NetTypeId = Cow<'static, str>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum SerializedChange {
     EntitySpawned(NetId),
     EntityDespawned(NetId),

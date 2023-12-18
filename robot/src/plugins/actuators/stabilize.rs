@@ -59,7 +59,6 @@ impl Plugin for StabilizePlugin {
                     kd: 0.0,
                     max_integral: 0.0,
                 },
-                RobotId(robot_net_id),
                 Replicate,
             ))
             .id();

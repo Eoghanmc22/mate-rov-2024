@@ -114,7 +114,7 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
             }
 
             // Update state
-            if last_batch.elapsed() > max_inactive {
+            if matches!(armed, Armed::Armed) && last_batch.elapsed() > max_inactive {
                 warn!("Time since last batch exceeded max_inactive, disarming");
 
                 // TODO: Should this notify bevy?

@@ -1,4 +1,8 @@
-use std::{net::SocketAddr, thread, time::Duration};
+use std::{
+    net::{SocketAddr, ToSocketAddrs},
+    thread,
+    time::Duration,
+};
 
 use crate::{
     adapters,
@@ -17,7 +21,12 @@ use networking::{Event as NetEvent, Messenger, Networking, Token as NetToken};
 
 use crate::error::{self, ErrorEvent, Errors};
 
-pub struct SyncPlugin;
+pub struct SyncPlugin(pub SyncRole);
+
+pub enum SyncRole {
+    Server,
+    Client,
+}
 
 impl Plugin for SyncPlugin {
     fn build(&self, app: &mut App) {
@@ -27,7 +36,7 @@ impl Plugin for SyncPlugin {
             .init_resource::<EntityMap>()
             .init_resource::<Deltas>()
             .init_resource::<Peers>()
-            .add_systems(Startup, start_server.pipe(error::handle_errors))
+            .add_systems(Startup, setup_networking.pipe(error::handle_errors))
             .add_systems(PreUpdate, net_read.before(ChangeApplicationSet))
             .add_systems(
                 Update,
@@ -38,6 +47,21 @@ impl Plugin for SyncPlugin {
                 ),
             )
             .add_systems(PostUpdate, (net_write.after(ChangeDetectionSet), shutdown));
+
+        match self.0 {
+            SyncRole::Server => {
+                app.add_systems(
+                    PostStartup,
+                    bind.pipe(error::handle_errors).after(setup_networking),
+                );
+            }
+            SyncRole::Client => {
+                app.add_systems(
+                    PostStartup,
+                    connect.pipe(error::handle_errors).after(setup_networking),
+                );
+            }
+        }
     }
 }
 
@@ -63,11 +87,11 @@ pub struct Latency {
     pub last_acknowledged: Option<Duration>,
 }
 
-fn start_server(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
+fn setup_networking(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let networking = Networking::new().context("Start networking")?;
     let handle = networking.messenger();
 
-    let (tx, rx) = channel::bounded(30);
+    let (tx, rx) = channel::bounded(200);
 
     cmds.insert_resource(Net(handle, rx));
 
@@ -85,6 +109,28 @@ fn start_server(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
             tx.send(event).expect("Channel disconnected");
         })
     });
+
+    Ok(())
+}
+
+fn bind(net: Res<Net>) -> anyhow::Result<()> {
+    net.0
+        .bind_at("0.0.0.0:44445".parse().context("Create socket address")?)
+        .context("Contact net thread")?;
+
+    Ok(())
+}
+
+fn connect(net: Res<Net>) -> anyhow::Result<()> {
+    net.0
+        .connect_to(
+            "mate.local:44445"
+                .to_socket_addrs()
+                .context("Create socket address")?
+                .next()
+                .unwrap(),
+        )
+        .context("Contact net thread")?;
 
     Ok(())
 }

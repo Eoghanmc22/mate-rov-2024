@@ -9,7 +9,7 @@ use bevy::{
 use ctrlc::CtrlCPlugin;
 use ecs_sync::{apply_changes::ChangeApplicationPlugin, detect_changes::ChangeDetectionPlugin};
 use error::ErrorPlugin;
-use sync::SyncPlugin;
+use sync::{SyncPlugin, SyncRole};
 
 pub mod adapters;
 pub mod bundles;
@@ -30,12 +30,12 @@ impl Plugin for CommunicationTypes {
     }
 }
 
-pub struct CommonPlugins;
+pub struct CommonPlugins(pub SyncRole);
 
 impl PluginGroup for CommonPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(SyncPlugin)
+            .add(SyncPlugin(self.0))
             .add(CommunicationTypes)
             .add(ChangeDetectionPlugin)
             .add(ChangeApplicationPlugin)

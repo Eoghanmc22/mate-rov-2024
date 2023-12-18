@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, time::Duration};
+use std::{collections::BTreeMap, net::SocketAddr, time::Duration};
 
 use ahash::HashMap;
 use bevy::{
@@ -246,7 +246,7 @@ pub struct MovementContribution(pub Movement);
 #[reflect(from_reflect = false)]
 pub struct MotorContribution(
     // TODO: This bad
-    #[reflect(ignore)] pub HashMap<ErasedMotorId, Newtons>,
+    #[reflect(ignore)] pub BTreeMap<ErasedMotorId, Newtons>,
 );
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
