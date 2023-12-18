@@ -1,19 +1,17 @@
-use bevy_app::{App, Plugin, PostUpdate};
-use bevy_ecs::{
+use bevy::app::{App, Plugin, PostUpdate};
+use bevy::ecs::{
     archetype::ArchetypeId,
     change_detection::DetectChanges,
     component::StorageType,
     entity::Entity,
     event::EventWriter,
-    ptr::{Ptr, UnsafeCellDeref},
+    ptr::UnsafeCellDeref,
     query::{Added, With, Without},
     removal_detection::{RemovedComponentEvents, RemovedComponents},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, SystemChangeTick},
     world::{EntityRef, World},
 };
-
-use crate::adapters::{self, TypeAdapter};
 
 use super::{
     EntityMap, NetId, Replicate, SerializationSettings, SerializedChange, SerializedChangeOutEvent,
@@ -140,7 +138,12 @@ fn detect_changes(
                 let changed = last_changed.is_newer_than(last_run, ticks.this_run());
                 if changed || added {
                     // SAFETY: Pointer and type adapter should match
-                    let serialized = unsafe { serialize_ptr(ptr, &*sync_info.adapter) };
+                    let serialized = unsafe {
+                        sync_info
+                            .type_adapter
+                            .serialize(ptr)
+                            .expect("serialize error")
+                    };
 
                     let remote_entity = entity_map
                         .local_to_forign
@@ -150,7 +153,7 @@ fn detect_changes(
                     events.send(SerializedChangeOutEvent(
                         SerializedChange::ComponentUpdated(
                             *remote_entity,
-                            sync_info.net_id.clone(),
+                            sync_info.type_name.into(),
                             Some(serialized),
                         ),
                     ));
@@ -206,7 +209,11 @@ fn detect_removals(
                 .expect("Unmapped entity removed component");
 
             events.send(SerializedChangeOutEvent(
-                SerializedChange::ComponentUpdated(*remote_entity, sync_info.net_id.clone(), None),
+                SerializedChange::ComponentUpdated(
+                    *remote_entity,
+                    sync_info.type_name.into(),
+                    None,
+                ),
             ));
         }
     }
@@ -230,12 +237,4 @@ fn detect_despawns(
             remote_entity,
         )));
     }
-}
-unsafe fn serialize_ptr(
-    ptr: Ptr<'_>,
-    type_adapter: &(dyn TypeAdapter<adapters::BackingType> + Send + Sync),
-) -> adapters::BackingType {
-    // TODO: error handling
-    // SAFETY: Caller is required to make sure the pointer and type_adapter match
-    type_adapter.serialize(ptr).expect("serialize error")
 }

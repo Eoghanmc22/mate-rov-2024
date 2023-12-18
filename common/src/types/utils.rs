@@ -1,10 +1,12 @@
 use std::time::Duration;
 
+use bevy::reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{PidConfig, PidResult};
 
-#[derive(Clone, Copy, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Reflect, Default)]
+#[reflect(Serialize, Deserialize, Debug, Default)]
 pub struct PidController {
     last_error: Option<f32>,
     integral: f32,

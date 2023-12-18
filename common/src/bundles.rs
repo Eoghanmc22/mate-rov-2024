@@ -1,4 +1,4 @@
-use bevy_ecs::bundle::Bundle;
+use bevy::ecs::bundle::Bundle;
 
 use crate::components::{
     ActualForce, ActualMovement, ActuatorContributionMarker, Armed, Camera, Cores, CpuTotal,

@@ -3,11 +3,15 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
+use bevy::reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
 macro_rules! unit {
     ($name:ident, $repr:ty, $fmt:expr) => {
-        #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
+        #[derive(
+            Debug, Copy, Clone, Default, Serialize, Deserialize, Reflect, PartialOrd, PartialEq,
+        )]
+        #[reflect(Serialize, Deserialize, Debug, PartialEq, Default)]
         pub struct $name(pub $repr);
 
         impl Display for $name {

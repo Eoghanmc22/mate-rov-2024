@@ -15,6 +15,7 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use glam::Vec3A;
 use nalgebra::{Matrix6xX, MatrixXx6};
 use serde::{Deserialize, Serialize};
@@ -110,7 +111,8 @@ impl MotorConfig<ErasedMotorId> {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Reflect, PartialEq)]
+#[reflect(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Motor {
     /// Offset from origin
     pub position: Vec3A,
@@ -120,7 +122,8 @@ pub struct Motor {
     pub direction: Direction,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Reflect, PartialEq, Eq)]
+#[reflect(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Direction {
     Clockwise,
     CounterClockwise,
@@ -149,7 +152,8 @@ impl Direction {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, Reflect, PartialEq)]
+#[reflect(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Movement {
     pub force: Vec3A,
     pub torque: Vec3A,

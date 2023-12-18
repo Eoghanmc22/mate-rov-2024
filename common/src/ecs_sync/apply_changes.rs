@@ -1,4 +1,4 @@
-use bevy_ecs::{
+use bevy::ecs::{
     event::EventReader,
     system::{Commands, Res, ResMut, SystemChangeTick},
     world::World,
@@ -52,13 +52,13 @@ pub fn apply_changes(
                     unreachable!();
                 };
 
-                let type_adapter = sync_info.adapter.clone();
+                let type_adapter = sync_info.type_adapter.clone();
                 let serialized = serialized.clone();
 
                 cmds.add(move |world: &mut World| {
                     // TODO: error handling
                     type_adapter
-                        .deserialize(&serialized, &mut |ptr|
+                        .deserialize(&serialized, |ptr|
                         // SAFETY: We used the type adapter associated with this component id
                         unsafe {
                             world.entity_mut(local).insert_by_id(component_id, ptr);

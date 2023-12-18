@@ -765,8 +765,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
- "bevy_app",
- "bevy_ecs",
+ "bevy",
  "bincode",
  "glam",
  "motor_math",
@@ -1280,6 +1279,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
+ "bevy_reflect",
  "csv",
  "glam",
  "nalgebra",

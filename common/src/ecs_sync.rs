@@ -1,24 +1,24 @@
 pub mod apply_changes;
 pub mod detect_changes;
 
-use std::{marker::PhantomData, sync::Arc};
+use std::{borrow::Cow, marker::PhantomData};
 
 use ahash::HashMap;
-use bevy_ecs::{
-    component::{Component, ComponentId, Tick},
-    entity::Entity,
-    event::Event,
-    system::Resource,
-    world::{EntityWorldMut, FromWorld, World},
+use bevy::{
+    ecs::{
+        component::{Component, ComponentId, Tick},
+        entity::Entity,
+        event::Event,
+        system::Resource,
+        world::{EntityWorldMut, FromWorld, World},
+    },
+    reflect::Reflect,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    adapters::{self, TypeAdapter},
-    token,
-};
+use crate::adapters::{self, ReflectTypeAdapter};
 
-#[derive(Component, Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NetId(u128);
 
 impl NetId {
@@ -31,8 +31,8 @@ impl NetId {
 pub enum SerializedChange {
     EntitySpawned(NetId),
     EntityDespawned(NetId),
-    ComponentUpdated(NetId, token::Key, Option<adapters::BackingType>),
-    EventEmitted(token::Key, Option<adapters::BackingType>),
+    ComponentUpdated(NetId, Cow<'static, str>, Option<adapters::BackingType>),
+    EventEmitted(Cow<'static, str>, adapters::BackingType),
 }
 
 #[derive(Event, Debug)]
@@ -43,7 +43,7 @@ pub struct SerializedChangeOutEvent(pub SerializedChange);
 #[derive(Resource)]
 pub struct SerializationSettings {
     marker_id: ComponentId,
-    component_lookup: HashMap<token::Key, ComponentId>,
+    component_lookup: HashMap<Cow<'static, str>, ComponentId>,
     tracked_components: HashMap<ComponentId, ComponentInfo>,
 }
 
@@ -56,9 +56,11 @@ pub struct EntityMap {
 }
 
 pub struct ComponentInfo {
-    net_id: token::Key,
+    type_name: &'static str,
+    // type_id: TypeId,
+    // component_id: ComponentId,
+    type_adapter: ReflectTypeAdapter,
     ignore_component: ComponentId,
-    adapter: Arc<dyn TypeAdapter<adapters::BackingType> + Send + Sync>,
     remove_fn: RemoveFn,
 }
 

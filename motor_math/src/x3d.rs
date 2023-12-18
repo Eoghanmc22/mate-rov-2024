@@ -1,3 +1,4 @@
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +17,9 @@ use crate::{utils::VectorTransform, Motor, MotorConfig};
     TryFromPrimitive,
     Serialize,
     Deserialize,
+    Reflect,
 )]
+#[reflect(Serialize, Deserialize, Debug, PartialEq, Hash)]
 #[repr(u8)]
 pub enum X3dMotorId {
     FrontLeftBottom,
