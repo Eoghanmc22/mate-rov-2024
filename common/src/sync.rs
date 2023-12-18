@@ -184,7 +184,7 @@ fn net_read(
                         continue;
                     };
 
-                    let sent = Duration::from_micros(payload);
+                    let sent = Duration::from_millis(payload);
                     latency.last_acknowledged = sent.into();
                 }
             },
@@ -240,9 +240,10 @@ fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWrit
     }
 }
 
-const PING_INTERVAL: Duration = Duration::from_millis(40);
-const MAX_LATENCY: Duration = Duration::from_millis(25);
+const PING_INTERVAL: Duration = Duration::from_millis(100);
+const MAX_LATENCY: Duration = Duration::from_millis(50);
 
+// TODO: Auto Reconnect
 fn ping(
     net: Res<Net>,
     time: Res<Time>,
@@ -252,17 +253,17 @@ fn ping(
     let now = time.elapsed();
 
     for (peer, mut latency) in &mut query {
-        let should_disconnect = if let (Some(last_ping), Some(ack)) =
-            (latency.last_ping_sent, latency.last_acknowledged)
-        {
-            last_ping + MAX_LATENCY > ack + PING_INTERVAL
-        } else if let Some(last_ping) = latency.last_ping_sent {
-            now > MAX_LATENCY + last_ping
-        } else {
-            false
+        let should_disconnect = match (latency.last_ping_sent, latency.last_acknowledged) {
+            (Some(last_ping), Some(last_ack)) if last_ack >= last_ping => false,
+            (Some(last_ping), _) => now > MAX_LATENCY + last_ping,
+            _ => false,
         };
 
         if should_disconnect {
+            error!(
+                "Peer at {:?} timed out, now: {:?} lp: {:?}, la: {:?}",
+                peer.token, now, latency.last_ping_sent, latency.last_acknowledged
+            );
             let rst = net.0.disconnect(peer.token);
 
             if let Err(_) = rst {
@@ -279,16 +280,15 @@ fn ping(
         };
 
         if should_ping {
-            let ping = Protocol::Ping {
-                payload: now.as_micros() as u64,
-            };
+            let payload = now.as_millis() as u64;
+            let ping = Protocol::Ping { payload };
             let rst = net.0.send_packet(peer.token, ping);
 
             if let Err(_) = rst {
                 errors.send(anyhow!("Could not send ping").into());
             }
 
-            latency.last_ping_sent = now.into();
+            latency.last_ping_sent = Duration::from_millis(payload).into();
         }
     }
 }
