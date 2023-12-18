@@ -1,56 +1,43 @@
 use std::{net::SocketAddr, thread, time::Duration};
 
+use crate::{
+    adapters,
+    ecs_sync::{
+        apply_changes::ChangeApplicationSet, detect_changes::ChangeDetectionSet, EntityMap, NetId,
+        NetTypeId, SerializationSettings, SerializedChange, SerializedChangeInEvent,
+        SerializedChangeOutEvent,
+    },
+    protocol::Protocol,
+};
 use ahash::HashMap;
 use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
-use common::{
-    adapters::BackingType,
-    ecs_sync::{
-        apply_changes, detect_changes, NetworkId, SerializationSettings, SerializedChange,
-        SerializedChangeEventIn, SerializedChangeEventOut, SyncState,
-    },
-    protocol::Protocol,
-    token,
-};
 use crossbeam::channel::{self, Receiver};
 use networking::{Event as NetEvent, Messenger, Networking, Token as NetToken};
 
-use super::error::{self, ErrorEvent, Errors};
+use crate::error::{self, ErrorEvent, Errors};
 
 pub struct SyncPlugin;
 
 impl Plugin for SyncPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<SerializedChangeEventIn>();
-        app.add_event::<SerializedChangeEventOut>();
-
-        app.init_resource::<SerializationSettings>();
-        app.init_resource::<SyncState>();
-        app.init_resource::<Deltas>();
-
-        app.init_resource::<Peers>();
-
-        app.add_systems(Startup, start_server.pipe(error::handle_errors));
-        app.add_systems(
-            PreUpdate,
-            (net_read, apply_changes::apply_changes.after(net_read)),
-        );
-        app.add_systems(
-            Update,
-            (
-                ping,
-                flatten_outbound_deltas,
-                sync_new_peers.after(flatten_outbound_deltas),
-            ),
-        );
-        app.add_systems(
-            PostUpdate,
-            (
-                detect_changes::detect_changes.before(net_write),
-                net_write,
-                shutdown,
-            ),
-        );
+        app.add_event::<SerializedChangeInEvent>()
+            .add_event::<SerializedChangeOutEvent>()
+            .init_resource::<SerializationSettings>()
+            .init_resource::<EntityMap>()
+            .init_resource::<Deltas>()
+            .init_resource::<Peers>()
+            .add_systems(Startup, start_server.pipe(error::handle_errors))
+            .add_systems(PreUpdate, net_read.before(ChangeApplicationSet))
+            .add_systems(
+                Update,
+                (
+                    ping,
+                    flatten_outbound_deltas,
+                    sync_new_peers.after(flatten_outbound_deltas),
+                ),
+            )
+            .add_systems(PostUpdate, (net_write.after(ChangeDetectionSet), shutdown));
     }
 }
 
@@ -58,25 +45,25 @@ impl Plugin for SyncPlugin {
 struct Net(Messenger<Protocol>, Receiver<NetEvent<Protocol>>);
 
 #[derive(Resource, Default)]
-pub struct Peers {
+struct Peers {
     pub by_token: HashMap<NetToken, Entity>,
     pub by_addrs: HashMap<SocketAddr, Entity>,
 }
 
 #[derive(Component, Debug)]
-pub struct Peer {
+struct Peer {
     pub addrs: SocketAddr,
     pub token: NetToken,
 }
 
 #[derive(Component, Debug, Default)]
-pub struct Latency {
+struct Latency {
     // In bevy time
     pub last_ping_sent: Option<Duration>,
     pub last_acknowledged: Option<Duration>,
 }
 
-pub fn start_server(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
+fn start_server(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let networking = Networking::new().context("Start networking")?;
     let handle = networking.messenger();
 
@@ -102,13 +89,13 @@ pub fn start_server(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
     Ok(())
 }
 
-pub fn net_read(
+fn net_read(
     mut cmds: Commands,
 
     net: Res<Net>,
     mut peers: ResMut<Peers>,
-    mut sync_state: ResMut<SyncState>,
-    mut changes: EventWriter<SerializedChangeEventIn>,
+    // mut sync_state: ResMut<SyncState>,
+    mut changes: EventWriter<SerializedChangeInEvent>,
 
     mut query: Query<(&Peer, &mut Latency)>,
 
@@ -124,11 +111,12 @@ pub fn net_read(
                 peers.by_token.insert(token, entity);
                 peers.by_addrs.insert(addrs, entity);
 
-                sync_state.singleton_map.insert(token.0, entity);
+                // TODO
+                // sync_state.singleton_map.insert(token.0, entity);
             }
             NetEvent::Data(token, packet) => match packet {
                 Protocol::EcsUpdate(update) => {
-                    changes.send(SerializedChangeEventIn(update, token.0));
+                    changes.send(SerializedChangeInEvent(update));
                 }
                 Protocol::Ping { payload } => {
                     let response = Protocol::Pong { payload };
@@ -172,7 +160,8 @@ pub fn net_read(
                 };
 
                 peers.by_addrs.remove(&peer.addrs);
-                sync_state.singleton_map.remove(&token.0);
+                // TODO
+                // sync_state.singleton_map.remove(&token.0);
 
                 cmds.entity(entity).despawn();
 
@@ -181,9 +170,9 @@ pub fn net_read(
         }
     }
 }
-pub fn net_write(
+fn net_write(
     net: Res<Net>,
-    mut changes: EventReader<SerializedChangeEventOut>,
+    mut changes: EventReader<SerializedChangeOutEvent>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
     for change in changes.read() {
@@ -195,11 +184,7 @@ pub fn net_write(
     }
 }
 
-pub fn shutdown(
-    net: Res<Net>,
-    mut exit: EventReader<AppExit>,
-    mut errors: EventWriter<ErrorEvent>,
-) {
+fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWriter<ErrorEvent>) {
     for _event in exit.read() {
         let rst = net.0.shutdown();
 
@@ -212,7 +197,7 @@ pub fn shutdown(
 const PING_INTERVAL: Duration = Duration::from_millis(40);
 const MAX_LATENCY: Duration = Duration::from_millis(25);
 
-pub fn ping(
+fn ping(
     net: Res<Net>,
     time: Res<Time>,
     mut query: Query<(&Peer, &mut Latency)>,
@@ -264,16 +249,15 @@ pub fn ping(
 
 #[derive(Resource, Default, Debug)]
 struct Deltas {
-    entities: HashMap<NetworkId, HashMap<token::Key, BackingType>>,
-    resources: HashMap<token::Key, BackingType>,
+    entities: HashMap<NetId, HashMap<NetTypeId, adapters::BackingType>>,
 }
 
-pub fn flatten_outbound_deltas(
+fn flatten_outbound_deltas(
     mut deltas: ResMut<Deltas>,
-    mut events: EventReader<SerializedChangeEventOut>,
+    mut events: EventReader<SerializedChangeOutEvent>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
-    for SerializedChangeEventOut(change) in events.read() {
+    for SerializedChangeOutEvent(change) in events.read() {
         match change {
             SerializedChange::EntitySpawned(net_id) => {
                 deltas.entities.insert(*net_id, HashMap::default());
@@ -292,18 +276,14 @@ pub fn flatten_outbound_deltas(
                     errors.send(anyhow!("Got bad change event during flattening").into());
                 }
             }
-            SerializedChange::ResourceUpdated(token, raw) => {
-                if let Some(raw) = raw {
-                    deltas.resources.insert(token.clone(), raw.clone());
-                } else {
-                    deltas.resources.remove(token);
-                }
+            SerializedChange::EventEmitted(_, _) => {
+                // New clients should not recieve old events
             }
         }
     }
 }
 
-pub fn sync_new_peers(
+fn sync_new_peers(
     net: Res<Net>,
     deltas: Res<Deltas>,
     query: Query<&Peer, Added<Peer>>,
@@ -340,19 +320,19 @@ pub fn sync_new_peers(
             }
         }
 
-        for (token, raw) in &deltas.resources {
-            let rst = net.0.send_packet(
-                peer.token,
-                Protocol::EcsUpdate(SerializedChange::ResourceUpdated(
-                    token.clone(),
-                    Some(raw.clone()),
-                )),
-            );
-
-            if let Err(_) = rst {
-                errors.send(anyhow!("Could not send sync packet").into());
-                continue 'outer;
-            }
-        }
+        // for (token, raw) in &deltas.resources {
+        //     let rst = net.0.send_packet(
+        //         peer.token,
+        //         Protocol::EcsUpdate(SerializedChange::ResourceUpdated(
+        //             token.clone(),
+        //             Some(raw.clone()),
+        //         )),
+        //     );
+        //
+        //     if let Err(_) = rst {
+        //         errors.send(anyhow!("Could not send sync packet").into());
+        //         continue 'outer;
+        //     }
+        // }
     }
 }

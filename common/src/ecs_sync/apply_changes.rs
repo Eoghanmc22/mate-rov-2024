@@ -1,7 +1,11 @@
-use bevy::ecs::{
-    event::EventReader,
-    system::{Commands, Res, ResMut, SystemChangeTick},
-    world::World,
+use bevy::{
+    app::{App, Plugin, PreUpdate},
+    ecs::{
+        event::EventReader,
+        schedule::{IntoSystemConfigs, SystemSet},
+        system::{Commands, Res, ResMut, SystemChangeTick},
+        world::World,
+    },
 };
 use tracing::error;
 
@@ -9,7 +13,18 @@ use super::{
     EntityMap, Replicate, SerializationSettings, SerializedChange, SerializedChangeInEvent,
 };
 
-pub fn apply_changes(
+pub struct ChangeApplicationPlugin;
+
+impl Plugin for ChangeApplicationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(PreUpdate, apply_changes.in_set(ChangeApplicationSet));
+    }
+}
+
+#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+pub struct ChangeApplicationSet;
+
+fn apply_changes(
     mut cmds: Commands,
 
     ticks: SystemChangeTick,

@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use bevy::reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy::{
+    app::App,
+    reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::components::{PidConfig, PidResult};
@@ -46,4 +49,8 @@ impl PidController {
             correction,
         }
     }
+}
+
+pub fn register_types(app: &mut App) {
+    app.register_type::<PidConfig>();
 }

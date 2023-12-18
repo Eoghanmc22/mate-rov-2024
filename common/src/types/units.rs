@@ -3,6 +3,7 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
+use bevy::app::App;
 use bevy::reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -98,16 +99,32 @@ macro_rules! unit {
     };
 }
 
+macro_rules! units {
+    ($($name:ident, $fmt:expr);* ) => {
+        $(
+            unit!($name, Repr, $fmt);
+        )*
+
+        pub fn register_types(app: &mut App) {
+            $(
+                app.register_type::<$name>();
+            )*
+        }
+    }
+}
+
 type Repr = f32;
 
-unit!(Meters, Repr, "{:.2}M");
-unit!(Mbar, Repr, "{:.2}mbar");
-unit!(Celsius, Repr, "{:.2}°C");
-unit!(GForce, Repr, "{:.2}g");
-unit!(Radians, Repr, "{:.2}rad");
-unit!(Degrees, Repr, "{:.2}°");
-unit!(Dps, Repr, "{:.2}°/s");
-unit!(Gauss, Repr, "{:.2}Gs");
-unit!(Newtons, Repr, "{:.2}N");
-unit!(Volts, Repr, "{:.2}V");
-unit!(Amperes, Repr, "{:.2}A");
+units! {
+    Meters, "{:.2}M";
+    Mbar, "{:.2}mbar";
+    Celsius, "{:.2}°C";
+    GForce, "{:.2}g";
+    Radians, "{:.2}rad";
+    Degrees, "{:.2}°";
+    Dps, "{:.2}°/s";
+    Gauss, "{:.2}Gs";
+    Newtons, "{:.2}N";
+    Volts, "{:.2}V";
+    Amperes, "{:.2}A"
+}

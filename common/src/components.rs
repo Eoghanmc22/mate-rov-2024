@@ -2,6 +2,7 @@ use std::{net::SocketAddr, time::Duration};
 
 use ahash::HashMap;
 use bevy::{
+    app::App,
     ecs::component::Component,
     reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize},
 };
@@ -11,8 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     adapters::ReflectTypeAdapter,
-    ecs_sync::NetId,
-    // generate_adapters_components,
+    ecs_sync::{AppReplicateExt, NetId},
     types::{
         hw::{DepthFrame, InertialFrame, MagneticFrame, PwmChannelId},
         system::{ComponentTemperature, Cpu, Disk, Network, Process},
@@ -20,95 +20,56 @@ use crate::{
     },
 };
 
-// generate_adapters_components! {
-//     name = adapters_components,
-//     output = adapters::BackingType,
-//     tokens = {
-//         RobotMarker,
-//         Orientation,
-//         Inertial,
-//         Magnetic,
-//         Depth,
-//         DepthTarget,
-//         OrientationTarget,
-//         Leak,
-//         RobotStatus,
-//         Armed,
-//         Camera,
-//         RobotId,
-//         Processes,
-//         LoadAverage,
-//         Networks,
-//         CpuTotal,
-//         Cores,
-//         Memory,
-//         Temperatures,
-//         Disks,
-//         Uptime,
-//         OperatingSystem,
-//         TargetForce,
-//         ActualForce,
-//         MotorDefinition,
-//         Motors,
-//         TargetMovement,
-//         ActualMovement,
-//         MeasuredVoltage,
-//         ActuatorContributionMarker,
-//         MovementContribution,
-//         MotorContribution,
-//         MovementCurrentCap,
-//         CurrentDraw,
-//         PwmChannel,
-//         PwmSignal,
-//         PidConfig,
-//         PidResult
-//     }
-// }
+macro_rules! components {
+    ($($name:ident),*) => {
+        pub fn register_components(app: &mut App) {
+            $(
+                app.replicate::<$name>();
+            )*
+        }
+    }
+}
 
-// /// Macros to generate adapter lookup tables
-// #[macro_export]
-// macro_rules! generate_adapters_components {
-//     (name = $name:ident, output = $output:ty, tokens = { $($token:expr),* }) => {
-//         pub fn $name(world: &mut bevy_ecs::world::World) -> ahash::HashMap<$crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut))>
-//         {
-//             fn from<T: bevy_ecs::component::Component, O>(token: $crate::token::Token<T, O>) -> ($crate::token::Key, (std::boxed::Box<dyn $crate::adapters::TypeAdapter<$output> + Send + Sync>, bevy_ecs::component::ComponentDescriptor, fn(&mut bevy_ecs::world::EntityWorldMut)))
-//             where
-//                 for<'a> T: Send + Sync + serde::Serialize + serde::Deserialize<'a> + 'static,
-//                 $crate::adapters::Adapter<T>: $crate::adapters::TypeAdapter<$output>
-//             {
-//                 (token.0, (std::boxed::Box::<$crate::adapters::Adapter<T>>::default(), bevy_ecs::component::ComponentDescriptor::new::<T>(), |entity| {
-//                     entity.remove::<T>();
-//                 }))
-//             }
-//
-//             let vec = vec![
-//                 $(
-//                     from($token),
-//                 )*
-//             ];
-//             let len = vec.len();
-//
-//             let map: ahash::HashMap<_, _> = vec.into_iter().collect();
-//
-//             assert_eq!(len, map.len());
-//
-//             map
-//         }
-//     };
-// }
-// #[macro_export]
-// macro_rules! tokened {
-//     ($(#[derive $traits:tt])? #[token($token:literal)] $vis:vis $ident:ident $name:ident $trailing1:tt $($trailing2:tt)?) => {
-//         $(#[derive $traits])?
-//         $vis $ident $name $trailing1 $($trailing2)?
-//
-//         impl Tokened for $name {
-//             const TOKEN: Token<Self, Self::TokenMeta> = Token::new_const($token);
-//
-//             type TokenMeta = ();
-//         }
-//     }
-// }
+components! {
+    RobotMarker,
+    Orientation,
+    Inertial,
+    Magnetic,
+    Depth,
+    DepthTarget,
+    OrientationTarget,
+    Leak,
+    RobotStatus,
+    Armed,
+    Camera,
+    RobotId,
+    Processes,
+    LoadAverage,
+    Networks,
+    CpuTotal,
+    Cores,
+    Memory,
+    Temperatures,
+    Disks,
+    Uptime,
+    OperatingSystem,
+    TargetForce,
+    ActualForce,
+    MotorDefinition,
+    Motors,
+    TargetMovement,
+    ActualMovement,
+    MeasuredVoltage,
+    ActuatorContributionMarker,
+    MovementContribution,
+    MotorContribution,
+    MovementCurrentCap,
+    CurrentDraw,
+    PwmChannel,
+    PwmSignal,
+    PidConfig,
+    PidResult
+}
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]

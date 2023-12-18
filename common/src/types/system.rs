@@ -1,4 +1,7 @@
-use bevy::reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy::{
+    app::App,
+    reflect::{Reflect, ReflectDeserialize, ReflectSerialize},
+};
 use serde::{Deserialize, Serialize};
 
 use super::units::Celsius;
@@ -50,4 +53,12 @@ pub struct Network {
     pub tx_packets: u64,
     pub rx_errors: u64,
     pub tx_errors: u64,
+}
+
+pub fn register_types(app: &mut App) {
+    app.register_type::<Process>()
+        .register_type::<Cpu>()
+        .register_type::<ComponentTemperature>()
+        .register_type::<Disk>()
+        .register_type::<Network>();
 }

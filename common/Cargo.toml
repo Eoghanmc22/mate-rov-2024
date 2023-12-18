@@ -10,6 +10,7 @@ networking = { path = "../networking" }
 glam = { version = "0.24", features = ["serde"] }
 serde = { version = "1", features = ["derive", "rc"] }
 bincode = "1"
+crossbeam = "0.8"
 
 anyhow = "1"
 thiserror = "1"
@@ -19,3 +20,5 @@ rand = "0.8"
 ahash = "0.8"
 
 bevy = { version = "0.12" , default-features = false }
+
+ctrlc = "3"

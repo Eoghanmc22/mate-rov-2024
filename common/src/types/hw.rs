@@ -1,4 +1,7 @@
-use bevy::reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy::{
+    app::App,
+    reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize},
+};
 use serde::{Deserialize, Serialize};
 
 use super::units::{Celsius, Dps, GForce, Gauss, Mbar, Meters};
@@ -43,4 +46,10 @@ pub struct DepthFrame {
     pub pressure: Mbar,
 
     pub temperature: Celsius,
+}
+
+pub fn register_types(app: &mut App) {
+    app.register_type::<InertialFrame>()
+        .register_type::<MagneticFrame>()
+        .register_type::<DepthFrame>();
 }

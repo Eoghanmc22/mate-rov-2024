@@ -1,4 +1,5 @@
 use bevy::app::{App, Plugin, PostUpdate};
+use bevy::ecs::schedule::SystemSet;
 use bevy::ecs::{
     archetype::ArchetypeId,
     change_detection::DetectChanges,
@@ -17,7 +18,6 @@ use super::{
     EntityMap, NetId, Replicate, SerializationSettings, SerializedChange, SerializedChangeOutEvent,
 };
 
-// TODO/FIXME: After the apply changes system runs, this will detect all the changes it made
 // TODO: Events as RPC
 pub struct ChangeDetectionPlugin;
 
@@ -30,12 +30,14 @@ impl Plugin for ChangeDetectionPlugin {
                 detect_changes.after(detect_new_entities),
                 detect_removals.after(detect_changes),
                 detect_despawns.after(detect_removals),
-            ),
+            )
+                .in_set(ChangeDetectionSet),
         );
-
-        todo!()
     }
 }
+
+#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+pub struct ChangeDetectionSet;
 
 // Detect new entities
 // query for added sync component

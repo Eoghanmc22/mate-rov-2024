@@ -81,7 +81,7 @@ impl ReflectTypeAdapter {
 
 impl<T> FromType<T> for ReflectTypeAdapter
 where
-    for<'a> T: Reflect + Serialize + Deserialize<'a> + Any + Send + Sync,
+    for<'a> T: Reflect + TypeAdapter,
 {
     fn from_type() -> Self {
         Self {
