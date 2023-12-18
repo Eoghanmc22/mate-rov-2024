@@ -128,6 +128,8 @@ pub fn accumulate_motor_forces(
             let target_force = all_forces.get(id);
             let actual_data = motor_cmds.get(id);
 
+            // TODO/FIXME: Special case for 0
+
             if let (Some(target_force), Some(actual_data)) = (target_force, actual_data) {
                 motor.insert((
                     TargetForce((*target_force).into()),
