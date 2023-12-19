@@ -1,6 +1,5 @@
 use std::{collections::BTreeMap, net::SocketAddr, time::Duration};
 
-use ahash::HashMap;
 use bevy::{
     app::App,
     ecs::component::Component,
@@ -11,7 +10,7 @@ use motor_math::{ErasedMotorId, Motor, MotorConfig, Movement};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    adapters::ReflectTypeAdapter,
+    adapters::serde::ReflectSerdeAdapter,
     ecs_sync::{AppReplicateExt, NetId},
     types::{
         hw::{DepthFrame, InertialFrame, MagneticFrame, PwmChannelId},
@@ -72,40 +71,40 @@ components! {
 }
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct RobotMarker(pub String);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Orientation(pub Quat);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Inertial(pub InertialFrame);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Magnetic(pub MagneticFrame);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Depth(pub DepthFrame);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DepthTarget(pub Meters);
 
 /// Desired up vector
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct OrientationTarget(pub Vec3A);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Leak(pub bool);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub enum RobotStatus {
     /// No peer is connected
     #[default]
@@ -121,7 +120,7 @@ pub enum RobotStatus {
 #[derive(
     Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Eq, Default,
 )]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub enum Armed {
     Armed,
     #[default]
@@ -130,7 +129,7 @@ pub enum Armed {
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Eq)]
 #[reflect(from_reflect = false)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Camera {
     pub name: String,
     // TODO: This bad
@@ -139,15 +138,15 @@ pub struct Camera {
 }
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Eq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct RobotId(pub NetId);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Processes(pub Vec<Process>);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct LoadAverage {
     pub one_min: f64,
     pub five_min: f64,
@@ -155,20 +154,20 @@ pub struct LoadAverage {
 }
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Networks(pub Vec<Network>);
 
 /// Total of each core
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct CpuTotal(pub Cpu);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Cores(pub Vec<Cpu>);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Memory {
     pub total_mem: u64,
     pub used_mem: u64,
@@ -180,19 +179,19 @@ pub struct Memory {
 }
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Temperatures(pub Vec<ComponentTemperature>);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Disks(pub Vec<Disk>);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Uptime(pub Duration);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct OperatingSystem {
     pub name: Option<String>,
     pub kernel_version: Option<String>,
@@ -202,19 +201,19 @@ pub struct OperatingSystem {
 }
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct TargetForce(pub Newtons);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ActualForce(pub Newtons);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct MotorDefinition(pub ErasedMotorId, pub Motor);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 #[reflect(from_reflect = false)]
 pub struct Motors(
     // TODO: This bad
@@ -222,27 +221,27 @@ pub struct Motors(
 );
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct TargetMovement(pub Movement);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ActualMovement(pub Movement);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct MeasuredVoltage(pub Volts);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ActuatorContributionMarker(pub String);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct MovementContribution(pub Movement);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 #[reflect(from_reflect = false)]
 pub struct MotorContribution(
     // TODO: This bad
@@ -250,23 +249,23 @@ pub struct MotorContribution(
 );
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct MovementCurrentCap(pub Amperes);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct CurrentDraw(pub Amperes);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PwmChannel(pub PwmChannelId);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PwmSignal(pub Duration);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct PidConfig {
     pub kp: f32,
     pub ki: f32,
@@ -276,7 +275,7 @@ pub struct PidConfig {
 }
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(TypeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PidResult {
     pub p: f32,
     pub i: f32,

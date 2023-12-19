@@ -9,9 +9,7 @@ use std::{fs, time::Duration};
 use anyhow::Context;
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use common::{sync::SyncRole, CommonPlugins};
-use config::{RobotConfig, X3dDefinition};
-use glam::vec3a;
-use motor_math::{x3d::X3dMotorId, Motor};
+use config::RobotConfig;
 use plugins::{
     actuators::MovementPlugins, core::CorePlugins, monitor::MonitorPlugins, sensors::SensorPlugins,
 };

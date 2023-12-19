@@ -24,6 +24,7 @@ impl Plugin for DepthHoldPlugin {
         let entity = app
             .world
             .spawn((
+                Name::new("Depth Hold"),
                 MovementContributionBundle {
                     marker: ActuatorContributionMarker("Depth Hold".to_owned()),
                     contribution: MovementContribution(Movement::default()),

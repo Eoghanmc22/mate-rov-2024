@@ -2,12 +2,15 @@ use bevy::{
     app::{App, Plugin, PreUpdate},
     ecs::{
         event::EventReader,
+        reflect::AppTypeRegistry,
         schedule::{IntoSystemConfigs, SystemSet},
         system::{Commands, Res, ResMut, SystemChangeTick},
         world::World,
     },
 };
 use tracing::error;
+
+use crate::adapters::{dynamic::DynamicAdapter, TypeAdapter};
 
 use super::{
     EntityMap, Replicate, SerializationSettings, SerializedChange, SerializedChangeInEvent,
@@ -69,16 +72,37 @@ fn apply_changes(
 
                 let type_adapter = sync_info.type_adapter.clone();
                 let serialized = serialized.clone();
+                let token = token.clone();
 
                 cmds.add(move |world: &mut World| {
                     // TODO: error handling
-                    type_adapter
-                        .deserialize(&serialized, |ptr|
-                        // SAFETY: We used the type adapter associated with this component id
-                        unsafe {
-                            world.entity_mut(local).insert_by_id(component_id, ptr);
-                        })
-                        .expect("Bad update");
+                    // type_adapter
+
+                    match type_adapter {
+                        TypeAdapter::Serde(adapter) => {
+                            adapter
+                                .deserialize(&serialized, |ptr|
+                                    // SAFETY: We used the type adapter associated with this component id
+                                    unsafe {
+                                        world.entity_mut(local).insert_by_id(component_id, ptr);
+                                    })
+                                .expect("Bad update");
+                        }
+                        TypeAdapter::Reflect(_, component) => {
+                            let reflect = {
+                                let registry = world.resource::<AppTypeRegistry>().read();
+                                let registration = registry
+                                    .get_with_type_path(&token)
+                                    .expect("Update for unknown token");
+
+                                DynamicAdapter::deserialize(&serialized, registration, &registry)
+                                    .expect("Bad update")
+                            };
+
+                            let mut entity = world.entity_mut(local);
+                            component.insert(&mut entity, &*reflect);
+                        }
+                    }
                 });
 
                 entity_map.local_modified.insert(local, ticks.this_run());

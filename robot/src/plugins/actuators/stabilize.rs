@@ -26,6 +26,7 @@ impl Plugin for StabilizePlugin {
         let pitch = app
             .world
             .spawn((
+                Name::new("Stabalize Pitch"),
                 MovementContributionBundle {
                     marker: ActuatorContributionMarker("Stabalize Pitch".to_owned()),
                     contribution: MovementContribution(Movement::default()),
@@ -46,6 +47,7 @@ impl Plugin for StabilizePlugin {
         let roll = app
             .world
             .spawn((
+                Name::new("Stabalize Roll"),
                 MovementContributionBundle {
                     marker: ActuatorContributionMarker("Stabalize Roll".to_owned()),
                     contribution: MovementContribution(Movement::default()),

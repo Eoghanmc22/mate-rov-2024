@@ -26,6 +26,7 @@ impl Plugin for RobotPlugin {
         let robot = app
             .world
             .spawn((
+                Name::new(format!("{} ROV", robot_config.name)),
                 RobotCoreBundle {
                     status: RobotStatus::default(),
                     robot_id: RobotId(net_id),

@@ -1,5 +1,6 @@
 use bevy::app::{App, Plugin, PostUpdate};
 use bevy::ecs::event::{Event, EventReader};
+use bevy::ecs::reflect::AppTypeRegistry;
 use bevy::ecs::schedule::SystemSet;
 use bevy::ecs::system::ParamSet;
 use bevy::ecs::{
@@ -16,7 +17,9 @@ use bevy::ecs::{
     world::{EntityRef, World},
 };
 use bevy::utils::HashSet;
-use tracing::error;
+
+use crate::adapters::dynamic::DynamicAdapter;
+use crate::adapters::TypeAdapter;
 
 use super::{
     EntityMap, NetId, Replicate, SerializationSettings, SerializedChange, SerializedChangeInEvent,
@@ -87,6 +90,7 @@ fn detect_changes(
             &World,
             Res<SerializationSettings>,
             Res<EntityMap>,
+            Res<AppTypeRegistry>,
             SystemChangeTick,
         ),
         EventWriter<SerializedChangeOutRawEvent>,
@@ -94,7 +98,7 @@ fn detect_changes(
 ) {
     let mut changes = Vec::new();
 
-    let (world, settings, entity_map, ticks) = set.p0();
+    let (world, settings, entity_map, registry, ticks) = set.p0();
     for archetype in world
         .archetypes()
         .iter()
@@ -147,13 +151,16 @@ fn detect_changes(
                 let changed = last_changed.is_newer_than(ticks.last_run(), ticks.this_run());
 
                 if changed || added {
-                    // SAFETY: Pointer and type adapter should match
-                    let serialized = unsafe {
-                        sync_info
-                            .type_adapter
-                            .serialize(ptr)
-                            .expect("serialize error")
-                    };
+                    let serialized = match &sync_info.type_adapter {
+                        TypeAdapter::Serde(adapter) => unsafe { adapter.serialize(ptr) },
+                        TypeAdapter::Reflect(from_ptr, _) => {
+                            let reflect = unsafe { from_ptr.as_reflect(ptr) };
+                            let registry = registry.read();
+
+                            DynamicAdapter::serialize(reflect, &registry)
+                        }
+                    }
+                    .expect("serialize error");
 
                     let remote_entity = entity_map
                         .local_to_forign

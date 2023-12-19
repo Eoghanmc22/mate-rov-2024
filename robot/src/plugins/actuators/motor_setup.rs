@@ -9,8 +9,12 @@ use common::{
     },
     ecs_sync::Replicate,
 };
+use motor_math::{blue_rov::HeavyMotorId, x3d::X3dMotorId};
 
-use crate::{config::RobotConfig, plugins::core::robot::LocalRobot};
+use crate::{
+    config::{MotorConfigDefinition, RobotConfig},
+    plugins::core::robot::LocalRobot,
+};
 
 pub struct MotorSetupPlugin;
 
@@ -29,7 +33,24 @@ impl Plugin for MotorSetupPlugin {
                 });
 
                 for (motor_id, motor, pwm_channel) in motor_conf.0 {
+                    let name = match config.motor_config {
+                        MotorConfigDefinition::X3d(_) => {
+                            format!(
+                                "{:?} ({motor_id})",
+                                X3dMotorId::try_from(motor_id).expect("Bad motor id for config")
+                            )
+                        }
+                        MotorConfigDefinition::BlueRov(_) => {
+                            format!(
+                                "{:?} ({motor_id})",
+                                HeavyMotorId::try_from(motor_id).expect("Bad motor id for config")
+                            )
+                        }
+                        MotorConfigDefinition::Custom(_) => format!("Motor {motor_id}"),
+                    };
+
                     world.spawn((
+                        Name::new(name),
                         MotorBundle {
                             actuator: PwmActuatorBundle {
                                 pwm_channel: PwmChannel(pwm_channel),

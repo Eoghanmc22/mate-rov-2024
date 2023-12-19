@@ -10,14 +10,19 @@ use bevy::{
         component::{Component, ComponentId, Tick},
         entity::Entity,
         event::Event,
+        reflect::ReflectComponent,
         system::Resource,
         world::{EntityWorldMut, FromWorld, World},
     },
-    reflect::{FromType, GetTypeRegistration, Reflect, Typed},
+    reflect::{FromType, GetTypeRegistration, Reflect, ReflectFromPtr, Typed},
 };
 use serde::{Deserialize, Serialize};
 
-use crate::adapters::{self, ReflectTypeAdapter, TypeAdapter};
+use crate::adapters::{
+    self,
+    serde::{ReflectSerdeAdapter, SerdeAdapter},
+    TypeAdapter,
+};
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NetId(u128);
@@ -58,11 +63,12 @@ pub struct SerializationSettings {
     tracked_components: HashMap<ComponentId, ComponentInfo>,
 }
 
+#[derive(Clone)]
 pub struct ComponentInfo {
     type_name: &'static str,
     type_id: TypeId,
     component_id: ComponentId,
-    type_adapter: ReflectTypeAdapter,
+    type_adapter: TypeAdapter,
     ignore_component: ComponentId,
     remove_fn: RemoveFn,
 }
@@ -89,40 +95,69 @@ impl FromWorld for SerializationSettings {
 pub trait AppReplicateExt {
     fn replicate<C>(&mut self) -> &mut Self
     where
-        C: Component + Typed + GetTypeRegistration + TypeAdapter;
+        C: Component + Typed + GetTypeRegistration + SerdeAdapter;
+
+    fn replicate_reflect<C>(&mut self) -> &mut Self
+    where
+        C: Component + Typed + GetTypeRegistration + Default;
 }
 
 impl AppReplicateExt for App {
     fn replicate<C>(&mut self) -> &mut Self
     where
-        C: Component + Typed + GetTypeRegistration + TypeAdapter,
+        C: Component + Typed + GetTypeRegistration + SerdeAdapter,
     {
-        self.register_type::<C>();
-
-        let component_id = self.world.init_component::<C>();
-        let ignored_id = self.world.init_component::<Ignore<C>>();
-
-        let component_info = ComponentInfo {
-            type_name: C::type_path(),
-            type_id: TypeId::of::<C>(),
-            component_id,
-            type_adapter: <ReflectTypeAdapter as FromType<C>>::from_type(),
-            ignore_component: ignored_id,
-            remove_fn: |entity| {
-                entity.remove::<C>();
-            },
-        };
-
-        let mut settings = self.world.resource_mut::<SerializationSettings>();
-        settings
-            .component_lookup
-            .insert(component_info.type_name.into(), component_id);
-        settings
-            .tracked_components
-            .insert(component_id, component_info);
+        replicate_inner::<C>(
+            self,
+            TypeAdapter::Serde(<ReflectSerdeAdapter as FromType<C>>::from_type()),
+        );
 
         self
     }
+
+    fn replicate_reflect<C>(&mut self) -> &mut Self
+    where
+        C: Component + Typed + GetTypeRegistration + Default,
+    {
+        replicate_inner::<C>(
+            self,
+            TypeAdapter::Reflect(
+                <ReflectFromPtr as FromType<C>>::from_type(),
+                <ReflectComponent as FromType<C>>::from_type(),
+            ),
+        );
+
+        self
+    }
+}
+
+fn replicate_inner<C>(app: &mut App, type_adapter: TypeAdapter)
+where
+    C: Component + Typed + GetTypeRegistration,
+{
+    app.register_type::<C>();
+
+    let component_id = app.world.init_component::<C>();
+    let ignored_id = app.world.init_component::<Ignore<C>>();
+
+    let component_info = ComponentInfo {
+        type_name: C::type_path(),
+        type_id: TypeId::of::<C>(),
+        component_id,
+        type_adapter,
+        ignore_component: ignored_id,
+        remove_fn: |entity| {
+            entity.remove::<C>();
+        },
+    };
+
+    let mut settings = app.world.resource_mut::<SerializationSettings>();
+    settings
+        .component_lookup
+        .insert(component_info.type_name.into(), component_id);
+    settings
+        .tracked_components
+        .insert(component_id, component_info);
 }
 
 // #[cfg(test)]

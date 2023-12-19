@@ -4,10 +4,13 @@
 
 use bevy::{
     app::{Plugin, PluginGroup, PluginGroupBuilder},
+    core::Name,
     prelude::App,
 };
 use ctrlc::CtrlCPlugin;
-use ecs_sync::{apply_changes::ChangeApplicationPlugin, detect_changes::ChangeDetectionPlugin};
+use ecs_sync::{
+    apply_changes::ChangeApplicationPlugin, detect_changes::ChangeDetectionPlugin, AppReplicateExt,
+};
 use error::ErrorPlugin;
 use sync::{SyncPlugin, SyncRole};
 
@@ -27,6 +30,8 @@ impl Plugin for CommunicationTypes {
     fn build(&self, app: &mut App) {
         types::register_types(app);
         components::register_components(app);
+
+        app.replicate_reflect::<Name>();
     }
 }
 
