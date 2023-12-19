@@ -1,11 +1,11 @@
-use bevy::ecs::bundle::Bundle;
+use bevy::{core::Name, ecs::bundle::Bundle};
 
 use crate::components::{
-    ActualForce, ActualMovement, ActuatorContributionMarker, Armed, Camera, Cores, CpuTotal,
-    CurrentDraw, Depth, Disks, Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory,
-    MotorDefinition, Motors, MovementContribution, MovementCurrentCap, Networks, OperatingSystem,
-    Orientation, Processes, PwmChannel, PwmSignal, RobotId, RobotMarker, RobotStatus, TargetForce,
-    TargetMovement, Temperatures, Uptime,
+    ActualForce, ActualMovement, Armed, Camera, Cores, CpuTotal, CurrentDraw, Depth, Disks,
+    Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory, MotorDefinition, Motors,
+    MovementContribution, MovementCurrentCap, Networks, OperatingSystem, Orientation, Processes,
+    PwmChannel, PwmSignal, Robot, RobotId, RobotStatus, TargetForce, TargetMovement, Temperatures,
+    Uptime,
 };
 
 #[derive(Bundle, PartialEq)]
@@ -19,11 +19,11 @@ pub struct RobotBundle {
 
 #[derive(Bundle, PartialEq)]
 pub struct RobotCoreBundle {
+    pub marker: Robot,
     pub status: RobotStatus,
-    // TODO: BAD
-    pub robot_id: RobotId,
+    pub name: Name,
 
-    pub marker: RobotMarker,
+    pub robot_id: RobotId,
 }
 
 #[derive(Bundle, PartialEq)]
@@ -70,6 +70,7 @@ pub struct RobotPowerBundle {
 // TODO: Add transform?
 #[derive(Bundle, PartialEq)]
 pub struct CameraBundle {
+    pub name: Name,
     pub camera: Camera,
 
     pub robot: RobotId,
@@ -88,6 +89,7 @@ pub struct MotorBundle {
 
 #[derive(Bundle, PartialEq)]
 pub struct PwmActuatorBundle {
+    pub name: Name,
     pub pwm_channel: PwmChannel,
     pub pwm_signal: PwmSignal,
 
@@ -96,7 +98,7 @@ pub struct PwmActuatorBundle {
 
 #[derive(Bundle, PartialEq)]
 pub struct MovementContributionBundle {
-    pub marker: ActuatorContributionMarker,
+    pub name: Name,
 
     pub contribution: MovementContribution,
 

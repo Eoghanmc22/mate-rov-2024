@@ -54,9 +54,9 @@ fn create_motors(mut cmds: Commands, robot: Res<LocalRobot>, config: Res<RobotCo
         };
 
         cmds.spawn((
-            Name::new(name),
             MotorBundle {
                 actuator: PwmActuatorBundle {
+                    name: Name::new(name),
                     pwm_channel: PwmChannel(pwm_channel),
                     pwm_signal: PwmSignal(Duration::from_micros(1500)),
                     robot: RobotId(robot.net_id),

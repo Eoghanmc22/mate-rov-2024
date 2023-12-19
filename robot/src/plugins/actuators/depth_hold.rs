@@ -2,8 +2,7 @@ use bevy::prelude::*;
 use common::{
     bundles::MovementContributionBundle,
     components::{
-        ActuatorContributionMarker, Depth, DepthTarget, MovementContribution, Orientation,
-        PidConfig, PidResult, RobotId,
+        Depth, DepthTarget, MovementContribution, Orientation, PidConfig, PidResult, RobotId,
     },
     ecs_sync::Replicate,
     types::utils::PidController,
@@ -28,9 +27,8 @@ struct DepthHoldState(Entity, PidController);
 fn setup_depth_hold(mut cmds: Commands, robot: Res<LocalRobot>) {
     let entity = cmds
         .spawn((
-            Name::new("Depth Hold"),
             MovementContributionBundle {
-                marker: ActuatorContributionMarker("Depth Hold".to_owned()),
+                name: Name::new("Depth Hold"),
                 contribution: MovementContribution(Movement::default()),
                 robot: RobotId(robot.net_id),
             },

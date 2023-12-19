@@ -11,6 +11,7 @@ use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, bail, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
+    bundles::CameraBundle,
     components::{Camera, RobotId},
     ecs_sync::{NetId, Replicate},
     error::Errors,
@@ -19,7 +20,7 @@ use common::{
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use crate::plugins::core::robot::LocalRobotMarker;
+use crate::plugins::core::robot::{LocalRobot, LocalRobotMarker};
 
 // TODO: Use multicast udp
 pub struct CameraPlugin;
@@ -34,7 +35,7 @@ impl Plugin for CameraPlugin {
 }
 
 #[derive(Resource)]
-struct CameraChannels(Sender<CameraEvent>, Receiver<Vec<Camera>>);
+struct CameraChannels(Sender<CameraEvent>, Receiver<Vec<CameraBundle>>);
 
 enum CameraEvent {
     NewPeer(SocketAddr),
@@ -44,7 +45,7 @@ enum CameraEvent {
     Shutdown,
 }
 
-fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
+fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>, robot: Res<LocalRobot>) {
     let (tx_events, rx_events) = channel::bounded(10);
     let (tx_camreas, rx_cameras) = channel::bounded(10);
 
@@ -54,6 +55,7 @@ fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
     cmds.insert_resource(CameraChannels(tx_events, rx_cameras));
 
     let errors = errors.0.clone();
+    let robot = RobotId(robot.net_id);
     thread::spawn(move || {
         let _span = span!(Level::INFO, "Camera manager").entered();
 
@@ -89,7 +91,7 @@ fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
                         }
                     }
 
-                    let camera_list = camera_list(&cameras);
+                    let camera_list = camera_list(&cameras, robot);
                     // TODO: Handle?
                     let _ = tx_camreas.send(camera_list);
                 }
@@ -156,7 +158,7 @@ fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
 
                                     last_cameras = next_cameras;
 
-                                    let camera_list = camera_list(&cameras);
+                                    let camera_list = camera_list(&cameras, robot);
                                     let _ = tx_camreas.send(camera_list);
                                 }
                                 Err(err) => {
@@ -234,7 +236,7 @@ fn read_new_data(
         }
 
         for camera in new_cameras {
-            cmds.spawn((Name::new("Camera"), camera, RobotId(*id), Replicate));
+            cmds.spawn((camera, Replicate));
         }
 
         // TODO: put a component on the robot entity?
@@ -291,13 +293,17 @@ fn add_camera(
 }
 
 /// Converts internal repersentation of cameras to what the protocol calls for
-fn camera_list(cameras: &HashMap<String, (Child, SocketAddr)>) -> Vec<Camera> {
+fn camera_list(
+    cameras: &HashMap<String, (Child, SocketAddr)>,
+    robot: RobotId,
+) -> Vec<CameraBundle> {
     let mut list = Vec::new();
 
-    for (name, (_, location)) in cameras {
-        list.push(Camera {
-            name: name.clone(),
-            location: *location,
+    for (name, &(_, location)) in cameras {
+        list.push(CameraBundle {
+            name: Name::new(name.clone()),
+            camera: Camera { location },
+            robot,
         });
     }
 

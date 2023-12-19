@@ -4,8 +4,7 @@ use bevy::prelude::*;
 use common::{
     bundles::MovementContributionBundle,
     components::{
-        ActuatorContributionMarker, MovementContribution, Orientation, OrientationTarget,
-        PidConfig, PidResult, RobotId,
+        MovementContribution, Orientation, OrientationTarget, PidConfig, PidResult, RobotId,
     },
     ecs_sync::Replicate,
     types::utils::PidController,
@@ -36,9 +35,8 @@ struct StabilizeState {
 fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
     let pitch = cmds
         .spawn((
-            Name::new("Stabalize Pitch"),
             MovementContributionBundle {
-                marker: ActuatorContributionMarker("Stabalize Pitch".to_owned()),
+                name: Name::new("Stabalize Pitch"),
                 contribution: MovementContribution(Movement::default()),
                 robot: RobotId(robot.net_id),
             },
@@ -56,9 +54,8 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
 
     let roll = cmds
         .spawn((
-            Name::new("Stabalize Roll"),
             MovementContributionBundle {
-                marker: ActuatorContributionMarker("Stabalize Roll".to_owned()),
+                name: Name::new("Stabalize Roll"),
                 contribution: MovementContribution(Movement::default()),
                 robot: RobotId(robot.net_id),
             },

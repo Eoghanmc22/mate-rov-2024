@@ -30,7 +30,7 @@ macro_rules! components {
 }
 
 components! {
-    RobotMarker,
+    Robot,
     Orientation,
     Inertial,
     Magnetic,
@@ -59,7 +59,6 @@ components! {
     TargetMovement,
     ActualMovement,
     MeasuredVoltage,
-    ActuatorContributionMarker,
     MovementContribution,
     MotorContribution,
     MovementCurrentCap,
@@ -72,7 +71,7 @@ components! {
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
-pub struct RobotMarker(pub String);
+pub struct Robot;
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
@@ -131,7 +130,6 @@ pub enum Armed {
 #[reflect(from_reflect = false)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Camera {
-    pub name: String,
     // TODO: This bad
     #[reflect(ignore)]
     pub location: SocketAddr,
@@ -231,10 +229,6 @@ pub struct ActualMovement(pub Movement);
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct MeasuredVoltage(pub Volts);
-
-#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
-pub struct ActuatorContributionMarker(pub String);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
