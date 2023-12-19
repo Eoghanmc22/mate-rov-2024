@@ -38,7 +38,7 @@ impl Plugin for MotorMathPlugin {
 #[derive(Resource)]
 struct MotorDataRes(MotorData);
 
-pub fn accumulate_movements(
+fn accumulate_movements(
     mut cmds: Commands,
     robot: Query<(Entity, &NetId, &Motors), With<LocalRobotMarker>>,
     movements: Query<(&RobotId, &MovementContribution)>,
@@ -67,7 +67,7 @@ pub fn accumulate_movements(
 }
 
 // TODO: Split into smaller systems
-pub fn accumulate_motor_forces(
+fn accumulate_motor_forces(
     mut cmds: Commands,
     robot: Query<(Entity, &NetId, &Motors, &MovementCurrentCap), With<LocalRobotMarker>>,
     motor_forces: Query<(&RobotId, &MotorContribution)>,

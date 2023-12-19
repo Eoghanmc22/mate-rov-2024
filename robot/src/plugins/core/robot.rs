@@ -20,27 +20,29 @@ pub struct LocalRobot {
 
 impl Plugin for RobotPlugin {
     fn build(&self, app: &mut App) {
-        let robot_config: &RobotConfig = app.world.resource();
-        let net_id = NetId::random();
-
-        let robot = app
-            .world
-            .spawn((
-                Name::new(format!("{} ROV", robot_config.name)),
-                RobotCoreBundle {
-                    status: RobotStatus::default(),
-                    robot_id: RobotId(net_id),
-                    marker: RobotMarker(robot_config.name.clone()),
-                },
-                LocalRobotMarker,
-                Replicate,
-                net_id,
-            ))
-            .id();
-
-        app.world.insert_resource(LocalRobot {
-            entity: robot,
-            net_id,
-        })
+        app.add_systems(PreStartup, setup_robot);
     }
+}
+
+fn setup_robot(mut cmds: Commands, config: Res<RobotConfig>) {
+    let net_id = NetId::random();
+
+    let robot = cmds
+        .spawn((
+            Name::new(format!("{} ROV", config.name)),
+            RobotCoreBundle {
+                status: RobotStatus::default(),
+                robot_id: RobotId(net_id),
+                marker: RobotMarker(config.name.clone()),
+            },
+            LocalRobotMarker,
+            Replicate,
+            net_id,
+        ))
+        .id();
+
+    cmds.insert_resource(LocalRobot {
+        entity: robot,
+        net_id,
+    })
 }

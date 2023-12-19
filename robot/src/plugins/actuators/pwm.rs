@@ -22,11 +22,8 @@ pub struct PwmOutputPlugin;
 impl Plugin for PwmOutputPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, start_pwm_thread.pipe(error::handle_errors));
-
-        app.add_systems(
-            Update,
-            (listen_to_pwms.pipe(error::handle_errors), shutdown),
-        );
+        app.add_systems(PostUpdate, listen_to_pwms.pipe(error::handle_errors));
+        app.add_systems(Last, shutdown);
     }
 }
 
@@ -41,7 +38,7 @@ enum PwmEvent {
     Shutdown,
 }
 
-pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
+fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let interval = Duration::from_secs_f32(1.0 / 100.0);
     let max_inactive = Duration::from_secs_f32(1.0 / 10.0);
 
@@ -176,7 +173,7 @@ pub fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
     Ok(())
 }
 
-pub fn listen_to_pwms(
+fn listen_to_pwms(
     channels: Res<PwmChannels>,
     robot: Query<(&NetId, &Armed), With<LocalRobotMarker>>,
     pwms: Query<(&RobotId, &PwmChannel, &PwmSignal)>,
@@ -205,7 +202,7 @@ pub fn listen_to_pwms(
     Ok(())
 }
 
-pub fn shutdown(channels: Res<PwmChannels>, mut exit: EventReader<AppExit>) {
+fn shutdown(channels: Res<PwmChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let _ = channels.0.send(PwmEvent::Shutdown);
     }

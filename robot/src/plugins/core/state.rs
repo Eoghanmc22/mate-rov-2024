@@ -14,7 +14,7 @@ impl Plugin for StatePlugin {
     }
 }
 
-pub fn update_state(
+fn update_state(
     mut cmds: Commands,
     peers: Query<&Peer>,
     robot: Query<(Entity, Option<&Armed>), With<LocalRobotMarker>>,

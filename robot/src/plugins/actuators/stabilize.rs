@@ -19,58 +19,8 @@ pub struct StabilizePlugin;
 
 impl Plugin for StabilizePlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup_stabalize);
         app.add_systems(Update, stabalize_system);
-
-        let robot_net_id = app.world.resource::<LocalRobot>().net_id;
-
-        let pitch = app
-            .world
-            .spawn((
-                Name::new("Stabalize Pitch"),
-                MovementContributionBundle {
-                    marker: ActuatorContributionMarker("Stabalize Pitch".to_owned()),
-                    contribution: MovementContribution(Movement::default()),
-                    robot: RobotId(robot_net_id),
-                },
-                // TODO: Tune
-                // TODO: Load from disk?
-                PidConfig {
-                    kp: 1.0,
-                    ki: 0.0,
-                    kd: 0.0,
-                    max_integral: 0.0,
-                },
-                Replicate,
-            ))
-            .id();
-
-        let roll = app
-            .world
-            .spawn((
-                Name::new("Stabalize Roll"),
-                MovementContributionBundle {
-                    marker: ActuatorContributionMarker("Stabalize Roll".to_owned()),
-                    contribution: MovementContribution(Movement::default()),
-                    robot: RobotId(robot_net_id),
-                },
-                // TODO: Tune
-                // TODO: Load from disk?
-                PidConfig {
-                    kp: 1.0,
-                    ki: 0.0,
-                    kd: 0.0,
-                    max_integral: 0.0,
-                },
-                Replicate,
-            ))
-            .id();
-
-        app.insert_resource(StabilizeState {
-            pitch,
-            pitch_controller: PidController::default(),
-            roll,
-            roll_controller: PidController::default(),
-        });
     }
 }
 
@@ -83,7 +33,56 @@ struct StabilizeState {
     roll_controller: PidController,
 }
 
-pub fn stabalize_system(
+fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
+    let pitch = cmds
+        .spawn((
+            Name::new("Stabalize Pitch"),
+            MovementContributionBundle {
+                marker: ActuatorContributionMarker("Stabalize Pitch".to_owned()),
+                contribution: MovementContribution(Movement::default()),
+                robot: RobotId(robot.net_id),
+            },
+            // TODO: Tune
+            // TODO: Load from disk?
+            PidConfig {
+                kp: 1.0,
+                ki: 0.0,
+                kd: 0.0,
+                max_integral: 0.0,
+            },
+            Replicate,
+        ))
+        .id();
+
+    let roll = cmds
+        .spawn((
+            Name::new("Stabalize Roll"),
+            MovementContributionBundle {
+                marker: ActuatorContributionMarker("Stabalize Roll".to_owned()),
+                contribution: MovementContribution(Movement::default()),
+                robot: RobotId(robot.net_id),
+            },
+            // TODO: Tune
+            // TODO: Load from disk?
+            PidConfig {
+                kp: 1.0,
+                ki: 0.0,
+                kd: 0.0,
+                max_integral: 0.0,
+            },
+            Replicate,
+        ))
+        .id();
+
+    cmds.insert_resource(StabilizeState {
+        pitch,
+        pitch_controller: PidController::default(),
+        roll,
+        roll_controller: PidController::default(),
+    });
+}
+
+fn stabalize_system(
     mut cmds: Commands,
     robot: Res<LocalRobot>,
     mut state: ResMut<StabilizeState>,

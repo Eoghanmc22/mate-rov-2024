@@ -71,6 +71,22 @@ This code base is broken up into the following crates
   - This binary automates uploading builds of `robot` to the Raspberry Pi over ssh
   - This should have been a bash script, but now it's blazingly fast
 
+## System Ordering
+
+- Startup: Setup what's needed
+  - Add necessary data to ECS
+- First: Prepare for tick
+  - Currently unused
+- PreUpdate: Read in new data
+  - Read inbound network packets, sensors, user input
+- Update: Process state and determine next state
+  - Compute new movement, motor math, compute orientation
+- PostUpdate Write out new state
+  - Write outbound network packets, motor speeds, handle errors
+  - Avoid mutating state
+- Last: Any cleanup
+  - Shutdown logic
+
 ## Sync Model
 
 ### Background

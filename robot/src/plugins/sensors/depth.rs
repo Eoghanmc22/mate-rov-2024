@@ -21,16 +21,17 @@ impl Plugin for DepthPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, start_depth_thread.pipe(error::handle_errors));
         app.add_systems(
-            Update,
-            (read_new_data, shutdown).run_if(resource_exists::<DepthChannels>()),
+            PreUpdate,
+            read_new_data.run_if(resource_exists::<DepthChannels>()),
         );
+        app.add_systems(Last, shutdown.run_if(resource_exists::<DepthChannels>()));
     }
 }
 
 #[derive(Resource)]
 struct DepthChannels(Receiver<DepthFrame>, Sender<()>);
 
-pub fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
+fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let (tx_data, rx_data) = channel::bounded(5);
     let (tx_exit, rx_exit) = channel::bounded(1);
 
@@ -73,7 +74,7 @@ pub fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Re
     Ok(())
 }
 
-pub fn read_new_data(mut cmds: Commands, channels: Res<DepthChannels>, robot: Res<LocalRobot>) {
+fn read_new_data(mut cmds: Commands, channels: Res<DepthChannels>, robot: Res<LocalRobot>) {
     for depth in channels.0.try_iter() {
         let depth = Depth(depth);
 
@@ -81,7 +82,7 @@ pub fn read_new_data(mut cmds: Commands, channels: Res<DepthChannels>, robot: Re
     }
 }
 
-pub fn shutdown(channels: Res<DepthChannels>, mut exit: EventReader<AppExit>) {
+fn shutdown(channels: Res<DepthChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let _ = channels.1.send(());
     }

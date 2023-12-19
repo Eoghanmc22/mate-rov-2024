@@ -46,7 +46,8 @@ impl Plugin for SyncPlugin {
                     sync_new_peers.after(flatten_outbound_deltas),
                 ),
             )
-            .add_systems(PostUpdate, (net_write.after(ChangeDetectionSet), shutdown));
+            .add_systems(PostUpdate, net_write.after(ChangeDetectionSet))
+            .add_systems(Last, shutdown);
 
         match self.0 {
             SyncRole::Server => {

@@ -12,10 +12,10 @@ impl Plugin for LeakPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_leak_interupt.pipe(error::handle_errors));
         app.add_systems(
-            Update,
-            // TODO: What lol?
-            (read_new_data, shutdown).run_if(resource_exists::<LeakChannels>()),
+            PreUpdate,
+            read_new_data.run_if(resource_exists::<LeakChannels>()),
         );
+        app.add_systems(Last, shutdown.run_if(resource_exists::<LeakChannels>()));
     }
 }
 
@@ -24,7 +24,7 @@ struct LeakChannels(Receiver<bool>, InputPin);
 
 const LEAK_PIN: u8 = 27;
 
-pub fn setup_leak_interupt(mut cmds: Commands, robot: Res<LocalRobot>) -> anyhow::Result<()> {
+fn setup_leak_interupt(mut cmds: Commands, robot: Res<LocalRobot>) -> anyhow::Result<()> {
     let (tx, rx) = crossbeam::channel::bounded(5);
 
     let gpio = Gpio::new().context("Open gpio")?;
@@ -55,7 +55,7 @@ pub fn setup_leak_interupt(mut cmds: Commands, robot: Res<LocalRobot>) -> anyhow
     Ok(())
 }
 
-pub fn read_new_data(mut cmds: Commands, channels: Res<LeakChannels>, robot: Res<LocalRobot>) {
+fn read_new_data(mut cmds: Commands, channels: Res<LeakChannels>, robot: Res<LocalRobot>) {
     let mut leak = None;
 
     for event in channels.0.try_iter() {
@@ -67,7 +67,7 @@ pub fn read_new_data(mut cmds: Commands, channels: Res<LeakChannels>, robot: Res
     }
 }
 
-pub fn shutdown(mut channels: ResMut<LeakChannels>, mut exit: EventReader<AppExit>) {
+fn shutdown(mut channels: ResMut<LeakChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         // TODO: Handle?
         let _ = channels.1.clear_async_interrupt();

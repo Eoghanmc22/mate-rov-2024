@@ -17,38 +17,39 @@ pub struct DepthHoldPlugin;
 
 impl Plugin for DepthHoldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, depth_hold_system);
-
-        let robot_net_id = app.world.resource::<LocalRobot>().net_id;
-
-        let entity = app
-            .world
-            .spawn((
-                Name::new("Depth Hold"),
-                MovementContributionBundle {
-                    marker: ActuatorContributionMarker("Depth Hold".to_owned()),
-                    contribution: MovementContribution(Movement::default()),
-                    robot: RobotId(robot_net_id),
-                },
-                // TODO: Tune
-                // TODO: Load from disk?
-                PidConfig {
-                    kp: 1.0,
-                    ki: 0.0,
-                    kd: 0.0,
-                    max_integral: 0.0,
-                },
-                Replicate,
-            ))
-            .id();
-        app.insert_resource(DepthHoldState(entity, PidController::default()));
+        app.add_systems(Startup, setup_depth_hold)
+            .add_systems(Update, depth_hold_system);
     }
 }
 
 #[derive(Resource)]
 struct DepthHoldState(Entity, PidController);
 
-pub fn depth_hold_system(
+fn setup_depth_hold(mut cmds: Commands, robot: Res<LocalRobot>) {
+    let entity = cmds
+        .spawn((
+            Name::new("Depth Hold"),
+            MovementContributionBundle {
+                marker: ActuatorContributionMarker("Depth Hold".to_owned()),
+                contribution: MovementContribution(Movement::default()),
+                robot: RobotId(robot.net_id),
+            },
+            // TODO: Tune
+            // TODO: Load from disk?
+            PidConfig {
+                kp: 1.0,
+                ki: 0.0,
+                kd: 0.0,
+                max_integral: 0.0,
+            },
+            Replicate,
+        ))
+        .id();
+
+    cmds.insert_resource(DepthHoldState(entity, PidController::default()));
+}
+
+fn depth_hold_system(
     mut cmds: Commands,
     robot: Res<LocalRobot>,
     mut state: ResMut<DepthHoldState>,

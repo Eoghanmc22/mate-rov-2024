@@ -28,14 +28,15 @@ pub struct HwStatPlugin;
 impl Plugin for HwStatPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, start_hw_stat_thread);
-        app.add_systems(Update, (read_new_data, shutdown));
+        app.add_systems(PreUpdate, read_new_data);
+        app.add_systems(Last, shutdown);
     }
 }
 
 #[derive(Resource)]
 struct HwStatChannels(Receiver<RobotSystemBundle>, Sender<()>);
 
-pub fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
+fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
     let (tx_data, rx_data) = channel::bounded(10);
     let (tx_exit, rx_exit) = channel::bounded(1);
 
@@ -76,14 +77,14 @@ pub fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
     });
 }
 
-pub fn read_new_data(mut cmds: Commands, channels: Res<HwStatChannels>, robot: Res<LocalRobot>) {
+fn read_new_data(mut cmds: Commands, channels: Res<HwStatChannels>, robot: Res<LocalRobot>) {
     for info in channels.0.try_iter() {
         // FIXME/TODO: This will clobber change detection
         cmds.entity(robot.entity).insert(info);
     }
 }
 
-pub fn shutdown(channels: Res<HwStatChannels>, mut exit: EventReader<AppExit>) {
+fn shutdown(channels: Res<HwStatChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let _ = channels.1.send(());
     }

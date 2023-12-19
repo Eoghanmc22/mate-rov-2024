@@ -27,10 +27,9 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, start_camera_thread);
-        app.add_systems(
-            Update,
-            (read_new_data, handle_peers, shutdown.after(handle_peers)),
-        );
+        app.add_systems(PreUpdate, read_new_data);
+        app.add_systems(Update, handle_peers);
+        app.add_systems(Last, shutdown);
     }
 }
 
@@ -45,7 +44,7 @@ enum CameraEvent {
     Shutdown,
 }
 
-pub fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
+fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
     let (tx_events, rx_events) = channel::bounded(10);
     let (tx_camreas, rx_cameras) = channel::bounded(10);
 
@@ -189,7 +188,7 @@ pub fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>) {
     });
 }
 
-pub fn handle_peers(
+fn handle_peers(
     channels: Res<CameraChannels>,
     mut disconnected: RemovedComponents<Peer>,
     connected: Query<&Peer, Changed<Peer>>,
@@ -214,7 +213,7 @@ pub fn handle_peers(
 }
 
 // TODO: Only update the cameras that changed
-pub fn read_new_data(
+fn read_new_data(
     mut cmds: Commands,
     channels: Res<CameraChannels>,
     robot: Query<(Entity, &NetId), With<LocalRobotMarker>>,
@@ -242,7 +241,7 @@ pub fn read_new_data(
     }
 }
 
-pub fn shutdown(channels: Res<CameraChannels>, mut exit: EventReader<AppExit>) {
+fn shutdown(channels: Res<CameraChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let _ = channels.0.send(CameraEvent::Shutdown);
     }

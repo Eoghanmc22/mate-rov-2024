@@ -28,9 +28,10 @@ impl Plugin for OrientationPlugin {
 
         app.add_systems(Startup, start_inertial_thread.pipe(error::handle_errors));
         app.add_systems(
-            Update,
-            (read_new_data, shutdown).run_if(resource_exists::<InertialChannels>()),
+            PreUpdate,
+            read_new_data.run_if(resource_exists::<InertialChannels>()),
         );
+        app.add_systems(Last, shutdown.run_if(resource_exists::<InertialChannels>()));
     }
 }
 
@@ -43,7 +44,7 @@ struct InertialChannels(
 #[derive(Resource)]
 struct MadgwickFilter(Madgwick<f32>);
 
-pub fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
+fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let (tx_data, rx_data) = channel::bounded(5);
     let (tx_exit, rx_exit) = channel::bounded(1);
 
@@ -123,7 +124,7 @@ pub fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow:
     Ok(())
 }
 
-pub fn read_new_data(
+fn read_new_data(
     mut cmds: Commands,
     channels: Res<InertialChannels>,
     mut madgwick_filter: ResMut<MadgwickFilter>,
@@ -158,7 +159,7 @@ pub fn read_new_data(
     }
 }
 
-pub fn shutdown(channels: Res<InertialChannels>, mut exit: EventReader<AppExit>) {
+fn shutdown(channels: Res<InertialChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
         let _ = channels.1.send(());
     }
