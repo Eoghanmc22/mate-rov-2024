@@ -9,9 +9,6 @@ use surface::SurfacePlugin;
 use tracing::Level;
 
 fn main() -> anyhow::Result<()> {
-    // TODO: tracy support
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
-
     // TODO/FIXME: Times out when focus is lost
     App::new()
         .add_plugins((
