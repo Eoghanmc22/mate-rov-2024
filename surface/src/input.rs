@@ -1,0 +1,259 @@
+use ahash::HashSet;
+use bevy::{
+    math::{vec3a, Vec3A},
+    prelude::*,
+};
+use common::{
+    bundles::MovementContributionBundle,
+    components::{
+        Armed, Depth, DepthTarget, MovementContribution, OrientationTarget, Robot, RobotId,
+    },
+    ecs_sync::{NetId, Replicate},
+};
+use leafwing_input_manager::{
+    action_state::ActionState, axislike::SingleAxis, input_map::InputMap,
+    plugin::InputManagerPlugin, Actionlike, InputManagerBundle,
+};
+use motor_math::Movement;
+
+// TODO: Handle multiple gamepads better
+pub struct InputPlugin;
+
+impl Plugin for InputPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(InputManagerPlugin::<Action>::default())
+            .add_systems(
+                Update,
+                (
+                    attach_to_new_robots,
+                    handle_disconnected_robots,
+                    movement,
+                    arm,
+                    depth_hold,
+                    leveling,
+                ),
+            );
+    }
+}
+
+#[derive(Actionlike, PartialEq, Eq, Hash, Clone, Copy, Debug, Reflect)]
+pub enum Action {
+    Arm,
+    Disarm,
+
+    // SetControlMapping(&'static str),
+    // CenterServo,
+    // SelectServoIncrement,
+    // SelectServoDecrement,
+    // RotateServoForward,
+    // RotateServoBackward,
+    // IncreaseGain,
+    // DecreaseGain,
+    // ResetGain,
+    ToggleDepthHold,
+    ToggleLeveling(LevelingType),
+    // TrimPitch,
+    // TrimPitchInverted,
+    // TrimRoll,
+    // TrimRollInverted,
+
+    // SetRobotMode(),
+    Surge,
+    Heave,
+    Sway,
+
+    Pitch,
+    Roll,
+    Yaw,
+    // HoldAxis,
+}
+
+#[derive(Actionlike, PartialEq, Eq, Hash, Clone, Copy, Debug, Reflect, Default)]
+pub enum LevelingType {
+    #[default]
+    Upright,
+    Inverted,
+}
+
+#[derive(Component)]
+struct InputMarker;
+
+#[derive(Component)]
+struct LinkedGamepad(Gamepad);
+
+fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), Added<Robot>>) {
+    for (robot, name) in &new_robots {
+        let mut input_map = InputMap::default();
+
+        input_map.insert(GamepadButtonType::Select, Action::Disarm);
+        input_map.insert(GamepadButtonType::Start, Action::Arm);
+
+        input_map.insert(KeyCode::Space, Action::Disarm);
+        input_map.insert(KeyCode::Return, Action::Arm);
+
+        input_map.insert(
+            GamepadButtonType::North,
+            Action::ToggleLeveling(LevelingType::Upright),
+        );
+        input_map.insert(
+            GamepadButtonType::South,
+            Action::ToggleLeveling(LevelingType::Inverted),
+        );
+        input_map.insert(GamepadButtonType::East, Action::ToggleDepthHold);
+
+        input_map.insert(
+            SingleAxis::symmetric(GamepadAxisType::LeftStickX, 0.05),
+            Action::Yaw,
+        );
+        input_map.insert(
+            SingleAxis::symmetric(GamepadAxisType::LeftStickY, 0.05),
+            Action::Surge,
+        );
+
+        input_map.insert(
+            SingleAxis::symmetric(GamepadAxisType::RightStickX, 0.05),
+            Action::Sway,
+        );
+        input_map.insert(
+            SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
+            Action::Heave,
+        );
+
+        cmds.spawn((
+            InputManagerBundle::<Action> {
+                // Stores "which actions are currently pressed"
+                action_state: ActionState::default(),
+                // Describes how to convert from player inputs into those actions
+                input_map,
+            },
+            MovementContributionBundle {
+                name: Name::new(format!("HID {name}")),
+                contribution: MovementContribution(Movement::default()),
+                robot: RobotId(*robot),
+            },
+            InputMarker,
+            Replicate,
+        ));
+    }
+}
+
+fn handle_disconnected_robots(
+    mut cmds: Commands,
+    robots: Query<&NetId, With<Robot>>,
+    inputs: Query<(Entity, &RobotId), With<InputMarker>>,
+    mut removed_robots: RemovedComponents<Robot>,
+) {
+    for _robot in removed_robots.read() {
+        let robots: HashSet<NetId> = robots.iter().copied().collect();
+
+        inputs
+            .iter()
+            .filter(|(_, &RobotId(robot))| !robots.contains(&robot))
+            .for_each(|(entity, _)| cmds.entity(entity).despawn());
+    }
+}
+
+// TODO: Remap sticks to square
+fn movement(mut cmds: Commands, inputs: Query<(Entity, &ActionState<Action>), With<InputMarker>>) {
+    for (entity, action_state) in &inputs {
+        let x = action_state.value(Action::Sway);
+        let y = action_state.value(Action::Surge);
+        let z = action_state.value(Action::Heave);
+
+        let x_rot = action_state.value(Action::Pitch);
+        let y_rot = action_state.value(Action::Roll);
+        let z_rot = action_state.value(Action::Yaw);
+
+        let movement = Movement {
+            force: vec3a(x, y, z),
+            torque: vec3a(x_rot, y_rot, z_rot),
+        };
+
+        cmds.entity(entity).insert(MovementContribution(movement));
+    }
+}
+
+fn arm(
+    mut cmds: Commands,
+    inputs: Query<(&RobotId, &ActionState<Action>), With<InputMarker>>,
+    robots: Query<(Entity, &RobotId), With<Robot>>,
+) {
+    for (robot, action_state) in &inputs {
+        let disarm = action_state.just_pressed(Action::Disarm);
+        let arm = action_state.just_pressed(Action::Arm);
+
+        let robot = robots.iter().find(|&(_, other_robot)| robot == other_robot);
+        if let Some((robot, _)) = robot {
+            if disarm {
+                cmds.entity(robot).insert(Armed::Disarmed);
+            } else if arm {
+                cmds.entity(robot).insert(Armed::Armed);
+            }
+        } else if arm || disarm {
+            warn!("No ROV attached");
+        }
+    }
+}
+
+fn depth_hold(
+    mut cmds: Commands,
+    inputs: Query<(&RobotId, &ActionState<Action>), With<InputMarker>>,
+    robots: Query<(Entity, &Depth, Option<&DepthTarget>, &RobotId), With<Robot>>,
+) {
+    for (robot, action_state) in &inputs {
+        let toggle = action_state.just_pressed(Action::ToggleDepthHold);
+
+        let robot = robots
+            .iter()
+            .find(|&(_, _, _, other_robot)| robot == other_robot);
+        if let Some((robot, depth, depth_target, _)) = robot {
+            if toggle {
+                match depth_target {
+                    Some(_) => {
+                        cmds.entity(robot).remove::<DepthTarget>();
+                    }
+                    None => {
+                        cmds.entity(robot).insert(DepthTarget(depth.0.depth));
+                    }
+                }
+            }
+        } else if toggle {
+            warn!("No ROV attached");
+        }
+    }
+}
+
+fn leveling(
+    mut cmds: Commands,
+    inputs: Query<(&RobotId, &ActionState<Action>), With<InputMarker>>,
+    robots: Query<(Entity, Option<&OrientationTarget>, &RobotId), With<Robot>>,
+) {
+    for (robot, action_state) in &inputs {
+        let toggle_upright =
+            action_state.just_pressed(Action::ToggleLeveling(LevelingType::Upright));
+        let toggle_inverted =
+            action_state.just_pressed(Action::ToggleLeveling(LevelingType::Inverted));
+
+        let robot = robots
+            .iter()
+            .find(|&(_, _, other_robot)| robot == other_robot);
+        if let Some((robot, orientation_target, _)) = robot {
+            if toggle_upright || toggle_inverted {
+                match orientation_target {
+                    Some(_) => {
+                        cmds.entity(robot).remove::<OrientationTarget>();
+                    }
+                    None => {
+                        if toggle_upright {
+                            cmds.entity(robot).insert(OrientationTarget(Vec3A::Z));
+                        } else if toggle_inverted {
+                            cmds.entity(robot).insert(OrientationTarget(Vec3A::NEG_Z));
+                        }
+                    }
+                }
+            }
+        } else if toggle_upright || toggle_inverted {
+            warn!("No ROV attached");
+        }
+    }
+}

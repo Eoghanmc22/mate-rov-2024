@@ -6,13 +6,14 @@ edition = "2021"
 [dependencies]
 common = { path = "../common" }
 networking = { path = "../networking" }
-# motor_math = { path = "../motor_math" }
+motor_math = { path = "../motor_math" }
 
 bevy = { version = "0.12", features = ["wayland"] }
 egui = "0.23"
 egui_extras = "0.23"
 bevy_egui = { version = "0.23", default-features = false }
 bevy-inspector-egui = "0.21"
+leafwing-input-manager = "0.11"
 
 tracing = "0.1"
 tracing-subscriber = "0.3"
