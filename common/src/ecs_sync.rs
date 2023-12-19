@@ -75,7 +75,7 @@ pub struct ComponentInfo {
 
 pub type RemoveFn = fn(&mut EntityWorldMut);
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 pub struct Replicate;
 #[derive(Component)]
 pub struct Ignore<T>(PhantomData<fn(T)>);

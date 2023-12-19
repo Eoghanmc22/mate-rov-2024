@@ -10,9 +10,10 @@ use bevy::{
 use ctrlc::CtrlCPlugin;
 use ecs_sync::{
     apply_changes::ChangeApplicationPlugin, detect_changes::ChangeDetectionPlugin, AppReplicateExt,
+    NetId, Replicate,
 };
 use error::ErrorPlugin;
-use sync::{SyncPlugin, SyncRole};
+use sync::{Latency, Peer, SyncPlugin, SyncRole};
 
 pub mod adapters;
 pub mod bundles;
@@ -30,6 +31,11 @@ impl Plugin for CommunicationTypes {
     fn build(&self, app: &mut App) {
         types::register_types(app);
         components::register_components(app);
+
+        app.register_type::<NetId>()
+            .register_type::<Replicate>()
+            .register_type::<Latency>();
+        // .register_type::<Peer>();
 
         app.replicate_reflect::<Name>();
     }

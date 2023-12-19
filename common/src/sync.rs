@@ -80,7 +80,7 @@ pub struct Peer {
     pub token: NetToken,
 }
 
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Reflect)]
 pub struct Latency {
     // In bevy time
     pub last_ping_sent: Option<Duration>,

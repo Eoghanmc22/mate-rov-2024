@@ -235,7 +235,7 @@ pub fn read_new_data(
         }
 
         for camera in new_cameras {
-            cmds.spawn((camera, RobotId(*id), Replicate));
+            cmds.spawn((Name::new("Camera"), camera, RobotId(*id), Replicate));
         }
 
         // TODO: put a component on the robot entity?
