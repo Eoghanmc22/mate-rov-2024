@@ -22,14 +22,14 @@ use crate::{utils::VectorTransform, Motor, MotorConfig};
 #[reflect(Serialize, Deserialize, Debug, PartialEq, Hash)]
 #[repr(u8)]
 pub enum X3dMotorId {
-    FrontLeftBottom,
-    FrontLeftTop,
-    FrontRightBottom,
     FrontRightTop,
-    BackLeftBottom,
-    BackLeftTop,
-    BackRightBottom,
+    FrontRightBottom,
+    FrontLeftTop,
+    FrontLeftBottom,
     BackRightTop,
+    BackRightBottom,
+    BackLeftTop,
+    BackLeftBottom,
 }
 
 impl MotorConfig<X3dMotorId> {
