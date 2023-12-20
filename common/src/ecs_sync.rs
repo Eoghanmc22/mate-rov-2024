@@ -16,6 +16,7 @@ use bevy::{
     },
     reflect::{FromType, GetTypeRegistration, Reflect, ReflectFromPtr, Typed},
 };
+use networking::Token;
 use serde::{Deserialize, Serialize};
 
 use crate::adapters::{
@@ -44,7 +45,7 @@ pub enum SerializedChange {
 }
 
 #[derive(Event, Debug)]
-pub struct SerializedChangeInEvent(pub SerializedChange);
+pub struct SerializedChangeInEvent(pub SerializedChange, pub Token);
 #[derive(Event, Debug)]
 pub struct SerializedChangeOutEvent(pub SerializedChange);
 
@@ -52,6 +53,8 @@ pub struct SerializedChangeOutEvent(pub SerializedChange);
 pub struct EntityMap {
     local_to_forign: HashMap<Entity, NetId>,
     forign_to_local: HashMap<NetId, Entity>,
+
+    pub(crate) forign_owned: HashMap<Token, Vec<Entity>>,
 
     local_modified: HashMap<Entity, Tick>,
 }

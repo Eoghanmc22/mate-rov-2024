@@ -7,6 +7,7 @@ use bevy::{
         system::{Commands, Res, ResMut, SystemChangeTick},
         world::World,
     },
+    reflect::List,
 };
 use tracing::error;
 
@@ -35,13 +36,19 @@ fn apply_changes(
     mut entity_map: ResMut<EntityMap>,
     mut reader: EventReader<SerializedChangeInEvent>,
 ) {
-    for SerializedChangeInEvent(change) in reader.read() {
+    for SerializedChangeInEvent(change, token) in reader.read() {
         match change {
             SerializedChange::EntitySpawned(forign) => {
                 let local = cmds.spawn((Replicate, *forign)).id();
 
                 entity_map.local_to_forign.insert(local, *forign);
                 entity_map.forign_to_local.insert(*forign, local);
+
+                entity_map
+                    .forign_owned
+                    .entry(*token)
+                    .or_default()
+                    .push(local);
 
                 entity_map.local_modified.insert(local, ticks.this_run());
             }
@@ -84,7 +91,9 @@ fn apply_changes(
                                 .deserialize(&serialized, |ptr|
                                     // SAFETY: We used the type adapter associated with this component id
                                     unsafe {
-                                        world.entity_mut(local).insert_by_id(component_id, ptr);
+                                        if let Some(mut entity) = world.get_entity_mut(local) {
+                                            entity.insert_by_id(component_id, ptr);
+                                        }
                                     })
                                 .expect("Bad update");
                         }
@@ -99,8 +108,9 @@ fn apply_changes(
                                     .expect("Bad update")
                             };
 
-                            let mut entity = world.entity_mut(local);
-                            component.insert(&mut entity, &*reflect);
+                            if let Some(mut entity) = world.get_entity_mut(local) {
+                                component.insert(&mut entity, &*reflect);
+                            }
                         }
                     }
                 });
@@ -125,8 +135,9 @@ fn apply_changes(
                 // TODO: there doesnt seem to be a bevy api for this...
                 let remover = sync_info.remove_fn;
                 cmds.add(move |world: &mut World| {
-                    let mut entity = world.entity_mut(local);
-                    (remover)(&mut entity);
+                    if let Some(mut entity) = world.get_entity_mut(local) {
+                        (remover)(&mut entity);
+                    }
                 });
 
                 entity_map.local_modified.insert(local, ticks.this_run());

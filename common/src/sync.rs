@@ -36,6 +36,7 @@ impl Plugin for SyncPlugin {
             .init_resource::<EntityMap>()
             .init_resource::<Deltas>()
             .init_resource::<Peers>()
+            .add_event::<ConnectToPeer>()
             .add_systems(Startup, setup_networking.pipe(error::handle_errors))
             .add_systems(PreUpdate, net_read.before(ChangeApplicationSet))
             .add_systems(
@@ -51,16 +52,10 @@ impl Plugin for SyncPlugin {
 
         match self.0 {
             SyncRole::Server => {
-                app.add_systems(
-                    PostStartup,
-                    bind.pipe(error::handle_errors).after(setup_networking),
-                );
+                app.add_systems(PostStartup, bind.pipe(error::handle_errors));
             }
             SyncRole::Client => {
-                app.add_systems(
-                    PostStartup,
-                    connect.pipe(error::handle_errors).after(setup_networking),
-                );
+                app.add_systems(Update, connect.pipe(error::handle_errors));
             }
         }
     }
@@ -87,6 +82,9 @@ pub struct Latency {
     pub last_ping_sent: Option<Duration>,
     pub last_acknowledged: Option<Duration>,
 }
+
+#[derive(Event)]
+pub struct ConnectToPeer(pub SocketAddr);
 
 fn setup_networking(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let networking = Networking::new().context("Start networking")?;
@@ -122,16 +120,10 @@ fn bind(net: Res<Net>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn connect(net: Res<Net>) -> anyhow::Result<()> {
-    net.0
-        .connect_to(
-            "mate.local:44445"
-                .to_socket_addrs()
-                .context("Create socket address")?
-                .next()
-                .unwrap(),
-        )
-        .context("Contact net thread")?;
+fn connect(net: Res<Net>, mut events: EventReader<ConnectToPeer>) -> anyhow::Result<()> {
+    for event in events.read() {
+        net.0.connect_to(event.0).context("Contact net thread")?;
+    }
 
     Ok(())
 }
@@ -141,6 +133,7 @@ fn net_read(
 
     net: Res<Net>,
     mut peers: ResMut<Peers>,
+    mut entity_map: ResMut<EntityMap>,
     // mut sync_state: ResMut<SyncState>,
     mut changes: EventWriter<SerializedChangeInEvent>,
 
@@ -163,7 +156,7 @@ fn net_read(
             }
             NetEvent::Data(token, packet) => match packet {
                 Protocol::EcsUpdate(update) => {
-                    changes.send(SerializedChangeInEvent(update));
+                    changes.send(SerializedChangeInEvent(update, token));
                 }
                 Protocol::Ping { payload } => {
                     let response = Protocol::Pong { payload };
@@ -211,6 +204,15 @@ fn net_read(
                 // sync_state.singleton_map.remove(&token.0);
 
                 cmds.entity(entity).despawn();
+                if let Some(owned_entities) = entity_map.forign_owned.remove(&token) {
+                    for entity in owned_entities {
+                        let Some(mut entity) = cmds.get_entity(entity) else {
+                            continue;
+                        };
+
+                        entity.despawn();
+                    }
+                }
 
                 info!("Peer ({token:?}) at {} disconnected", peer.addrs);
             }
