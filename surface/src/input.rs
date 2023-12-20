@@ -164,6 +164,7 @@ fn movement(mut cmds: Commands, inputs: Query<(Entity, &ActionState<Action>), Wi
         let y_rot = action_state.value(Action::Roll);
         let z_rot = action_state.value(Action::Yaw);
 
+        // TODO: This needs to be scaled properly
         let movement = Movement {
             force: vec3a(x, y, z),
             torque: vec3a(x_rot, y_rot, z_rot),

@@ -382,6 +382,7 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4bc7e09282a82a48d70ade0c4c1154b0fd7882a735a39c66766a5d0f4718ea9"
 dependencies = [
+ "bevy_dylib",
  "bevy_internal",
 ]
 
@@ -422,6 +423,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.41",
+]
+
+[[package]]
+name = "bevy-tokio-tasks"
+version = "0.12.0"
+source = "git+https://github.com/foxzool/bevy-tokio-tasks.git#b12e1d0867c05a0238eccdde361e01e3ac66d399"
+dependencies = [
+ "bevy_app",
+ "bevy_ecs",
+ "tokio",
 ]
 
 [[package]]
@@ -595,6 +606,15 @@ dependencies = [
  "bevy_time",
  "bevy_utils",
  "sysinfo",
+]
+
+[[package]]
+name = "bevy_dylib"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45b99001eb4837c78d9c63cc8b32fda61ea96b194a2cda54b569aeee69a9853c"
+dependencies = [
+ "bevy_internal",
 ]
 
 [[package]]
@@ -2349,6 +2369,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hermit-abi"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d77f7ec81a6d05a3abb01ab6eb7590f6083d08449fe5a1c8b1e620283546ccb7"
+
+[[package]]
 name = "hexasphere"
 version = "9.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3126,6 +3152,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_cpus"
+version = "1.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
+dependencies = [
+ "hermit-abi",
+ "libc",
+]
+
+[[package]]
 name = "num_enum"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3851,6 +3887,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7cee0529a6d40f580e7a5e6c495c8fbfe21b7b52795ed4bb5e62cdf92bc6380"
 
 [[package]]
+name = "signal-hook-registry"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "simba"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3926,6 +3971,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "socket2"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5fac59a5cb5dd637972e5fca70daf0523c9067fcdc4842f053dae04a18f8e9"
+dependencies = [
+ "libc",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "spin_sleep"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3971,6 +4026,7 @@ dependencies = [
  "anyhow",
  "bevy",
  "bevy-inspector-egui",
+ "bevy-tokio-tasks",
  "bevy_egui",
  "common",
  "crossbeam",
@@ -3981,6 +4037,7 @@ dependencies = [
  "networking",
  "opencv",
  "serde",
+ "tokio",
  "toml",
  "tracing",
  "tracing-subscriber",
@@ -4149,6 +4206,36 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "tokio"
+version = "1.35.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c89b4efa943be685f629b149f53829423f8f5531ea21249408e8e2f8671ec104"
+dependencies = [
+ "backtrace",
+ "bytes",
+ "libc",
+ "mio",
+ "num_cpus",
+ "parking_lot",
+ "pin-project-lite",
+ "signal-hook-registry",
+ "socket2",
+ "tokio-macros",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.41",
+]
 
 [[package]]
 name = "toml"

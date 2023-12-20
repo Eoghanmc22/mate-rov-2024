@@ -8,7 +8,7 @@ common = { path = "../common" }
 networking = { path = "../networking" }
 motor_math = { path = "../motor_math" }
 
-bevy = { version = "0.12", features = ["wayland"] }
+bevy = { version = "0.12", features = ["wayland", "dynamic_linking"] }
 egui = "0.23"
 egui_extras = "0.23"
 bevy_egui = { version = "0.23", default-features = false }
@@ -25,3 +25,7 @@ crossbeam = "0.8"
 ahash = "0.8"
 
 opencv = "0.88"
+
+# *brings in all of tokio for a single function*
+tokio = { version = "1.35", features = ["full"] }
+bevy-tokio-tasks = { git = "https://github.com/foxzool/bevy-tokio-tasks.git" }

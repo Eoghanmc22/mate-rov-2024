@@ -1,22 +1,29 @@
+pub mod attitude;
 pub mod input;
 pub mod surface;
+pub mod ui;
 
+use attitude::AttitudePlugin;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_tokio_tasks::TokioTasksPlugin;
 use common::{sync::SyncRole, CommonPlugins};
 use input::InputPlugin;
 use surface::SurfacePlugin;
-use tracing::Level;
+use ui::EguiUiPlugin;
 
 fn main() -> anyhow::Result<()> {
     // TODO/FIXME: Times out when focus is lost
     App::new()
         .add_plugins((
             DefaultPlugins.build().disable::<bevy::audio::AudioPlugin>(),
+            TokioTasksPlugin::default(),
             CommonPlugins(SyncRole::Client).build(),
-            WorldInspectorPlugin::new(),
             SurfacePlugin,
             InputPlugin,
+            EguiUiPlugin,
+            AttitudePlugin,
+            WorldInspectorPlugin::new(),
         ))
         .run();
 
