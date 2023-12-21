@@ -81,6 +81,7 @@ pub struct Latency {
     // In bevy time
     pub last_ping_sent: Option<Duration>,
     pub last_acknowledged: Option<Duration>,
+    pub ping: Option<Duration>,
 }
 
 #[derive(Event)]
@@ -132,6 +133,7 @@ fn net_read(
     mut cmds: Commands,
 
     net: Res<Net>,
+    time: Res<Time>,
     mut peers: ResMut<Peers>,
     mut entity_map: ResMut<EntityMap>,
     // mut sync_state: ResMut<SyncState>,
@@ -180,6 +182,8 @@ fn net_read(
 
                     let sent = Duration::from_millis(payload);
                     latency.last_acknowledged = sent.into();
+                    let now = time.elapsed();
+                    latency.ping = Some(now - sent);
                 }
             },
             NetEvent::Error(token, error) => {
@@ -264,8 +268,12 @@ fn ping(
 
         if should_disconnect {
             error!(
-                "Peer at {:?} timed out, now: {:?} lp: {:?}, la: {:?}",
-                peer.token, now, latency.last_ping_sent, latency.last_acknowledged
+                "Peer at {:?} timed out, now: {:?} lp: {:?}, la: {:?}, elapsed_since: {:?}",
+                peer.token,
+                now,
+                latency.last_ping_sent,
+                latency.last_acknowledged,
+                latency.last_ping_sent.map(|it| now - it)
             );
             let rst = net.0.disconnect(peer.token);
 
