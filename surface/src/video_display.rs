@@ -16,11 +16,7 @@ struct DisplayCamera;
 #[derive(Component)]
 struct DisplayMarker(UVec2);
 
-fn setup(
-    mut cmds: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut cmds: Commands) {
     cmds.spawn((
         Camera3dBundle {
             transform: Transform::default().looking_at(Vec3::Z, Vec3::Y),
@@ -29,7 +25,6 @@ fn setup(
         PanOrbitCamera::default(),
         DisplayCamera,
     ));
-
 }
 
 fn create_display(

@@ -311,10 +311,10 @@ fn camera_list(
     let mut list = Vec::new();
 
     for (name, &(_, location)) in cameras {
-        let (name, mut transform) = match config.cameras.get(name) {
+        let (name, transform) = match config.cameras.get(name) {
             Some(definition) => (
                 format!("{} ({})", definition.name, name),
-                definition.transform,
+                definition.transform.flatten(),
             ),
             None => (name.to_owned(), Transform::default()),
         };

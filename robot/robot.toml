@@ -27,4 +27,4 @@ BackLeftBottom = 7
 
 [cameras."/dev/video2"]
 name = "Front"
-transform = { translation = [0.0, 0.0, -1.0], rotation = [0.0, 0.0, 0.0, 1.0], scale = [1.0, 1.0, 1.0]}
+transform = { position = { x = 0.0, y = 1.0, z = 0.0 }, rotation = { yaw = 0.0, pitch = 0.0, roll = 0.0 }}

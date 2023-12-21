@@ -1,6 +1,7 @@
 use ahash::HashMap;
 use bevy::{ecs::system::Resource, transform::components::Transform};
 use common::types::hw::PwmChannelId;
+use glam::{vec3, EulerRot, Quat};
 use motor_math::{blue_rov::HeavyMotorId, x3d::X3dMotorId, ErasedMotorId, Motor, MotorConfig};
 use serde::{Deserialize, Serialize};
 
@@ -154,5 +155,40 @@ impl MotorConfigDefinition {
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct CameraDefinition {
     pub name: String,
-    pub transform: Transform,
+    pub transform: ConfigTransform,
+}
+
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigTransform {
+    position: ConfigPosition,
+    rotation: ConfigRotation,
+}
+
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigPosition {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigRotation {
+    yaw: f32,
+    pitch: f32,
+    roll: f32,
+}
+
+impl ConfigTransform {
+    pub fn flatten(&self) -> Transform {
+        let ConfigPosition { x, y, z } = self.position;
+        let ConfigRotation { yaw, pitch, roll } = self.rotation;
+
+        Transform::from_translation(Quat::from_rotation_x(90f32.to_radians()) * vec3(x, -y, z))
+            .with_rotation(Quat::from_euler(
+                EulerRot::default(),
+                yaw.to_radians(),
+                pitch.to_radians(),
+                roll.to_radians(),
+            ))
+    }
 }
