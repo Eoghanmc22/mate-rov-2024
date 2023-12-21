@@ -6,6 +6,7 @@ use bevy::{
     app::{Plugin, PluginGroup, PluginGroupBuilder},
     core::Name,
     prelude::App,
+    transform::components::Transform,
 };
 use ctrlc::CtrlCPlugin;
 use ecs_sync::{
@@ -37,7 +38,7 @@ impl Plugin for CommunicationTypes {
             .register_type::<Latency>();
         // .register_type::<Peer>();
 
-        app.replicate_reflect::<Name>();
+        app.replicate::<Transform>().replicate_reflect::<Name>();
     }
 }
 

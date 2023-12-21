@@ -1,5 +1,3 @@
-use std::any::Any;
-
 use anyhow::Context;
 use bevy::{
     ptr::{OwningPtr, Ptr},
@@ -30,7 +28,7 @@ pub trait SerdeAdapter {
 /// Default blanket impl of TypeAdapter using the [`bincode`] trait
 impl<T> SerdeAdapter for T
 where
-    for<'a> T: Serialize + Deserialize<'a> + Any + Send + Sync,
+    for<'a> T: Serialize + Deserialize<'a>,
 {
     #[instrument(level = "trace", skip_all)]
     unsafe fn serialize(ptr: Ptr<'_>) -> Result<BackingType, AdapterError> {

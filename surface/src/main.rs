@@ -29,6 +29,7 @@ fn main() -> anyhow::Result<()> {
     // TODO/FIXME: Times out when focus is lost
     App::new()
         .add_plugins((
+            // Bevy Core
             DefaultPlugins
                 .build()
                 .disable::<bevy::audio::AudioPlugin>()
@@ -45,21 +46,30 @@ fn main() -> anyhow::Result<()> {
                         ..default()
                     },
                 }),
-            LogDiagnosticsPlugin::default(),
-            EntityCountDiagnosticsPlugin,
-            FrameTimeDiagnosticsPlugin,
-            SystemInformationDiagnosticsPlugin,
-            TokioTasksPlugin::default(),
-            CommonPlugins(SyncRole::Client).build(),
-            SurfacePlugin,
-            InputPlugin,
-            EguiUiPlugin,
-            AttitudePlugin,
-            VideoStreamPlugin,
-            VideoDisplayPlugin,
-            // TODO: Way to close and re open
-            WorldInspectorPlugin::new(),
-            PanOrbitCameraPlugin,
+            // Diagnostics
+            (
+                LogDiagnosticsPlugin::default(),
+                EntityCountDiagnosticsPlugin,
+                FrameTimeDiagnosticsPlugin,
+                SystemInformationDiagnosticsPlugin,
+            ),
+            // MATE
+            (
+                CommonPlugins(SyncRole::Client).build(),
+                SurfacePlugin,
+                InputPlugin,
+                EguiUiPlugin,
+                AttitudePlugin,
+                VideoStreamPlugin,
+                VideoDisplayPlugin,
+            ),
+            // 3rd Party
+            (
+                TokioTasksPlugin::default(),
+                // TODO: Way to close and re open
+                WorldInspectorPlugin::new(),
+                PanOrbitCameraPlugin,
+            ),
         ))
         .run();
 

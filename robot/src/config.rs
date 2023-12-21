@@ -1,5 +1,5 @@
 use ahash::HashMap;
-use bevy::ecs::system::Resource;
+use bevy::{ecs::system::Resource, transform::components::Transform};
 use common::types::hw::PwmChannelId;
 use motor_math::{blue_rov::HeavyMotorId, x3d::X3dMotorId, ErasedMotorId, Motor, MotorConfig};
 use serde::{Deserialize, Serialize};
@@ -154,4 +154,5 @@ impl MotorConfigDefinition {
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct CameraDefinition {
     pub name: String,
+    pub transform: Transform,
 }

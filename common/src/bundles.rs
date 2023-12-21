@@ -1,4 +1,4 @@
-use bevy::{core::Name, ecs::bundle::Bundle};
+use bevy::{core::Name, ecs::bundle::Bundle, transform::components::Transform};
 
 use crate::components::{
     ActualForce, ActualMovement, Armed, Camera, Cores, CpuTotal, CurrentDraw, Depth, Disks,
@@ -72,6 +72,7 @@ pub struct RobotPowerBundle {
 pub struct CameraBundle {
     pub name: Name,
     pub camera: Camera,
+    pub transform: Transform,
 
     pub robot: RobotId,
 }

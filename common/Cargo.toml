@@ -19,6 +19,6 @@ tracing = "0.1"
 rand = "0.8"
 ahash = "0.8"
 
-bevy = { version = "0.12" , default-features = false }
+bevy = { version = "0.12" , default-features = false, features = ["serialize"] }
 
 ctrlc = "3"

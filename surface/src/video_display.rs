@@ -12,16 +12,24 @@ impl Plugin for VideoDisplayPlugin {
 }
 
 #[derive(Component)]
+struct DisplayCamera;
+#[derive(Component)]
 struct DisplayMarker(UVec2);
 
-fn setup(mut cmds: Commands) {
+fn setup(
+    mut cmds: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     cmds.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::default().looking_at(Vec3::Z, Vec3::Y),
             ..default()
         },
         PanOrbitCamera::default(),
+        DisplayCamera,
     ));
+
 }
 
 fn create_display(
@@ -68,7 +76,7 @@ fn create_display(
 
             let aspect_ratio = image.aspect_ratio();
 
-            let mesh_width = 8.0;
+            let mesh_width = 1.0;
             let mesh_height = mesh_width * aspect_ratio;
 
             let mesh = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(

@@ -311,17 +311,19 @@ fn camera_list(
     let mut list = Vec::new();
 
     for (name, &(_, location)) in cameras {
-        let name = match config.cameras.get(name) {
-            Some(definition) => {
-                format!("{} ({})", definition.name, name)
-            }
-            None => name.to_owned(),
+        let (name, mut transform) = match config.cameras.get(name) {
+            Some(definition) => (
+                format!("{} ({})", definition.name, name),
+                definition.transform,
+            ),
+            None => (name.to_owned(), Transform::default()),
         };
 
         list.push(CameraBundle {
             name: Name::new(name),
             camera: Camera { location },
             robot,
+            transform,
         });
     }
 
