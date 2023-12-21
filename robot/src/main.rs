@@ -7,36 +7,52 @@ pub mod plugins;
 use std::{fs, time::Duration};
 
 use anyhow::Context;
-use bevy::{app::ScheduleRunnerPlugin, prelude::*};
+use bevy::{
+    app::ScheduleRunnerPlugin,
+    core::TaskPoolThreadAssignmentPolicy,
+    diagnostic::{
+        DiagnosticsPlugin, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
+        SystemInformationDiagnosticsPlugin,
+    },
+    log::LogPlugin,
+    prelude::*,
+    tasks::available_parallelism,
+};
 use common::{sync::SyncRole, CommonPlugins};
 use config::RobotConfig;
 use plugins::{
     actuators::MovementPlugins, core::CorePlugins, monitor::MonitorPlugins, sensors::SensorPlugins,
 };
-use tracing::Level;
 
 fn main() -> anyhow::Result<()> {
-    // TODO: Rotating log file
-    // TODO: tracy support
-    // TODO: Could tracing replace the current error system?
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
-        .init();
-
     let config = fs::read_to_string("robot.toml").context("Read config")?;
     let config: RobotConfig = toml::from_str(&config).context("Parse config")?;
-
-    // TODO: Make sure commands from Update get flushed before the network write system runs in PostUpdate
-    // TODO: Generally make sure that update order is correct
-
-    let bevy_plugins = MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
-        1.0 / 100.0,
-    )));
 
     App::new()
         .insert_resource(config)
         .add_plugins((
-            bevy_plugins,
+            MinimalPlugins
+                .set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+                    1.0 / 100.0,
+                )))
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        compute: TaskPoolThreadAssignmentPolicy {
+                            // set the minimum # of compute threads
+                            // to the total number of available threads
+                            min_threads: available_parallelism(),
+                            max_threads: std::usize::MAX, // unlimited max threads
+                            percent: 1.0,                 // this value is irrelevant in this case
+                        },
+                        // keep the defaults for everything else
+                        ..default()
+                    },
+                }),
+            LogPlugin::default(),
+            DiagnosticsPlugin,
+            EntityCountDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin,
+            SystemInformationDiagnosticsPlugin,
             CommonPlugins(SyncRole::Server),
             CorePlugins,
             SensorPlugins,
