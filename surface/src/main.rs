@@ -23,6 +23,7 @@ fn main() -> anyhow::Result<()> {
             InputPlugin,
             EguiUiPlugin,
             AttitudePlugin,
+            // TODO: Way to close and re open
             WorldInspectorPlugin::new(),
         ))
         .run();

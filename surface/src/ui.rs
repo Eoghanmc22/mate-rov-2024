@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use bevy::{math::Vec3A, prelude::*};
 use bevy_egui::{EguiContexts, EguiPlugin};
 use bevy_tokio_tasks::TokioTasksRuntime;
@@ -10,7 +8,7 @@ use common::{
     },
     sync::ConnectToPeer,
 };
-use egui::{load::SizedTexture, Button, Color32, RichText};
+use egui::{load::SizedTexture, Color32, RichText};
 use tokio::net::lookup_host;
 
 use crate::attitude::OrientationDisplay;
@@ -51,8 +49,6 @@ fn hud(
         ),
         With<Robot>,
     >,
-
-    mut connect: EventWriter<ConnectToPeer>,
 ) {
     let context = contexts.ctx_mut();
 

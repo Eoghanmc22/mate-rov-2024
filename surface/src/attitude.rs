@@ -20,7 +20,7 @@ pub struct AttitudePlugin;
 impl Plugin for AttitudePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
-            .add_systems(Update, (update_motor_conf, draw_axis, rotator_system))
+            .add_systems(Update, (update_motor_conf, rotator_system))
             .insert_resource(GizmoConfig {
                 render_layers: RENDER_LAYERS,
                 ..default()
@@ -212,8 +212,6 @@ fn update_motor_conf(
         );
     }
 }
-
-fn draw_axis(mut gizmos: Gizmos) {}
 
 fn rotator_system(
     robot: Query<&Orientation, With<Robot>>,
