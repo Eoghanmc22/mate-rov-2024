@@ -9,6 +9,8 @@ pub struct RobotConfig {
     pub name: String,
     pub motor_config: MotorConfigDefinition,
     pub motor_amperage_budget: f32,
+
+    pub cameras: HashMap<String, CameraDefinition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,4 +149,9 @@ impl MotorConfigDefinition {
 
         (motors.into_iter(), config)
     }
+}
+
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+pub struct CameraDefinition {
+    pub name: String,
 }

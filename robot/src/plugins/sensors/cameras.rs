@@ -20,7 +20,10 @@ use common::{
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use crate::plugins::core::robot::{LocalRobot, LocalRobotMarker};
+use crate::{
+    config::RobotConfig,
+    plugins::core::robot::{LocalRobot, LocalRobotMarker},
+};
 
 // TODO: Use multicast udp
 pub struct CameraPlugin;
@@ -45,7 +48,12 @@ enum CameraEvent {
     Shutdown,
 }
 
-fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>, robot: Res<LocalRobot>) {
+fn start_camera_thread(
+    mut cmds: Commands,
+    errors: Res<Errors>,
+    robot: Res<LocalRobot>,
+    config: Res<RobotConfig>,
+) {
     let (tx_events, rx_events) = channel::bounded(10);
     let (tx_camreas, rx_cameras) = channel::bounded(10);
 
@@ -56,6 +64,8 @@ fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>, robot: Res<Local
 
     let errors = errors.0.clone();
     let robot = RobotId(robot.net_id);
+    let config = config.clone();
+
     thread::spawn(move || {
         let _span = span!(Level::INFO, "Camera manager").entered();
 
@@ -91,7 +101,7 @@ fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>, robot: Res<Local
                         }
                     }
 
-                    let camera_list = camera_list(&cameras, robot);
+                    let camera_list = camera_list(&cameras, robot, &config);
                     // TODO: Handle?
                     let _ = tx_camreas.send(camera_list);
                 }
@@ -158,7 +168,7 @@ fn start_camera_thread(mut cmds: Commands, errors: Res<Errors>, robot: Res<Local
 
                                     last_cameras = next_cameras;
 
-                                    let camera_list = camera_list(&cameras, robot);
+                                    let camera_list = camera_list(&cameras, robot, &config);
                                     let _ = tx_camreas.send(camera_list);
                                 }
                                 Err(err) => {
@@ -296,12 +306,20 @@ fn add_camera(
 fn camera_list(
     cameras: &HashMap<String, (Child, SocketAddr)>,
     robot: RobotId,
+    config: &RobotConfig,
 ) -> Vec<CameraBundle> {
     let mut list = Vec::new();
 
     for (name, &(_, location)) in cameras {
+        let name = match config.cameras.get(name) {
+            Some(definition) => {
+                format!("{} ({})", definition.name, name)
+            }
+            None => name.to_owned(),
+        };
+
         list.push(CameraBundle {
-            name: Name::new(name.clone()),
+            name: Name::new(name),
             camera: Camera { location },
             robot,
         });

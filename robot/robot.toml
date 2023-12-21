@@ -24,3 +24,6 @@ BackRightTop = 4
 BackRightBottom = 5
 BackLeftTop = 6
 BackLeftBottom = 7
+
+[cameras."/dev/video2"]
+name = "Front"
