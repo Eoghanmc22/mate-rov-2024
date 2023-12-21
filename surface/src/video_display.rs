@@ -14,6 +14,8 @@ impl Plugin for VideoDisplayPlugin {
 #[derive(Component)]
 struct DisplayCamera;
 #[derive(Component)]
+struct DisplayParent;
+#[derive(Component)]
 struct DisplayMarker(UVec2);
 
 fn setup(mut cmds: Commands) {
@@ -25,6 +27,8 @@ fn setup(mut cmds: Commands) {
         PanOrbitCamera::default(),
         DisplayCamera,
     ));
+
+    cmds.spawn((SpatialBundle::default(), DisplayParent));
 }
 
 fn create_display(
@@ -34,6 +38,7 @@ fn create_display(
         (With<Camera>, Added<Handle<Image>>),
     >,
     cameras: Query<(Entity, &Handle<Image>, &DisplayMarker)>,
+    parent: Query<Entity, With<DisplayParent>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     images: Res<Assets<Image>>,
@@ -54,6 +59,9 @@ fn create_display(
             },
             DisplayMarker(UVec2::default()),
         ));
+
+        let parent = parent.single();
+        cmds.entity(parent).add_child(entity);
     }
 
     for (entity, handle, display) in &cameras {
