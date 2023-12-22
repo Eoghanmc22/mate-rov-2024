@@ -40,8 +40,8 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
                 contribution: MovementContribution(Movement::default()),
                 robot: RobotId(robot.net_id),
             },
-            // TODO: Tune
-            // TODO: Load from disk?
+            // TODO(high): Tune
+            // TODO(low): Load from disk?
             PidConfig {
                 kp: 1.0,
                 ki: 0.0,
@@ -59,8 +59,8 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
                 contribution: MovementContribution(Movement::default()),
                 robot: RobotId(robot.net_id),
             },
-            // TODO: Tune
-            // TODO: Load from disk?
+            // TODO(high): Tune
+            // TODO(low): Load from disk?
             PidConfig {
                 kp: 1.0,
                 ki: 0.0,
@@ -95,7 +95,7 @@ fn stabalize_system(
         let observed_up = orientation.0 * Vec3A::Z;
         let target_up = orientation_target.0;
 
-        // TODO: Is this any good?
+        // TODO(mid): Is this any good?
         let error = Quat::from_rotation_arc(observed_up.into(), target_up.into());
         let pitch_error = instant_twist(error, orientation.0 * Vec3A::X).to_degrees();
         let roll_error = instant_twist(error, orientation.0 * Vec3A::Y).to_degrees();

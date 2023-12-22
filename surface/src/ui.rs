@@ -52,7 +52,7 @@ fn hud(
 ) {
     let context = contexts.ctx_mut();
 
-    // TODO: Support multiple robots
+    // TODO(low): Support multiple robots
     if let Ok((
         robot_name,
         armed,
@@ -72,13 +72,7 @@ fn hud(
             .constraint_to(context.available_rect().shrink(20.0))
             .movable(false)
             .show(context, |ui| {
-                // TODO: Ping
-
-                // Armed
-                // CPU utilization
-                // Temps
-                // Attitude
-                // Amperage/power data?
+                // TODO(mid): Ping
 
                 let size = 20.0;
 

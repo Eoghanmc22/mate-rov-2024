@@ -16,7 +16,7 @@ use leafwing_input_manager::{
 };
 use motor_math::Movement;
 
-// TODO: Handle multiple gamepads better
+// TODO(low): Handle multiple gamepads better
 pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
@@ -153,7 +153,7 @@ fn handle_disconnected_robots(
     }
 }
 
-// TODO: Remap sticks to square
+// TODO(mid): Remap sticks to square
 fn movement(mut cmds: Commands, inputs: Query<(Entity, &ActionState<Action>), With<InputMarker>>) {
     for (entity, action_state) in &inputs {
         let x = action_state.value(Action::Sway);
@@ -164,7 +164,7 @@ fn movement(mut cmds: Commands, inputs: Query<(Entity, &ActionState<Action>), Wi
         let y_rot = action_state.value(Action::Roll);
         let z_rot = action_state.value(Action::Yaw);
 
-        // TODO: This needs to be scaled properly
+        // TODO(high): This needs to be scaled properly
         let movement = Movement {
             force: vec3a(x, y, z),
             torque: vec3a(x_rot, y_rot, z_rot),

@@ -82,9 +82,7 @@ fn apply_changes(
                 let token = token.clone();
 
                 cmds.add(move |world: &mut World| {
-                    // TODO: error handling
-                    // type_adapter
-
+                    // TODO(mid): Error handling
                     match type_adapter {
                         TypeAdapter::Serde(adapter) => {
                             adapter
@@ -132,7 +130,6 @@ fn apply_changes(
                     unreachable!();
                 };
 
-                // TODO: there doesnt seem to be a bevy api for this...
                 let remover = sync_info.remove_fn;
                 cmds.add(move |world: &mut World| {
                     if let Some(mut entity) = world.get_entity_mut(local) {

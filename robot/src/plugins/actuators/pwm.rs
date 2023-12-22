@@ -114,7 +114,7 @@ fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
             if matches!(armed, Armed::Armed) && last_batch.elapsed() > max_inactive {
                 warn!("Time since last batch exceeded max_inactive, disarming");
 
-                // TODO: Should this notify bevy?
+                // TODO(mid): Should this notify bevy?
                 let _ = errors.send(anyhow!("Motors disarmed due to inactivity"));
                 armed = Armed::Disarmed;
             }

@@ -60,14 +60,13 @@ pub struct RobotActuatorBundle {
     pub armed: Armed,
 }
 
-// TODO: Sensor not implemented
+// TODO(mid): Sensor not implemented
 #[derive(Bundle, PartialEq)]
 pub struct RobotPowerBundle {
     pub voltage: MeasuredVoltage,
     pub current_draw: CurrentDraw,
 }
 
-// TODO: Add transform?
 #[derive(Bundle, PartialEq)]
 pub struct CameraBundle {
     pub name: Name,

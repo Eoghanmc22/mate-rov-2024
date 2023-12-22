@@ -182,7 +182,7 @@ fn mat_to_image(mat: &Mat, image: &mut Image) -> anyhow::Result<()> {
         out_mat
     };
 
-    // TODO: Try to remove
+    // TODO(mid): Try to remove
     imgproc::cvt_color(mat, &mut out_mat, imgproc::COLOR_BGR2RGBA, 4).context("Convert colors")?;
 
     Ok(())

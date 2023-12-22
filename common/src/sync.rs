@@ -153,7 +153,7 @@ fn net_read(
                 peers.by_token.insert(token, entity);
                 peers.by_addrs.insert(addrs, entity);
 
-                // TODO
+                // TODO(mid): Make an alternative to the old singleton system
                 // sync_state.singleton_map.insert(token.0, entity);
             }
             NetEvent::Data(token, packet) => match packet {
@@ -204,7 +204,8 @@ fn net_read(
                 };
 
                 peers.by_addrs.remove(&peer.addrs);
-                // TODO
+
+                // TODO(mid): Make an alternative to the old singleton system
                 // sync_state.singleton_map.remove(&token.0);
 
                 cmds.entity(entity).despawn();

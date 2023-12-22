@@ -11,7 +11,7 @@ use thiserror::Error;
 
 use self::serde::ReflectSerdeAdapter;
 
-// TODO: Should this be Arc?
+// TODO(low): Should this be Arc?
 pub type BackingType = Arc<Vec<u8>>;
 
 #[derive(Clone)]

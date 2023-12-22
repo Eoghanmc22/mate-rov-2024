@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 pub struct SurfacePlugin;
 
-// TODO: This nameing is kinda bad
+// TODO(low): This nameing is kinda bad
 #[derive(Component, Debug, Copy, Clone, PartialEq, Default)]
 pub struct LocalSurfaceMarker;
 

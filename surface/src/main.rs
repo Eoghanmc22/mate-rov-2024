@@ -26,7 +26,7 @@ use video_display::VideoDisplayPlugin;
 use video_stream::VideoStreamPlugin;
 
 fn main() -> anyhow::Result<()> {
-    // TODO/FIXME: Times out when focus is lost
+    // FIXME(high): Times out when focus is lost
     App::new()
         .add_plugins((
             // Bevy Core
@@ -66,7 +66,7 @@ fn main() -> anyhow::Result<()> {
             // 3rd Party
             (
                 TokioTasksPlugin::default(),
-                // TODO: Way to close and re open
+                // TODO(high): Way to close and re open
                 WorldInspectorPlugin::new(),
                 PanOrbitCameraPlugin,
             ),

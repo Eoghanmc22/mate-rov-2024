@@ -26,7 +26,7 @@ use super::{
     SerializedChangeOutEvent,
 };
 
-// TODO: Events as RPC
+// TODO(mid): Events as RPC
 pub struct ChangeDetectionPlugin;
 
 impl Plugin for ChangeDetectionPlugin {
@@ -83,7 +83,6 @@ fn detect_new_entities(
 // filter for the ones we care about
 // check for ignore components
 // if any non ignored components have changed, sync them
-// TODO: Can this be merged with detect new?
 fn detect_changes(
     mut set: ParamSet<(
         (
@@ -184,7 +183,6 @@ fn detect_changes(
 }
 
 // Detect when components are removed
-// TODO: Can this be merged with detect change?
 fn detect_removals(
     mut set: ParamSet<(
         (

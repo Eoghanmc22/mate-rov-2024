@@ -112,7 +112,7 @@ fn add_motor_conf(
 
     render_layer: RenderLayers,
 ) {
-    // TODO/FIXME: This assumes x3d motor conf
+    // FIXME(low): This assumes x3d motor conf
     let frt = motor_conf.motor(&0).unwrap();
 
     commands

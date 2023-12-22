@@ -41,9 +41,7 @@ pub fn forces_to_cmds<MotorId: Hash + Ord + Clone + Debug>(
 ) -> HashMap<MotorId, MotorRecord> {
     let mut motor_cmds = HashMap::new();
     for (motor_id, force) in forces {
-        // TODO/FIXME: Remove
         let motor = motor_config.motor(&motor_id).expect("Bad motor id");
-
         let data = motor_data.lookup_by_force(force, Interpolation::LerpDirection(motor.direction));
 
         motor_cmds.insert(motor_id.clone(), data);
@@ -52,7 +50,7 @@ pub fn forces_to_cmds<MotorId: Hash + Ord + Clone + Debug>(
     motor_cmds
 }
 
-// TODO: Preserve force ratios
+// TODO(high): Preserve force ratios
 #[instrument(level = "trace", skip(motor_config, motor_data), ret)]
 pub fn clamp_amperage<MotorId: Hash + Ord + Clone + Debug>(
     motor_cmds: HashMap<MotorId, MotorRecord>,
@@ -77,7 +75,7 @@ pub fn clamp_amperage<MotorId: Hash + Ord + Clone + Debug>(
 
     let mut adjusted_motor_cmds = HashMap::default();
     for (motor_id, data) in motor_cmds {
-        // FIXME: Fails silently
+        // FIXME(low): Fails silently
         let direction = motor_config
             .motor(&motor_id)
             .map(|it| it.direction)

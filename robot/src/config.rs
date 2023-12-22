@@ -71,7 +71,7 @@ impl From<&CustomDefinition> for MotorConfig<String> {
 }
 
 impl MotorConfigDefinition {
-    // TODO: Rename and make less bad
+    // TODO(low): Rename and make less bad
     pub fn flatten(
         &self,
     ) -> (

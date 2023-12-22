@@ -130,7 +130,7 @@ pub enum Armed {
 #[reflect(from_reflect = false)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Camera {
-    // TODO: This bad
+    // TODO(low): This bad
     #[reflect(ignore)]
     pub location: SocketAddr,
 }
@@ -214,7 +214,7 @@ pub struct MotorDefinition(pub ErasedMotorId, pub Motor);
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 #[reflect(from_reflect = false)]
 pub struct Motors(
-    // TODO: This bad
+    // TODO(low): This bad
     #[reflect(ignore)] pub MotorConfig<ErasedMotorId>,
 );
 
@@ -238,7 +238,7 @@ pub struct MovementContribution(pub Movement);
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
 #[reflect(from_reflect = false)]
 pub struct MotorContribution(
-    // TODO: This bad
+    // TODO(low): This bad
     #[reflect(ignore)] pub BTreeMap<ErasedMotorId, Newtons>,
 );
 

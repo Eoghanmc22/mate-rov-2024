@@ -20,7 +20,7 @@ pub struct MotorMathPlugin;
 
 impl Plugin for MotorMathPlugin {
     fn build(&self, app: &mut App) {
-        // TODO/FIXME: This is kinda bad
+        // FIXME(low): This is kinda bad
         let motor_data =
             motor_preformance::read_motor_data("motor_data.csv").expect("Read motor data");
 
@@ -66,7 +66,7 @@ fn accumulate_movements(
     robot.insert(MotorContribution(forces));
 }
 
-// TODO: Split into smaller systems
+// TODO(mid): Split into smaller systems
 fn accumulate_motor_forces(
     mut cmds: Commands,
     robot: Query<(Entity, &NetId, &Motors, &MovementCurrentCap), With<LocalRobotMarker>>,
@@ -94,7 +94,7 @@ fn accumulate_motor_forces(
     let motor_cmds = all_forces
         .iter()
         .map(|(motor, force)| {
-            // FIXME: Fails silently
+            // FIXME(low): Fails silently
             let direction = motor_config
                 .motor(motor)
                 .map(|it| it.direction)
@@ -124,11 +124,11 @@ fn accumulate_motor_forces(
         if robot_net_id == net_id {
             let mut motor = cmds.entity(motor_entity);
 
-            // TODO/FIXME: panics
+            // FIXME(mid): panics
             let target_force = all_forces.get(id);
             let actual_data = motor_cmds.get(id);
 
-            // TODO/FIXME: Special case for 0
+            // TODO(mid): Special case for 0
 
             if let (Some(target_force), Some(actual_data)) = (target_force, actual_data) {
                 motor.insert((

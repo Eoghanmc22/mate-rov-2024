@@ -60,8 +60,11 @@ fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
 
             match collect_system_state(&system) {
                 Ok(hw_state) => {
-                    // TODO: Handle?
-                    let _ = tx_data.send(hw_state);
+                    let res = tx_data.send(hw_state);
+                    if res.is_err() {
+                        // Peer disconnected
+                        return;
+                    }
                 }
                 Err(err) => {
                     let _ = errors.send(anyhow!(err).context("Could not collect system state"));
@@ -79,7 +82,7 @@ fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
 
 fn read_new_data(mut cmds: Commands, channels: Res<HwStatChannels>, robot: Res<LocalRobot>) {
     for info in channels.0.try_iter() {
-        // FIXME/TODO: This will clobber change detection
+        // FIXME(mid): This will clobber change detection
         cmds.entity(robot.entity).insert(info);
     }
 }
@@ -91,7 +94,8 @@ fn shutdown(channels: Res<HwStatChannels>, mut exit: EventReader<AppExit>) {
 }
 
 fn collect_system_state(system: &System) -> anyhow::Result<RobotSystemBundle> {
-    // TODO sorting?
+    // FIXME(mid): We dont use most of this data
+    // TODO(low): sorting?
     let hw_state = RobotSystemBundle {
         processes: Processes(
             system

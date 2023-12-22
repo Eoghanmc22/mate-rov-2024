@@ -3,7 +3,7 @@ use rgb::{ComponentMap, RGB8};
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
 use tracing::instrument;
 
-// TODO: Support a whole light strip
+// TODO(high): Support a whole light strip
 pub struct NeoPixel {
     spi: Spi,
 }

@@ -25,7 +25,7 @@ use crate::{
     plugins::core::robot::{LocalRobot, LocalRobotMarker},
 };
 
-// TODO: Use multicast udp
+// TODO(low): Use multicast udp
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
@@ -43,7 +43,7 @@ struct CameraChannels(Sender<CameraEvent>, Receiver<Vec<CameraBundle>>);
 enum CameraEvent {
     NewPeer(SocketAddr),
     LostPeer,
-    // TODO: Some way to trigger this from the surface or on an interval
+    // TODO(low): Some way to trigger this from the surface or on an interval
     Resync,
     Shutdown,
 }
@@ -57,7 +57,6 @@ fn start_camera_thread(
     let (tx_events, rx_events) = channel::bounded(10);
     let (tx_camreas, rx_cameras) = channel::bounded(10);
 
-    // TODO: Handle?
     let _ = tx_events.send(CameraEvent::Resync);
 
     cmds.insert_resource(CameraChannels(tx_events, rx_cameras));
@@ -102,8 +101,12 @@ fn start_camera_thread(
                     }
 
                     let camera_list = camera_list(&cameras, robot, &config);
-                    // TODO: Handle?
-                    let _ = tx_camreas.send(camera_list);
+
+                    let res = tx_camreas.send(camera_list);
+                    if res.is_err() {
+                        // Peer disconected
+                        return;
+                    }
                 }
                 CameraEvent::LostPeer => {
                     target_ip = None;
@@ -117,7 +120,11 @@ fn start_camera_thread(
                         }
                     }
 
-                    let _ = tx_camreas.send(Default::default());
+                    let res = tx_camreas.send(Default::default());
+                    if res.is_err() {
+                        // Peer disconected
+                        return;
+                    }
                 }
                 // Reruns detect cameras script and start or kill instances of gstreamer as needed
                 CameraEvent::Resync => {
@@ -169,7 +176,11 @@ fn start_camera_thread(
                                     last_cameras = next_cameras;
 
                                     let camera_list = camera_list(&cameras, robot, &config);
-                                    let _ = tx_camreas.send(camera_list);
+                                    let res = tx_camreas.send(camera_list);
+                                    if res.is_err() {
+                                        // Peer disconected
+                                        return;
+                                    }
                                 }
                                 Err(err) => {
                                     let _ = errors.send(anyhow!(err).context("Collect cameras"));
@@ -191,7 +202,11 @@ fn start_camera_thread(
                         }
                     }
 
-                    let _ = tx_camreas.send(Default::default());
+                    let res = tx_camreas.send(Default::default());
+                    if res.is_err() {
+                        // Peer disconected
+                        return;
+                    }
 
                     return;
                 }
@@ -207,24 +222,25 @@ fn handle_peers(
 ) {
     let mut event = None;
 
-    if !disconnected.is_empty() {
+    for _disconnection in disconnected.read() {
         event = Some(CameraEvent::LostPeer);
-        disconnected.clear();
     }
+
+    // TODO(low): Send resync event if needed
 
     for peer in connected.iter() {
         event = Some(CameraEvent::NewPeer(peer.addrs));
     }
 
-    // TODO: Resync
-
     if let Some(event) = event {
-        // TODO: Handle?
-        let _ = channels.0.send(event);
+        let res = channels.0.send(event);
+        if let Err(_) = res {
+            error!("Camera thread dead");
+        }
     }
 }
 
-// TODO: Only update the cameras that changed
+// TODO(low): Only update the cameras that changed
 fn read_new_data(
     mut cmds: Commands,
     channels: Res<CameraChannels>,
@@ -248,8 +264,6 @@ fn read_new_data(
         for camera in new_cameras {
             cmds.spawn((camera, Replicate));
         }
-
-        // TODO: put a component on the robot entity?
     }
 }
 

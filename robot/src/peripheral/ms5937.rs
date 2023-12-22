@@ -28,7 +28,7 @@ impl Ms5837 {
         let mut this = Self {
             i2c,
             calibration: [0; 8],
-            // TODO tweak
+            // TODO(mid): Tweak and add to ECS
             fluid_density: 1000.0,
         };
 

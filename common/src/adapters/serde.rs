@@ -59,7 +59,7 @@ where
 #[derive(Clone)]
 pub struct ReflectSerdeAdapter {
     serialize: unsafe fn(Ptr) -> Result<BackingType, AdapterError>,
-    // TODO: Can this api be improved?
+    // TODO(low): Can this api be improved?
     deserialize: fn(&BackingType, &mut dyn FnMut(OwningPtr<'_>)) -> Result<(), AdapterError>,
 }
 

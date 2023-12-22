@@ -32,8 +32,8 @@ fn setup_depth_hold(mut cmds: Commands, robot: Res<LocalRobot>) {
                 contribution: MovementContribution(Movement::default()),
                 robot: RobotId(robot.net_id),
             },
-            // TODO: Tune
-            // TODO: Load from disk?
+            // TODO(high): Tune
+            // TODO(low): Load from disk?
             PidConfig {
                 kp: 1.0,
                 ki: 0.0,

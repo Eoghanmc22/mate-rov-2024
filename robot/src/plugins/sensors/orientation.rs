@@ -77,8 +77,11 @@ fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Res
 
         loop {
             if counter == 0 && !first_run {
-                // TODO: Handle?
-                let _ = tx_data.send((inertial_buffer, mag_buffer));
+                let res = tx_data.send((inertial_buffer, mag_buffer));
+                if res.is_err() {
+                    // Peer disconnected
+                    return;
+                }
             }
 
             if counter % inertial_divisor == 0 {
@@ -133,7 +136,7 @@ fn read_new_data(
 ) {
     for (inertial, magnetic) in channels.0.try_iter() {
         // We currently ignore mag updates as the compass is not calibrated
-        // TODO: Calibrate the compass
+        // TODO(high): Calibrate the compass
         for inertial in inertial {
             let gyro = Vector3::new(inertial.gyro_x.0, inertial.gyro_y.0, inertial.gyro_z.0)
                 * (std::f32::consts::PI / 180.0);

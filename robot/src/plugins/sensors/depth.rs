@@ -53,8 +53,12 @@ fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result
 
             match rst {
                 Ok(frame) => {
-                    // TODO: Handle?
-                    let _ = tx_data.send(frame);
+                    let res = tx_data.send(frame);
+
+                    if res.is_err() {
+                        // Peer disconected
+                        return;
+                    }
                 }
                 Err(err) => {
                     let _ = errors.send(err);

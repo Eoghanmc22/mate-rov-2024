@@ -29,7 +29,7 @@ impl Mcc5983 {
         Ok(this)
     }
 
-    // TODO Hard and soft iron calibration?
+    // TODO(high): Hard and soft iron calibration?
 
     #[instrument(level = "trace", skip(self), ret)]
     pub fn read_frame(&mut self) -> anyhow::Result<MagneticFrame> {

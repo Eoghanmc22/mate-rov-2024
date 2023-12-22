@@ -14,6 +14,7 @@ impl Plugin for StatePlugin {
     }
 }
 
+// TODO(high): More nuanced state to drive the neopixels
 fn update_state(
     mut cmds: Commands,
     peers: Query<&Peer>,
@@ -25,7 +26,7 @@ fn update_state(
     if !peers.is_empty() {
         if let Some(Armed::Armed) = armed {
             robot.insert(RobotStatus::Ready);
-            // TODO Moving state
+            // TODO(mid): Moving state
         } else {
             robot.insert(RobotStatus::Disarmed);
         }

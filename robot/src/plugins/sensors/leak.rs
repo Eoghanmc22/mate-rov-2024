@@ -45,8 +45,7 @@ fn setup_leak_interupt(mut cmds: Commands, robot: Res<LocalRobot>) -> anyhow::Re
 
             warn!(?level, "Leak interrupt triggered");
 
-            // TODO: Handle?
-            let _ = tx.send(level);
+            tx.send(level).expect("Peer disconnected");
         })
         .context("Set async leak interrupt")?;
 
@@ -69,7 +68,6 @@ fn read_new_data(mut cmds: Commands, channels: Res<LeakChannels>, robot: Res<Loc
 
 fn shutdown(mut channels: ResMut<LeakChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
-        // TODO: Handle?
         let _ = channels.1.clear_async_interrupt();
     }
 }

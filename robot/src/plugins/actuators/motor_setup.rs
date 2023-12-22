@@ -20,7 +20,7 @@ pub struct MotorSetupPlugin;
 
 impl Plugin for MotorSetupPlugin {
     fn build(&self, app: &mut App) {
-        // TODO: Update motor config when motor definitions change
+        // TODO(mid): Update motor config when motor definitions change
         app.add_systems(Startup, create_motors);
     }
 }
