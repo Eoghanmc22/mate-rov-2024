@@ -28,6 +28,7 @@ Most other configurations should work provided the correct gstreamer plugins and
 
 See [Bevy Linux Deps](https://github.com/bevyengine/bevy/blob/main/docs/linux_dependencies.md)\
 See [opencv-rust Deps](https://github.com/twistedfall/opencv-rust)\
+OpenXR: media-libs/openxr-loader
 TODO: Document gstreamer deps
 
 ## Motor configurations
