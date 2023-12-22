@@ -867,6 +867,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_oxr"
+version = "0.1.0"
+source = "git+https://github.com/awtterpip/bevy_oxr.git#fcedb9c0c892915f9fb549f5530c698f39aa2283"
+dependencies = [
+ "anyhow",
+ "ash",
+ "bevy",
+ "futures-lite 2.1.0",
+ "mint",
+ "openxr",
+ "wgpu",
+ "wgpu-core",
+ "wgpu-hal",
+]
+
+[[package]]
 name = "bevy_panorbit_camera"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1443,6 +1459,15 @@ dependencies = [
  "error-code",
  "str-buf",
  "winapi",
+]
+
+[[package]]
+name = "cmake"
+version = "0.1.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -2874,6 +2899,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "mint"
+version = "0.5.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e53debba6bda7a793e5f99b8dacf19e626084f525f7829104ba9898f367d85ff"
+
+[[package]]
 name = "mio"
 version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3393,6 +3424,30 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "regex",
+]
+
+[[package]]
+name = "openxr"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7d5c194407c4fb5d3bf08c34ae57f3ea6cc9d9cfbe0594ce066896c809d9215"
+dependencies = [
+ "libc",
+ "libloading 0.7.4",
+ "ndk-context",
+ "openxr-sys",
+]
+
+[[package]]
+name = "openxr-sys"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa8f022053ecd7989d86f867b4fb8c3520347612b9d637e217077a0d6b4a6634"
+dependencies = [
+ "cmake",
+ "jni 0.19.0",
+ "libc",
+ "mint",
 ]
 
 [[package]]
@@ -4054,6 +4109,7 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy-tokio-tasks",
  "bevy_egui",
+ "bevy_oxr",
  "bevy_panorbit_camera",
  "common",
  "crossbeam",

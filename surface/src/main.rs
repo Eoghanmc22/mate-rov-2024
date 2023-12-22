@@ -4,6 +4,7 @@ pub mod surface;
 pub mod ui;
 pub mod video_display;
 pub mod video_stream;
+pub mod xr;
 
 use attitude::AttitudePlugin;
 use bevy::{
@@ -16,6 +17,7 @@ use bevy::{
     tasks::available_parallelism,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_oxr::DefaultXrPlugins;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use bevy_tokio_tasks::TokioTasksPlugin;
 use common::{sync::SyncRole, CommonPlugins};
@@ -24,13 +26,15 @@ use surface::SurfacePlugin;
 use ui::EguiUiPlugin;
 use video_display::VideoDisplayPlugin;
 use video_stream::VideoStreamPlugin;
+use xr::OpenXrPlugin;
 
+// TODO/FIXME: Times out when focus is lost
 fn main() -> anyhow::Result<()> {
-    // TODO/FIXME: Times out when focus is lost
     App::new()
         .add_plugins((
             // Bevy Core
-            DefaultPlugins
+            // DefaultPlugins
+            DefaultXrPlugins
                 .build()
                 .disable::<bevy::audio::AudioPlugin>()
                 .set(TaskPoolPlugin {
@@ -62,6 +66,7 @@ fn main() -> anyhow::Result<()> {
                 AttitudePlugin,
                 VideoStreamPlugin,
                 VideoDisplayPlugin,
+                OpenXrPlugin,
             ),
             // 3rd Party
             (
