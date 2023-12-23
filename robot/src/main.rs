@@ -1,3 +1,4 @@
+#![feature(coroutines, coroutine_clone, iter_from_coroutine)]
 #![allow(private_interfaces, clippy::redundant_pattern_matching)]
 
 pub mod config;
@@ -49,15 +50,19 @@ fn main() -> anyhow::Result<()> {
                     },
                 }),
             LogPlugin::default(),
-            DiagnosticsPlugin,
-            EntityCountDiagnosticsPlugin,
-            FrameTimeDiagnosticsPlugin,
-            SystemInformationDiagnosticsPlugin,
-            CommonPlugins(SyncRole::Server),
-            CorePlugins,
-            SensorPlugins,
-            MovementPlugins,
-            MonitorPlugins,
+            (
+                DiagnosticsPlugin,
+                EntityCountDiagnosticsPlugin,
+                FrameTimeDiagnosticsPlugin,
+                SystemInformationDiagnosticsPlugin,
+            ),
+            (
+                CommonPlugins(SyncRole::Server),
+                CorePlugins,
+                SensorPlugins,
+                MovementPlugins,
+                MonitorPlugins,
+            ),
         ))
         .run();
 

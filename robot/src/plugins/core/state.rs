@@ -10,7 +10,7 @@ pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, update_state);
+        app.add_systems(PreUpdate, update_state);
     }
 }
 

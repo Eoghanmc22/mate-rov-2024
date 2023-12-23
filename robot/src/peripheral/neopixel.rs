@@ -1,45 +1,140 @@
+use core::slice;
+use std::{fmt::Debug, iter, ops::DerefMut, slice::SliceIndex, usize};
+
 use anyhow::Context;
 use rgb::{ComponentMap, RGB8};
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
 use tracing::instrument;
 
-// TODO(high): Support a whole light strip
-pub struct NeoPixel {
-    spi: Spi,
+pub struct Neopixel {
+    pub spi: Spi,
+    pub buffer: NeopixelBuffer,
 }
 
-impl NeoPixel {
+impl Neopixel {
     pub const SPI_BUS: Bus = Bus::Spi0;
     pub const SPI_SELECT: SlaveSelect = SlaveSelect::Ss0;
     pub const SPI_CLOCK: u32 = 6_000_000;
 
     #[instrument(level = "debug")]
-    pub fn new(bus: Bus, slave_select: SlaveSelect, clock_speed: u32) -> anyhow::Result<Self> {
+    pub fn new(
+        len: usize,
+        bus: Bus,
+        slave_select: SlaveSelect,
+        clock_speed: u32,
+    ) -> anyhow::Result<Self> {
         let spi = Spi::new(bus, slave_select, clock_speed, Mode::Mode0).context("Open spi")?;
+        let buffer = NeopixelBuffer::new(len);
 
-        let mut this = Self { spi };
-        this.write_color_raw(RGB8::default())?;
+        let mut this = Self { spi, buffer };
+        this.show()?;
 
         Ok(this)
     }
+    pub fn len(&self) -> usize {
+        self.buffer.len()
+    }
 
-    pub fn write_color_raw(&mut self, color: RGB8) -> anyhow::Result<()> {
-        let data = color_to_data(color);
-        self.spi.write(&data).context("Write color")?;
+    pub fn fill<T, I>(&mut self, idx: I, color: RGB8, gamma_correction: bool)
+    where
+        T: AsSlice<u8> + ?Sized,
+        I: SliceIndex<[u8], Output = T> + Debug + Copy,
+    {
+        self.buffer.fill(idx, color, gamma_correction)
+    }
+
+    /// Sets the range of LEDs specified by `idx` to the colors from the iterator `colors`
+    /// If the colors iterator finishes before the end of the range, no more LEDs will be set
+    pub fn set<T, I, C>(&mut self, idx: I, colors: C, gamma_correction: bool)
+    where
+        T: AsSlice<u8> + ?Sized,
+        I: SliceIndex<[u8], Output = T> + Debug + Copy,
+        C: Iterator<Item = RGB8> + Clone,
+    {
+        self.buffer.set(idx, colors, gamma_correction)
+    }
+
+    /// Replaces the buffer
+    ///
+    /// # Panics
+    ///
+    /// This  function may panic if the new buffer is a different length than the current one
+    pub fn replace_buffer(&mut self, new_buffer: NeopixelBuffer) -> NeopixelBuffer {
+        std::mem::replace(&mut self.buffer, new_buffer)
+    }
+
+    pub fn show(&mut self) -> anyhow::Result<()> {
+        self.spi
+            .write(self.buffer.to_slice())
+            .context("Write neopixels")?;
 
         Ok(())
     }
+}
 
-    pub fn write_color_corrected(&mut self, color: RGB8) -> anyhow::Result<()> {
-        let color = correct_color(color);
-        self.write_color_raw(color)
+impl Drop for Neopixel {
+    fn drop(&mut self) {
+        self.fill(.., RGB8::default(), false);
+        let _ = self.show();
     }
 }
 
-impl Drop for NeoPixel {
-    fn drop(&mut self) {
-        // Best effort attempt to reset color to black
-        let _ = self.write_color_raw(RGB8::default());
+#[derive(Clone)]
+pub struct NeopixelBuffer {
+    buffer: Vec<u8>,
+}
+
+impl NeopixelBuffer {
+    pub fn new(len: usize) -> Self {
+        Self {
+            buffer: vec![0; len * 3],
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.buffer.len() / 3
+    }
+
+    pub fn fill<T, I>(&mut self, idx: I, color: RGB8, gamma_correction: bool)
+    where
+        T: AsSlice<u8> + ?Sized,
+        I: SliceIndex<[u8], Output = T> + Debug + Copy,
+    {
+        self.set(idx, iter::repeat(color), gamma_correction)
+    }
+
+    /// Sets the range of LEDs specified by `idx` to the colors from the iterator `colors`
+    /// If the colors iterator finishes before the end of the range, no more LEDs will be set
+    pub fn set<T, I, C>(&mut self, idx: I, colors: C, gamma_correction: bool)
+    where
+        T: AsSlice<u8> + ?Sized,
+        I: SliceIndex<[u8], Output = T> + Debug + Copy,
+        C: Iterator<Item = RGB8> + Clone,
+    {
+        let Some(buffer) = self.buffer.deref_mut().get_mut(idx) else {
+            panic!(
+                "Could not set neopixel. index ({idx:?}) out of bounds for length {}",
+                self.len()
+            );
+        };
+        let dst_iter = buffer.as_slice_mut().iter_mut();
+        let src_iter = colors
+            .map(|color| {
+                if gamma_correction {
+                    correct_color(color)
+                } else {
+                    color
+                }
+            })
+            .flat_map(color_to_data);
+
+        for (dst, src) in iter::zip(dst_iter, src_iter) {
+            *dst = src
+        }
+    }
+
+    pub fn to_slice(&self) -> &[u8] {
+        &self.buffer
     }
 }
 
@@ -63,25 +158,49 @@ pub fn correct_color(color: RGB8) -> RGB8 {
     color.map(|it| GAMMA8[it as usize])
 }
 
-fn color_to_data(color: RGB8) -> Vec<u8> {
-    let mut data = Vec::new();
-
-    byte_to_data(&mut data, color.g);
-    byte_to_data(&mut data, color.r);
-    byte_to_data(&mut data, color.b);
-
-    data
+fn color_to_data(color: RGB8) -> impl Iterator<Item = u8> + Clone {
+    iter::from_coroutine(move || {
+        yield byte_to_data(color.g);
+        yield byte_to_data(color.r);
+        yield byte_to_data(color.b);
+    })
+    .flatten()
 }
 
-fn byte_to_data(data: &mut Vec<u8>, byte: u8) {
+fn byte_to_data(byte: u8) -> impl Iterator<Item = u8> + Clone {
     const LED_T0: u8 = 0b1100_0000;
     const LED_T1: u8 = 0b1111_1000;
 
-    for bit in 0..8 {
-        if byte & (0x80 >> bit) != 0 {
-            data.push(LED_T1);
-        } else {
-            data.push(LED_T0);
+    iter::from_coroutine(move || {
+        for bit in 0..8 {
+            if byte & (0x80 >> bit) != 0 {
+                yield LED_T1;
+            } else {
+                yield LED_T0;
+            }
         }
+    })
+}
+
+trait AsSlice<T> {
+    fn as_slice(&self) -> &[T];
+    fn as_slice_mut(&mut self) -> &mut [T];
+}
+
+impl<T> AsSlice<T> for T {
+    fn as_slice(&self) -> &[T] {
+        slice::from_ref(self)
+    }
+    fn as_slice_mut(&mut self) -> &mut [T] {
+        slice::from_mut(self)
+    }
+}
+
+impl<T> AsSlice<T> for [T] {
+    fn as_slice(&self) -> &[T] {
+        self
+    }
+    fn as_slice_mut(&mut self) -> &mut [T] {
+        self
     }
 }

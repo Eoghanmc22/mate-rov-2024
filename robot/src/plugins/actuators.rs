@@ -1,4 +1,5 @@
 pub mod depth_hold;
+pub mod leds;
 pub mod motor_math;
 pub mod motor_setup;
 pub mod pwm;
@@ -16,6 +17,7 @@ impl PluginGroup for MovementPlugins {
             .add(pwm::PwmOutputPlugin)
             .add(stabilize::StabilizePlugin)
             .add(depth_hold::DepthHoldPlugin)
+            .add(leds::LedPlugin)
             .build()
     }
 }
