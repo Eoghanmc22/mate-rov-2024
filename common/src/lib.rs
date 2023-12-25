@@ -14,7 +14,8 @@ use ecs_sync::{
     NetId, Replicate,
 };
 use error::ErrorPlugin;
-use sync::{Latency, Peer, SyncPlugin, SyncRole};
+use over_run::OverRunPligin;
+use sync::{Latency, SyncPlugin, SyncRole};
 
 pub mod adapters;
 pub mod bundles;
@@ -22,6 +23,7 @@ pub mod components;
 pub mod ctrlc;
 pub mod ecs_sync;
 pub mod error;
+pub mod over_run;
 pub mod protocol;
 pub mod sync;
 pub mod types;
@@ -53,5 +55,6 @@ impl PluginGroup for CommonPlugins {
             .add(ChangeApplicationPlugin)
             .add(CtrlCPlugin)
             .add(ErrorPlugin)
+            .add(OverRunPligin)
     }
 }
