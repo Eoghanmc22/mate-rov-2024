@@ -52,6 +52,7 @@ fn create_display(
         });
 
         cmds.entity(entity).insert((
+            Name::new("Cameras"),
             PbrBundle {
                 transform: transform.cloned().unwrap_or_default(),
                 material,
@@ -79,7 +80,7 @@ fn create_display(
 
             let aspect_ratio = image.aspect_ratio();
 
-            let mesh_width = 1.0;
+            let mesh_width = 2.0;
             let mesh_height = mesh_width * aspect_ratio;
 
             let mesh = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
