@@ -27,15 +27,17 @@ impl Default for OverRunSettings {
     }
 }
 
+const TOLERANCE: f32 = 0.001;
+
 fn detect_overrun(
     settings: Res<OverRunSettings>,
     time: Res<Time<Real>>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
-    if time.delta_seconds() > settings.max_time.as_secs_f32() {
+    if time.delta_seconds() > settings.max_time.as_secs_f32() + TOLERANCE {
         errors.send(
             anyhow!(
-                "Max loop time over run. Last tick took {:.2}, exceeding limit of {:.2}",
+                "Max loop time over run. Last tick took {:.4}, exceeding limit of {:.4}",
                 time.delta_seconds(),
                 settings.max_time.as_secs_f32()
             )
