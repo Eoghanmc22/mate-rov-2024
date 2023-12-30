@@ -56,73 +56,76 @@ fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Res
     cmds.insert_resource(InertialChannels(rx_data, tx_exit));
 
     let errors = errors.0.clone();
-    thread::spawn(move || {
-        let span = span!(Level::INFO, "Inertial sensor monitor thread");
-        let _enter = span.enter();
+    thread::Builder::new()
+        .name("IMU Thread".to_owned())
+        .spawn(move || {
+            let span = span!(Level::INFO, "IMU thread");
+            let _enter = span.enter();
 
-        let interval = Duration::from_secs_f32(1.0 / 1000.0);
-        let counts = 10;
+            let interval = Duration::from_secs_f32(1.0 / 1000.0);
+            let counts = 10;
 
-        let mut counter = 0;
+            let mut counter = 0;
 
-        let mut inertial_buffer = [InertialFrame::default(); 10];
-        let mut mag_buffer = [MagneticFrame::default(); 1];
+            let mut inertial_buffer = [InertialFrame::default(); 10];
+            let mut mag_buffer = [MagneticFrame::default(); 1];
 
-        let inertial_divisor = counts / inertial_buffer.len();
-        let mag_divisor = counts / mag_buffer.len();
+            let inertial_divisor = counts / inertial_buffer.len();
+            let mag_divisor = counts / mag_buffer.len();
 
-        let mut deadline = Instant::now();
+            let mut deadline = Instant::now();
 
-        let mut first_run = true;
+            let mut first_run = true;
 
-        loop {
-            if counter == 0 && !first_run {
-                let res = tx_data.send((inertial_buffer, mag_buffer));
-                if res.is_err() {
-                    // Peer disconnected
+            loop {
+                if counter == 0 && !first_run {
+                    let res = tx_data.send((inertial_buffer, mag_buffer));
+                    if res.is_err() {
+                        // Peer disconnected
+                        return;
+                    }
+                }
+
+                if counter % inertial_divisor == 0 {
+                    let rst = imu.read_frame().context("Read inertial frame");
+
+                    match rst {
+                        Ok(frame) => {
+                            inertial_buffer[counter / inertial_divisor] = frame;
+                        }
+                        Err(err) => {
+                            let _ = errors.send(err);
+                        }
+                    }
+                }
+
+                if counter % mag_divisor == 0 {
+                    let rst = mag.read_frame().context("Read magnetic frame");
+
+                    match rst {
+                        Ok(frame) => {
+                            mag_buffer[counter / mag_divisor] = frame;
+                        }
+                        Err(err) => {
+                            let _ = errors.send(err);
+                        }
+                    }
+                }
+
+                if let Ok(()) = rx_exit.try_recv() {
                     return;
                 }
+
+                deadline += interval;
+                let remaining = deadline - Instant::now();
+                thread::sleep(remaining);
+
+                counter += 1;
+                counter %= counts;
+                first_run = false;
             }
-
-            if counter % inertial_divisor == 0 {
-                let rst = imu.read_frame().context("Read inertial frame");
-
-                match rst {
-                    Ok(frame) => {
-                        inertial_buffer[counter / inertial_divisor] = frame;
-                    }
-                    Err(err) => {
-                        let _ = errors.send(err);
-                    }
-                }
-            }
-
-            if counter % mag_divisor == 0 {
-                let rst = mag.read_frame().context("Read magnetic frame");
-
-                match rst {
-                    Ok(frame) => {
-                        mag_buffer[counter / mag_divisor] = frame;
-                    }
-                    Err(err) => {
-                        let _ = errors.send(err);
-                    }
-                }
-            }
-
-            if let Ok(()) = rx_exit.try_recv() {
-                return;
-            }
-
-            deadline += interval;
-            let remaining = deadline - Instant::now();
-            thread::sleep(remaining);
-
-            counter += 1;
-            counter %= counts;
-            first_run = false;
-        }
-    });
+        })
+        .context("Spawn thread")?;
 
     Ok(())
 }

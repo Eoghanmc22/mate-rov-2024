@@ -98,42 +98,45 @@ fn start_leds(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     ));
 
     let errors = errors.0.clone();
-    thread::spawn(move || {
-        let _span = span!(Level::INFO, "LED Thread").entered();
+    thread::Builder::new()
+        .name("LED Thread".to_owned())
+        .spawn(move || {
+            let _span = span!(Level::INFO, "LED Thread").entered();
 
-        for event in rx_data {
-            match event {
-                LedUpdate::Neopixel(buffer) => {
-                    let res = neopixel
-                        .spi
-                        .write(buffer.to_slice())
-                        .context("Write neopixels");
-                    if let Err(err) = res {
-                        let _ = errors.send(err);
+            for event in rx_data {
+                match event {
+                    LedUpdate::Neopixel(buffer) => {
+                        let res = neopixel
+                            .spi
+                            .write(buffer.to_slice())
+                            .context("Write neopixels");
+                        if let Err(err) = res {
+                            let _ = errors.send(err);
+                        }
                     }
-                }
-                LedUpdate::LedStates(states) => {
-                    for (led, state) in zip(&mut leds.0, states) {
-                        match state {
-                            LedState::On => {
-                                led.set_mode(Mode::Output);
-                                led.set_low();
-                            }
-                            LedState::Dim => {
-                                led.set_mode(Mode::Input);
-                                led.set_bias(Bias::PullDown);
-                            }
-                            LedState::Off => {
-                                led.set_mode(Mode::Output);
-                                led.set_high();
+                    LedUpdate::LedStates(states) => {
+                        for (led, state) in zip(&mut leds.0, states) {
+                            match state {
+                                LedState::On => {
+                                    led.set_mode(Mode::Output);
+                                    led.set_low();
+                                }
+                                LedState::Dim => {
+                                    led.set_mode(Mode::Input);
+                                    led.set_bias(Bias::PullDown);
+                                }
+                                LedState::Off => {
+                                    led.set_mode(Mode::Output);
+                                    led.set_high();
+                                }
                             }
                         }
                     }
+                    LedUpdate::Shutdown => return,
                 }
-                LedUpdate::Shutdown => return,
             }
-        }
-    });
+        })
+        .context("Spawn thread")?;
 
     Ok(())
 }

@@ -8,7 +8,10 @@ use bevy::{
         texture::Volume,
     },
 };
-use common::{components::Camera, error::Errors};
+use common::{
+    components::Camera,
+    error::{self, Errors},
+};
 use crossbeam::channel::{self, Receiver, Sender};
 use opencv::{
     imgproc,
@@ -24,8 +27,10 @@ impl Plugin for VideoStreamPlugin {
         app.add_systems(
             Update,
             (
-                handle_added_camera,
-                handle_frames.after(handle_added_camera),
+                handle_added_camera
+                    .pipe(error::handle_errors)
+                    .before(handle_frames),
+                handle_frames,
             ),
         );
     }
@@ -39,7 +44,7 @@ fn handle_added_camera(
     cameras: Query<(Entity, &Camera), Changed<Camera>>,
     mut images: ResMut<Assets<Image>>,
     errors: Res<Errors>,
-) {
+) -> anyhow::Result<()> {
     for (entity, camera) in &cameras {
         cmds.entity(entity).remove::<VideoThread>();
 
@@ -54,47 +59,52 @@ fn handle_added_camera(
 
         let camera = camera.clone();
         let errors = errors.0.clone();
-        thread::spawn(move || {
-            let handle = Arc::downgrade(&handle);
-            let mut images: Vec<Image> = Vec::new();
+        thread::Builder::new()
+            .name("Video Thread".to_owned())
+            .spawn(move || {
+                let handle = Arc::downgrade(&handle);
+                let mut images: Vec<Image> = Vec::new();
 
-            let src = VideoCapture::from_file(&gen_src(&camera), videoio::CAP_GSTREAMER);
-            let mut src = match src.context("Open video capture") {
-                Ok(src) => src,
-                Err(err) => {
-                    let _ = errors.send(err);
-                    return;
-                }
-            };
-
-            // Loop until the VideoThread component is dropped
-            let mut mat = Mat::default();
-            while handle.strong_count() > 0 {
-                let res = src.read(&mut mat).context("Read video frame");
-                let ret = match res {
-                    Ok(ret) => ret,
+                let src = VideoCapture::from_file(&gen_src(&camera), videoio::CAP_GSTREAMER);
+                let mut src = match src.context("Open video capture") {
+                    Ok(src) => src,
                     Err(err) => {
                         let _ = errors.send(err);
-                        continue;
+                        return;
                     }
                 };
 
-                images.extend(rx_bevy.try_iter());
-                images.truncate(15);
-                let mut image = images.pop().unwrap_or_default();
+                // Loop until the VideoThread component is dropped
+                let mut mat = Mat::default();
+                while handle.strong_count() > 0 {
+                    let res = src.read(&mut mat).context("Read video frame");
+                    let ret = match res {
+                        Ok(ret) => ret,
+                        Err(err) => {
+                            let _ = errors.send(err);
+                            continue;
+                        }
+                    };
 
-                let res = mat_to_image(&mat, &mut image).context("Mat to image");
-                if let Err(err) = res {
-                    let _ = errors.send(err);
-                    continue;
-                }
+                    images.extend(rx_bevy.try_iter());
+                    images.truncate(15);
+                    let mut image = images.pop().unwrap_or_default();
 
-                if ret {
-                    let _ = tx_cv.send(image);
+                    let res = mat_to_image(&mat, &mut image).context("Mat to image");
+                    if let Err(err) = res {
+                        let _ = errors.send(err);
+                        continue;
+                    }
+
+                    if ret {
+                        let _ = tx_cv.send(image);
+                    }
                 }
-            }
-        });
+            })
+            .context("Spawn thread")?;
     }
+
+    Ok(())
 }
 
 fn handle_frames(

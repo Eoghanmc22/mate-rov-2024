@@ -41,39 +41,42 @@ fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result
     cmds.insert_resource(DepthChannels(rx_data, tx_exit));
 
     let errors = errors.0.clone();
-    thread::spawn(move || {
-        let span = span!(Level::INFO, "Depth sensor monitor thread");
-        let _enter = span.enter();
+    thread::Builder::new()
+        .name("Depth Thread".to_owned())
+        .spawn(move || {
+            let span = span!(Level::INFO, "Depth sensor monitor thread");
+            let _enter = span.enter();
 
-        let interval = Duration::from_secs_f64(1.0 / 100.0);
-        let mut deadline = Instant::now();
+            let interval = Duration::from_secs_f64(1.0 / 100.0);
+            let mut deadline = Instant::now();
 
-        loop {
-            let rst = depth.read_frame().context("Read depth frame");
+            loop {
+                let rst = depth.read_frame().context("Read depth frame");
 
-            match rst {
-                Ok(frame) => {
-                    let res = tx_data.send(frame);
+                match rst {
+                    Ok(frame) => {
+                        let res = tx_data.send(frame);
 
-                    if res.is_err() {
-                        // Peer disconected
-                        return;
+                        if res.is_err() {
+                            // Peer disconected
+                            return;
+                        }
+                    }
+                    Err(err) => {
+                        let _ = errors.send(err);
                     }
                 }
-                Err(err) => {
-                    let _ = errors.send(err);
+
+                if let Ok(()) = rx_exit.try_recv() {
+                    return;
                 }
-            }
 
-            if let Ok(()) = rx_exit.try_recv() {
-                return;
+                deadline += interval;
+                let remaining = deadline - Instant::now();
+                thread::sleep(remaining);
             }
-
-            deadline += interval;
-            let remaining = deadline - Instant::now();
-            thread::sleep(remaining);
-        }
-    });
+        })
+        .context("Start thread")?;
 
     Ok(())
 }

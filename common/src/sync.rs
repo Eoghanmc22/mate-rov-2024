@@ -96,19 +96,22 @@ fn setup_networking(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
     cmds.insert_resource(Net(handle, rx));
 
     let errors = errors.0.clone();
-    thread::spawn(move || {
-        networking.start(|event| {
-            if tx.is_full() {
-                warn!("Not consuming packets fast enough, Network threads will block");
+    thread::Builder::new()
+        .name("Net Thread".to_owned())
+        .spawn(move || {
+            networking.start(|event| {
+                if tx.is_full() {
+                    warn!("Not consuming packets fast enough, Network threads will block");
 
-                let _ = errors.send(anyhow!("Net channel full"));
-            }
+                    let _ = errors.send(anyhow!("Net channel full"));
+                }
 
-            // Panicking here isnt terable because it will bring down the net threads if the main
-            // app exits uncleanly
-            tx.send(event).expect("Channel disconnected");
+                // Panicking here isnt terable because it will bring down the net threads if the main
+                // app exits uncleanly
+                tx.send(event).expect("Channel disconnected");
+            })
         })
-    });
+        .context("Spawn thread");
 
     Ok(())
 }

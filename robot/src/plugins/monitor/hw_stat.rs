@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
 use common::{
     bundles::RobotSystemBundle,
@@ -8,7 +8,7 @@ use common::{
         Cores, CpuTotal, Disks, LoadAverage, Memory, Networks, OperatingSystem, Processes,
         Temperatures, Uptime,
     },
-    error::Errors,
+    error::{self, Errors},
     types::{
         system::{ComponentTemperature, Cpu, Disk, Network, Process},
         units::Celsius,
@@ -27,7 +27,7 @@ pub struct HwStatPlugin;
 
 impl Plugin for HwStatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, start_hw_stat_thread);
+        app.add_systems(Startup, start_hw_stat_thread.pipe(error::handle_errors));
         app.add_systems(PreUpdate, read_new_data);
         app.add_systems(Last, shutdown);
     }
@@ -36,48 +36,53 @@ impl Plugin for HwStatPlugin {
 #[derive(Resource)]
 struct HwStatChannels(Receiver<RobotSystemBundle>, Sender<()>);
 
-fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) {
+fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let (tx_data, rx_data) = channel::bounded(10);
     let (tx_exit, rx_exit) = channel::bounded(1);
 
     cmds.insert_resource(HwStatChannels(rx_data, tx_exit));
 
     let errors = errors.0.clone();
-    thread::spawn(move || {
-        let span = span!(Level::INFO, "Hardware monitor");
-        let _enter = span.enter();
+    thread::Builder::new()
+        .name("Hardware monitor thread".to_owned())
+        .spawn(move || {
+            let span = span!(Level::INFO, "Hardware monitor");
+            let _enter = span.enter();
 
-        let mut system = System::new();
-        loop {
-            system.refresh_all();
-            system.refresh_disks_list();
-            system.refresh_disks();
-            system.refresh_components_list();
-            system.refresh_components();
-            system.refresh_networks_list();
-            system.refresh_networks();
-            system.refresh_users_list();
+            let mut system = System::new();
+            loop {
+                system.refresh_all();
+                system.refresh_disks_list();
+                system.refresh_disks();
+                system.refresh_components_list();
+                system.refresh_components();
+                system.refresh_networks_list();
+                system.refresh_networks();
+                system.refresh_users_list();
 
-            match collect_system_state(&system) {
-                Ok(hw_state) => {
-                    let res = tx_data.send(hw_state);
-                    if res.is_err() {
-                        // Peer disconnected
-                        return;
+                match collect_system_state(&system) {
+                    Ok(hw_state) => {
+                        let res = tx_data.send(hw_state);
+                        if res.is_err() {
+                            // Peer disconnected
+                            return;
+                        }
+                    }
+                    Err(err) => {
+                        let _ = errors.send(anyhow!(err).context("Could not collect system state"));
                     }
                 }
-                Err(err) => {
-                    let _ = errors.send(anyhow!(err).context("Could not collect system state"));
+
+                if let Ok(()) = rx_exit.try_recv() {
+                    return;
                 }
-            }
 
-            if let Ok(()) = rx_exit.try_recv() {
-                return;
+                thread::sleep(Duration::from_secs(1));
             }
+        })
+        .context("Spawn thread")?;
 
-            thread::sleep(Duration::from_secs(1));
-        }
-    });
+    Ok(())
 }
 
 fn read_new_data(mut cmds: Commands, channels: Res<HwStatChannels>, robot: Res<LocalRobot>) {
