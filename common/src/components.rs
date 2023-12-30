@@ -250,11 +250,11 @@ pub struct MovementCurrentCap(pub Amperes);
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct CurrentDraw(pub Amperes);
 
-#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, Copy, Eq, Hash, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PwmChannel(pub PwmChannelId);
 
-#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, Copy, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PwmSignal(pub Duration);
 

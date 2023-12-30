@@ -10,7 +10,10 @@ impl Plugin for ErrorPlugin {
         let (tx, rx) = channel::bounded(30);
         app.insert_resource(Errors(tx, rx));
 
-        app.add_systems(PostUpdate, read_errors);
+        app.add_systems(
+            PostUpdate,
+            (error_channel, read_errors.after(error_channel)),
+        );
     }
 }
 
@@ -26,15 +29,15 @@ impl From<anyhow::Error> for ErrorEvent {
     }
 }
 
-pub fn read_errors(errors: Res<Errors>, mut events: EventReader<ErrorEvent>) {
-    let error_handler = |error: &anyhow::Error| error!("Error: {error:?}");
-
+pub fn error_channel(errors: Res<Errors>, mut events: EventWriter<ErrorEvent>) {
     for error in errors.1.try_iter() {
-        (error_handler)(&error)
+        events.send(ErrorEvent(error));
     }
+}
 
-    for error in events.read() {
-        (error_handler)(&error.0)
+pub fn read_errors(mut events: EventReader<ErrorEvent>) {
+    for ErrorEvent(error) in events.read() {
+        error!("Error: {error:?}");
     }
 }
 

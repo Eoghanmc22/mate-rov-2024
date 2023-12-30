@@ -49,7 +49,7 @@ impl Neopixel {
     where
         T: AsSlice<u8> + ?Sized,
         I: SliceIndex<[u8], Output = T> + Debug + Copy,
-        C: Iterator<Item = RGB8> + Clone,
+        C: Iterator<Item = RGB8>,
     {
         self.buffer.set(idx, colors, gamma_correction)
     }
@@ -109,7 +109,7 @@ impl NeopixelBuffer {
     where
         T: AsSlice<u8> + ?Sized,
         I: SliceIndex<[u8], Output = T> + Debug + Copy,
-        C: Iterator<Item = RGB8> + Clone,
+        C: Iterator<Item = RGB8>,
     {
         let Some(buffer) = self.buffer.deref_mut().get_mut(idx) else {
             panic!(
@@ -158,7 +158,7 @@ pub fn correct_color(color: RGB8) -> RGB8 {
     color.map(|it| GAMMA8[it as usize])
 }
 
-fn color_to_data(color: RGB8) -> impl Iterator<Item = u8> + Clone {
+fn color_to_data(color: RGB8) -> impl Iterator<Item = u8> {
     iter::from_coroutine(move || {
         yield byte_to_data(color.g);
         yield byte_to_data(color.r);
@@ -167,7 +167,7 @@ fn color_to_data(color: RGB8) -> impl Iterator<Item = u8> + Clone {
     .flatten()
 }
 
-fn byte_to_data(byte: u8) -> impl Iterator<Item = u8> + Clone {
+fn byte_to_data(byte: u8) -> impl Iterator<Item = u8> {
     const LED_T0: u8 = 0b1100_0000;
     const LED_T1: u8 = 0b1111_1000;
 

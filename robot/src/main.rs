@@ -1,4 +1,4 @@
-#![feature(coroutines, coroutine_clone, iter_from_coroutine)]
+#![feature(coroutines, iter_from_coroutine)]
 #![allow(private_interfaces, clippy::redundant_pattern_matching)]
 
 pub mod config;
