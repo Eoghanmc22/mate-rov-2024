@@ -27,3 +27,4 @@ serde = { version = "1", features = ["derive"]}
 toml = "0.8"
 crossbeam = "0.8"
 ahash = "0.8"
+tracy-client = "0.16"

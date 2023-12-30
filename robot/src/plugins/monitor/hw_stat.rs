@@ -20,8 +20,9 @@ use sysinfo::{
     UserExt,
 };
 use tracing::{span, Level};
+use tracy_client::frame_name;
 
-use crate::plugins::core::robot::LocalRobot;
+use crate::{plugins::core::robot::LocalRobot, tracy};
 
 pub struct HwStatPlugin;
 
@@ -51,6 +52,8 @@ fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
 
             let mut system = System::new();
             loop {
+                let frame = tracy::non_continuous_frame(frame_name!("Cpu Monitor"));
+
                 system.refresh_all();
                 system.refresh_disks_list();
                 system.refresh_disks();
@@ -76,6 +79,8 @@ fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
                 if let Ok(()) = rx_exit.try_recv() {
                     return;
                 }
+
+                drop(frame);
 
                 thread::sleep(Duration::from_secs(1));
             }

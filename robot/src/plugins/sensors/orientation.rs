@@ -14,10 +14,12 @@ use common::{
 use crossbeam::channel::{self, Receiver, Sender};
 use nalgebra::Vector3;
 use tracing::{span, Level};
+use tracy_client::frame_name;
 
 use crate::{
     peripheral::{icm20602::Icm20602, mmc5983::Mcc5983},
     plugins::core::robot::LocalRobot,
+    tracy,
 };
 
 pub struct OrientationPlugin;
@@ -115,6 +117,8 @@ fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Res
                 if let Ok(()) = rx_exit.try_recv() {
                     return;
                 }
+
+                tracy::secondary_frame_mark(frame_name!("IMU"));
 
                 deadline += interval;
                 let remaining = deadline - Instant::now();

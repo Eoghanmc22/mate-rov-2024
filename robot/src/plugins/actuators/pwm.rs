@@ -14,8 +14,9 @@ use common::{
 };
 use crossbeam::channel::{self, Sender};
 use tracing::{span, Level};
+use tracy_client::frame_name;
 
-use crate::{peripheral::pca9685::Pca9685, plugins::core::robot::LocalRobotMarker};
+use crate::{peripheral::pca9685::Pca9685, plugins::core::robot::LocalRobotMarker, tracy};
 
 pub struct PwmOutputPlugin;
 
@@ -165,6 +166,8 @@ fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
 
                     let _ = errors.send(err);
                 }
+
+                tracy::secondary_frame_mark(frame_name!("PWM"));
 
                 deadline += interval;
                 let remaining = deadline - Instant::now();

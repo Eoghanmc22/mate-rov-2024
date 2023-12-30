@@ -12,8 +12,9 @@ use common::{
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
+use tracy_client::frame_name;
 
-use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobot};
+use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobot, tracy};
 
 pub struct DepthPlugin;
 
@@ -70,6 +71,8 @@ fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result
                 if let Ok(()) = rx_exit.try_recv() {
                     return;
                 }
+
+                tracy::secondary_frame_mark(frame_name!("Depth"));
 
                 deadline += interval;
                 let remaining = deadline - Instant::now();
