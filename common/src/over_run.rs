@@ -27,21 +27,26 @@ impl Default for OverRunSettings {
     }
 }
 
-const TOLERANCE: f32 = 0.001;
-
 fn detect_overrun(
     settings: Res<OverRunSettings>,
     time: Res<Time<Real>>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
-    if time.delta_seconds() > settings.max_time.as_secs_f32() + TOLERANCE {
-        errors.send(
-            anyhow!(
-                "Max loop time over run. Last tick took {:.4}, exceeding limit of {:.4}",
-                time.delta_seconds(),
-                settings.max_time.as_secs_f32()
+    let last_update = time.last_update();
+    if let Some(last_update) = last_update {
+        let frame_time = last_update.elapsed();
+
+        if frame_time > settings.max_time {
+            errors.send(
+                anyhow!(
+                    "Max loop time over run. Last tick took {:.4}, exceeding limit of {:.4}",
+                    frame_time.as_secs_f32(),
+                    settings.max_time.as_secs_f32()
+                )
+                .into(),
             )
-            .into(),
-        )
+        }
     }
+
+    info!(message = "finished frame", tracy.frame_mark = true);
 }
