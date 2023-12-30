@@ -32,29 +32,27 @@ fn main() -> anyhow::Result<()> {
     App::new()
         .insert_resource(config)
         .add_plugins((
-            MinimalPlugins
-                .set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
-                    1.0 / 100.0,
-                )))
-                .set(TaskPoolPlugin {
-                    task_pool_options: TaskPoolOptions {
-                        compute: TaskPoolThreadAssignmentPolicy {
-                            // set the minimum # of compute threads
-                            // to the total number of available threads
-                            min_threads: available_parallelism(),
-                            max_threads: std::usize::MAX, // unlimited max threads
-                            percent: 1.0,                 // this value is irrelevant in this case
-                        },
-                        // keep the defaults for everything else
-                        ..default()
-                    },
-                }),
+            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+                1.0 / 100.0,
+            ))),
+            // .set(TaskPoolPlugin {
+            //     task_pool_options: TaskPoolOptions {
+            //         compute: TaskPoolThreadAssignmentPolicy {
+            //             // set the minimum # of compute threads
+            //             // to the total number of available threads
+            //             min_threads: available_parallelism(),
+            //             max_threads: std::usize::MAX, // unlimited max threads
+            //             percent: 1.0,                 // this value is irrelevant in this case
+            //         },
+            //         // keep the defaults for everything else
+            //         ..default()
+            //     },
+            // })
             LogPlugin::default(),
             (
                 DiagnosticsPlugin,
                 EntityCountDiagnosticsPlugin,
                 FrameTimeDiagnosticsPlugin,
-                SystemInformationDiagnosticsPlugin,
             ),
             (
                 CommonPlugins(SyncRole::Server),

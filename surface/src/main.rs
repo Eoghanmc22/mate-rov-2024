@@ -56,7 +56,6 @@ fn main() -> anyhow::Result<()> {
                 LogDiagnosticsPlugin::default(),
                 EntityCountDiagnosticsPlugin,
                 FrameTimeDiagnosticsPlugin,
-                SystemInformationDiagnosticsPlugin,
             ),
             // MATE
             (
