@@ -10,10 +10,7 @@ impl Plugin for ErrorPlugin {
         let (tx, rx) = channel::bounded(30);
         app.insert_resource(Errors(tx, rx));
 
-        app.add_systems(
-            PostUpdate,
-            (error_channel, read_errors.after(error_channel)),
-        );
+        app.add_systems(Last, (error_channel, read_errors.after(error_channel)));
     }
 }
 
