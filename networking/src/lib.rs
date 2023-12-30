@@ -134,7 +134,11 @@ impl<P: Debug> Messenger<P> {
     pub fn send_message(&self, message: Message<P>) -> Result<(), error::MessageError> {
         self.sender
             .try_send(message)
-            .map_err(|_| error::MessageError)?;
+            .map_err(|_| error::MessageError)
+    }
+
+    #[instrument(level = "trace", skip(self))]
+    pub fn wake(&self) -> Result<(), error::MessageError> {
         self.waker.wake().map_err(|_| error::MessageError)
     }
 }

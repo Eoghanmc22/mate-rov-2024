@@ -192,6 +192,7 @@ fn hud(
                                     let count = world.query::<&Robot>().iter(world).count();
 
                                     if count == 0 {
+                                        info!("Peer ip resolved to {:?}", addrs);
                                         world.send_event(ConnectToPeer(addrs));
                                     } else {
                                         warn!("Already connected to peer");

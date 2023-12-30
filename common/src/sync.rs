@@ -239,14 +239,23 @@ fn net_write(
             errors.send(anyhow!("Could not brodcast ECS update").into());
         }
     }
+
+    let rst = net.0.wake();
+    if let Err(_) = rst {
+        errors.send(anyhow!("Could not wake net thread").into());
+    }
 }
 
 fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWriter<ErrorEvent>) {
     for _event in exit.read() {
         let rst = net.0.shutdown();
-
         if let Err(_) = rst {
             errors.send(anyhow!("Could not send shutdown event to net thread").into());
+        }
+
+        let rst = net.0.wake();
+        if let Err(_) = rst {
+            errors.send(anyhow!("Could not wake net thread").into());
         }
     }
 }
@@ -254,7 +263,7 @@ fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWrit
 const PING_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_LATENCY: Duration = Duration::from_millis(50);
 
-// TODO: Auto Reconnect
+// TODO(high): Auto Reconnect
 fn ping(
     net: Res<Net>,
     time: Res<Time>,
