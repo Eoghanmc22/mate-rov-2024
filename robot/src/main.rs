@@ -59,5 +59,7 @@ fn main() -> anyhow::Result<()> {
         ))
         .run();
 
+    info!("Clean exit");
+
     Ok(())
 }
