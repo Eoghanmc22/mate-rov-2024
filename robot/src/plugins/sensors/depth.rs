@@ -12,9 +12,8 @@ use common::{
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
-use tracy_client::frame_name;
 
-use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobot, tracy};
+use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobot};
 
 pub struct DepthPlugin;
 
@@ -45,13 +44,14 @@ fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result
     thread::Builder::new()
         .name("Depth Thread".to_owned())
         .spawn(move || {
-            let span = span!(Level::INFO, "Depth sensor monitor thread");
-            let _enter = span.enter();
+            let _span = span!(Level::INFO, "Depth sensor thread").entered();
 
             let interval = Duration::from_secs_f64(1.0 / 100.0);
             let mut deadline = Instant::now();
 
             loop {
+                let span = span!(Level::INFO, "Depth sensor cycle").entered();
+
                 let rst = depth.read_frame().context("Read depth frame");
 
                 match rst {
@@ -72,7 +72,7 @@ fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result
                     return;
                 }
 
-                tracy::secondary_frame_mark(frame_name!("Depth"));
+                span.exit();
 
                 deadline += interval;
                 let remaining = deadline - Instant::now();

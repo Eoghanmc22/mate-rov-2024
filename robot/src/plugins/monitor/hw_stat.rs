@@ -20,9 +20,8 @@ use sysinfo::{
     UserExt,
 };
 use tracing::{span, Level};
-use tracy_client::frame_name;
 
-use crate::{plugins::core::robot::LocalRobot, tracy};
+use crate::plugins::core::robot::LocalRobot;
 
 pub struct HwStatPlugin;
 
@@ -47,12 +46,12 @@ fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
     thread::Builder::new()
         .name("Hardware monitor thread".to_owned())
         .spawn(move || {
-            let span = span!(Level::INFO, "Hardware monitor");
+            let span = span!(Level::INFO, "System Monitor Thread");
             let _enter = span.enter();
 
             let mut system = System::new();
             loop {
-                let frame = tracy::non_continuous_frame(frame_name!("Cpu Monitor"));
+                let span = span!(Level::INFO, "System Monitor Cycle").entered();
 
                 system.refresh_all();
                 system.refresh_disks_list();
@@ -80,7 +79,7 @@ fn start_hw_stat_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Resu
                     return;
                 }
 
-                drop(frame);
+                span.exit();
 
                 thread::sleep(Duration::from_secs(1));
             }

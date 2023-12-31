@@ -14,12 +14,10 @@ use common::{
 use crossbeam::channel::{self, Receiver, Sender};
 use nalgebra::Vector3;
 use tracing::{span, Level};
-use tracy_client::frame_name;
 
 use crate::{
     peripheral::{icm20602::Icm20602, mmc5983::Mcc5983},
     plugins::core::robot::LocalRobot,
-    tracy,
 };
 
 pub struct OrientationPlugin;
@@ -61,8 +59,7 @@ fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Res
     thread::Builder::new()
         .name("IMU Thread".to_owned())
         .spawn(move || {
-            let span = span!(Level::INFO, "IMU thread");
-            let _enter = span.enter();
+            let _span = span!(Level::INFO, "IMU sensor thread").entered();
 
             let interval = Duration::from_secs_f32(1.0 / 1000.0);
             let counts = 10;
@@ -80,6 +77,8 @@ fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Res
             let mut first_run = true;
 
             loop {
+                let span = span!(Level::INFO, "IMU sensor cycle").entered();
+
                 if counter == 0 && !first_run {
                     let res = tx_data.send((inertial_buffer, mag_buffer));
                     if res.is_err() {
@@ -118,7 +117,7 @@ fn start_inertial_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Res
                     return;
                 }
 
-                tracy::secondary_frame_mark(frame_name!("IMU"));
+                span.exit();
 
                 deadline += interval;
                 let remaining = deadline - Instant::now();

@@ -27,4 +27,6 @@ serde = { version = "1", features = ["derive"]}
 toml = "0.8"
 crossbeam = "0.8"
 ahash = "0.8"
-tracy-client = "0.16"
+
+[features]
+tracy = ["bevy/trace_tracy", "common/tracy_frame_mark"]

@@ -60,7 +60,7 @@ fn detect_overrun(
         }
     }
 
-    #[cfg(all(feature = "tracy", feature = "tracy_frame_mark"))]
+    #[cfg(feature = "tracy_frame_mark")]
     if settings.tracy_frame_mark {
         info!(message = "finished frame", tracy.frame_mark = true);
     }

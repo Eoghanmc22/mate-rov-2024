@@ -30,3 +30,6 @@ opencv = "0.88"
 # *brings in all of tokio for a single function*
 tokio = { version = "1.35", features = ["full"] }
 bevy-tokio-tasks = { git = "https://github.com/foxzool/bevy-tokio-tasks.git" }
+
+[features]
+tracy = ["bevy/trace_tracy"]

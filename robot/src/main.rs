@@ -4,21 +4,15 @@
 pub mod config;
 pub mod peripheral;
 pub mod plugins;
-pub mod tracy;
 
 use std::{fs, time::Duration};
 
 use anyhow::Context;
 use bevy::{
     app::ScheduleRunnerPlugin,
-    core::TaskPoolThreadAssignmentPolicy,
-    diagnostic::{
-        DiagnosticsPlugin, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
-        SystemInformationDiagnosticsPlugin,
-    },
+    diagnostic::{DiagnosticsPlugin, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin},
     log::LogPlugin,
     prelude::*,
-    tasks::available_parallelism,
 };
 use common::{sync::SyncRole, CommonPlugins};
 use config::RobotConfig;
