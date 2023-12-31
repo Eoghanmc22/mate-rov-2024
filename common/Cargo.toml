@@ -22,3 +22,7 @@ ahash = "0.8"
 bevy = { version = "0.12" , default-features = false, features = ["serialize"] }
 
 ctrlc = "3"
+
+[features]
+tracy = []
+tracy_frame_mark = []
