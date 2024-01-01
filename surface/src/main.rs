@@ -32,6 +32,7 @@ fn main() -> anyhow::Result<()> {
     App::new()
         .insert_resource(OverRunSettings {
             max_time: Duration::from_secs_f32(1.0 / 60.0),
+            tracy_frame_mark: false,
         })
         .add_plugins((
             // Bevy Core
@@ -71,7 +72,7 @@ fn main() -> anyhow::Result<()> {
             (
                 TokioTasksPlugin::default(),
                 // TODO(high): Way to close and re open
-                WorldInspectorPlugin::new(),
+                WorldInspectorPlugin::default().run_if(resource_exists::<ShowInspector>()),
                 PanOrbitCameraPlugin,
             ),
         ))

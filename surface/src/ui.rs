@@ -22,9 +22,27 @@ impl Plugin for EguiUiPlugin {
     }
 }
 
-fn topbar(mut contexts: EguiContexts) {
+#[derive(Resource)]
+pub struct ShowInspector;
+
+fn topbar(mut cmds: Commands, mut contexts: EguiContexts, inspector: Option<Res<ShowInspector>>) {
     egui::TopBottomPanel::top("Top Bar").show(contexts.ctx_mut(), |ui| {
-        egui::menu::bar(ui, |ui| ui.menu_button("test", |ui| ui.button("thing")))
+        egui::menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
+                // TODO(mid): Disconnect
+                // TODO(mid): Exit
+            });
+
+            ui.menu_button("View", |ui| {
+                if ui.button("ECS Inspector").clicked() {
+                    if inspector.is_some() {
+                        cmds.remove_resource::<ShowInspector>()
+                    } else {
+                        cmds.insert_resource(ShowInspector);
+                    }
+                }
+            })
+        })
     });
 }
 

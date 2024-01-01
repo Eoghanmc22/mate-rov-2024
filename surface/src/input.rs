@@ -155,7 +155,7 @@ fn handle_disconnected_robots(
     }
 }
 
-// TODO(mid): Remap sticks to square
+// TODO(mid): Remap sticks to square. See http://theinstructionlimit.com/squaring-the-thumbsticks
 fn movement(
     mut cmds: Commands,
     inputs: Query<(Entity, &RobotId, &ActionState<Action>), With<InputMarker>>,
