@@ -235,8 +235,7 @@ pub fn axis_maximums<MotorId: Hash + Ord + Clone + Debug>(
     .into_iter()
     .map(|it| (it, it.movement()))
     .map(|(axis, movement)| {
-        // TODO(mid): Increase when we move to newtons
-        let initial = 2.0;
+        let initial = 25.0;
 
         let forces = reverse_solve(movement * initial, motor_config);
         let cmds = forces_to_cmds(forces, motor_config, motor_data);
