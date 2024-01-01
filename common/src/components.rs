@@ -6,7 +6,7 @@ use bevy::{
     reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize},
 };
 use glam::{Quat, Vec3A};
-use motor_math::{ErasedMotorId, Motor, MotorConfig, Movement};
+use motor_math::{solve::reverse::Axis, ErasedMotorId, Motor, MotorConfig, Movement};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -61,6 +61,7 @@ components! {
     MeasuredVoltage,
     MovementContribution,
     MotorContribution,
+    MovementAxisMaximums,
     MovementCurrentCap,
     CurrentDraw,
     PwmChannel,
@@ -240,6 +241,13 @@ pub struct MovementContribution(pub Movement);
 pub struct MotorContribution(
     // TODO(low): This bad
     #[reflect(ignore)] pub BTreeMap<ErasedMotorId, Newtons>,
+);
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct MovementAxisMaximums(
+    // TODO(low): This bad
+    #[reflect(ignore)] pub BTreeMap<Axis, Newtons>,
 );
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]

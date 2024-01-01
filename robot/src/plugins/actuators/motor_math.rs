@@ -36,7 +36,7 @@ impl Plugin for MotorMathPlugin {
 }
 
 #[derive(Resource)]
-struct MotorDataRes(MotorData);
+pub struct MotorDataRes(pub MotorData);
 
 fn accumulate_movements(
     mut cmds: Commands,
@@ -109,8 +109,13 @@ fn accumulate_motor_forces(
         })
         .collect();
 
-    let motor_cmds =
-        solve::reverse::clamp_amperage(motor_cmds, motor_config, &motor_data.0, current_cap.0);
+    let motor_cmds = solve::reverse::clamp_amperage(
+        motor_cmds,
+        motor_config,
+        &motor_data.0,
+        current_cap.0,
+        0.05,
+    );
 
     let motor_forces = motor_cmds
         .iter()

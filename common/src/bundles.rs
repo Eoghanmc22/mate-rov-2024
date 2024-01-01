@@ -3,9 +3,9 @@ use bevy::{core::Name, ecs::bundle::Bundle, transform::components::Transform};
 use crate::components::{
     ActualForce, ActualMovement, Armed, Camera, Cores, CpuTotal, CurrentDraw, Depth, Disks,
     Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory, MotorDefinition, Motors,
-    MovementContribution, MovementCurrentCap, Networks, OperatingSystem, Orientation, Processes,
-    PwmChannel, PwmSignal, Robot, RobotId, RobotStatus, TargetForce, TargetMovement, Temperatures,
-    Uptime,
+    MovementAxisMaximums, MovementContribution, MovementCurrentCap, Networks, OperatingSystem,
+    Orientation, Processes, PwmChannel, PwmSignal, Robot, RobotId, RobotStatus, TargetForce,
+    TargetMovement, Temperatures, Uptime,
 };
 
 #[derive(Bundle, PartialEq)]
@@ -55,6 +55,7 @@ pub struct RobotActuatorBundle {
     pub movement_actual: ActualMovement,
 
     pub motor_config: Motors,
+    pub axis_maximums: MovementAxisMaximums,
     pub current_cap: MovementCurrentCap,
 
     pub armed: Armed,

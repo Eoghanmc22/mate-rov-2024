@@ -6,7 +6,8 @@ use bevy::{
 use common::{
     bundles::MovementContributionBundle,
     components::{
-        Armed, Depth, DepthTarget, MovementContribution, OrientationTarget, Robot, RobotId,
+        Armed, Depth, DepthTarget, MovementAxisMaximums, MovementContribution, OrientationTarget,
+        Robot, RobotId,
     },
     ecs_sync::{NetId, Replicate},
 };
@@ -14,7 +15,7 @@ use leafwing_input_manager::{
     action_state::ActionState, axislike::SingleAxis, input_map::InputMap,
     plugin::InputManagerPlugin, Actionlike, InputManagerBundle,
 };
-use motor_math::Movement;
+use motor_math::{solve::reverse::Axis, Movement};
 
 // TODO(low): Handle multiple gamepads better
 pub struct InputPlugin;
@@ -119,6 +120,7 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             Action::Heave,
         );
 
+        // TODO(mid): does this get despawned on robot disconnect?
         cmds.spawn((
             InputManagerBundle::<Action> {
                 // Stores "which actions are currently pressed"
@@ -154,17 +156,28 @@ fn handle_disconnected_robots(
 }
 
 // TODO(mid): Remap sticks to square
-fn movement(mut cmds: Commands, inputs: Query<(Entity, &ActionState<Action>), With<InputMarker>>) {
-    for (entity, action_state) in &inputs {
-        let x = action_state.value(Action::Sway);
-        let y = action_state.value(Action::Surge);
-        let z = action_state.value(Action::Heave);
+fn movement(
+    mut cmds: Commands,
+    inputs: Query<(Entity, &RobotId, &ActionState<Action>), With<InputMarker>>,
+    robots: Query<(&MovementAxisMaximums, &RobotId), With<Robot>>,
+) {
+    for (entity, robot, action_state) in &inputs {
+        let Some((MovementAxisMaximums(maximums), _)) =
+            robots.iter().find(|(_, robot_id)| robot_id.0 == robot.0)
+        else {
+            error!("Could not find robot for input");
 
-        let x_rot = action_state.value(Action::Pitch);
-        let y_rot = action_state.value(Action::Roll);
-        let z_rot = action_state.value(Action::Yaw);
+            continue;
+        };
 
-        // TODO(high): This needs to be scaled properly
+        let x = action_state.value(Action::Sway) * maximums[&Axis::X].0;
+        let y = action_state.value(Action::Surge) * maximums[&Axis::Y].0;
+        let z = action_state.value(Action::Heave) * maximums[&Axis::Z].0;
+
+        let x_rot = action_state.value(Action::Pitch) * maximums[&Axis::XRot].0;
+        let y_rot = action_state.value(Action::Roll) * maximums[&Axis::YRot].0;
+        let z_rot = action_state.value(Action::Yaw) * maximums[&Axis::ZRot].0;
+
         let movement = Movement {
             force: vec3a(x, y, z),
             torque: vec3a(x_rot, y_rot, z_rot),

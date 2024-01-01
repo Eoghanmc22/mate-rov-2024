@@ -5,38 +5,44 @@ use common::{
     bundles::{MotorBundle, PwmActuatorBundle, RobotActuatorBundle},
     components::{
         ActualForce, ActualMovement, Armed, CurrentDraw, MotorDefinition, Motors,
-        MovementCurrentCap, PwmChannel, PwmSignal, RobotId, TargetForce, TargetMovement,
+        MovementAxisMaximums, MovementCurrentCap, PwmChannel, PwmSignal, RobotId, TargetForce,
+        TargetMovement,
     },
     ecs_sync::Replicate,
+    types::units::Newtons,
 };
-use motor_math::{blue_rov::HeavyMotorId, x3d::X3dMotorId};
+use motor_math::{blue_rov::HeavyMotorId, solve::reverse, x3d::X3dMotorId};
 
 use crate::{
     config::{MotorConfigDefinition, RobotConfig},
-    plugins::core::robot::LocalRobot,
+    plugins::core::robot::{LocalRobot, LocalRobotMarker},
 };
+
+use super::motor_math::MotorDataRes;
 
 pub struct MotorSetupPlugin;
 
 impl Plugin for MotorSetupPlugin {
     fn build(&self, app: &mut App) {
         // TODO(mid): Update motor config when motor definitions change
-        app.add_systems(Startup, create_motors);
+        app.add_systems(Startup, create_motors)
+            .add_systems(Update, update_axis_maximums);
     }
 }
 
 fn create_motors(mut cmds: Commands, robot: Res<LocalRobot>, config: Res<RobotConfig>) {
-    let motor_conf = config.motor_config.flatten();
+    let (motors, motor_config) = config.motor_config.flatten();
 
     cmds.entity(robot.entity).insert(RobotActuatorBundle {
         movement_target: TargetMovement(Default::default()),
         movement_actual: ActualMovement(Default::default()),
-        motor_config: Motors(motor_conf.1),
+        motor_config: Motors(motor_config),
+        axis_maximums: MovementAxisMaximums(Default::default()),
         current_cap: MovementCurrentCap(config.motor_amperage_budget.into()),
         armed: Armed::Disarmed,
     });
 
-    for (motor_id, motor, pwm_channel) in motor_conf.0 {
+    for (motor_id, motor, pwm_channel) in motors {
         let name = match config.motor_config {
             MotorConfigDefinition::X3d(_) => {
                 format!(
@@ -68,5 +74,29 @@ fn create_motors(mut cmds: Commands, robot: Res<LocalRobot>, config: Res<RobotCo
             },
             Replicate,
         ));
+    }
+}
+
+fn update_axis_maximums(
+    mut cmds: Commands,
+    robot: Query<
+        (Entity, &MovementCurrentCap, &Motors),
+        (With<LocalRobotMarker>, Changed<MovementCurrentCap>),
+    >,
+    motor_data: Res<MotorDataRes>,
+) {
+    for (entity, current_cap, motor_config) in &robot {
+        let motor_config = &motor_config.0;
+        let motor_data = &motor_data.0;
+        let current_cap = current_cap.0 .0;
+
+        let maximums = reverse::axis_maximums(motor_config, motor_data, current_cap, 0.01)
+            .into_iter()
+            .map(|(key, value)| (key, Newtons(value)))
+            .collect();
+
+        info!("Updated motor axis maximums to {maximums:?} at {current_cap:.2}A");
+
+        cmds.entity(entity).insert(MovementAxisMaximums(maximums));
     }
 }
