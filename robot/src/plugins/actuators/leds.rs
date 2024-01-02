@@ -1,5 +1,5 @@
 use std::{
-    f32::consts::TAU,
+    f32::{self, consts::TAU},
     iter::{self, zip},
     sync::Arc,
     thread,
@@ -152,7 +152,7 @@ fn update_leds(
     time: Res<Time>,
     mut errors: EventReader<ErrorEvent>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_seconds_wrapped();
 
     let (status, id) = robot.single();
     let thrusters = thrusters
@@ -231,7 +231,7 @@ fn update_leds(
     leds.2 = [LedState::Dim; 3];
     match status {
         RobotStatus::NoPeer => {
-            if (now * 2.0) as u8 & 1 == 1 {
+            if (now * TAU).sin() < 0.0 {
                 leds.2[1] = LedState::Off;
             }
         }
