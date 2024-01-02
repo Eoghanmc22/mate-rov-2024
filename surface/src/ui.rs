@@ -1,4 +1,4 @@
-use bevy::{math::Vec3A, prelude::*};
+use bevy::{app::AppExit, math::Vec3A, prelude::*};
 use bevy_egui::{EguiContexts, EguiPlugin};
 use bevy_tokio_tasks::TokioTasksRuntime;
 use common::{
@@ -52,7 +52,12 @@ fn topbar(
                         ui.label("No Connections");
                     }
                 });
-                // TODO(mid): Exit
+
+                if ui.button("Exit").clicked() {
+                    cmds.add(|world: &mut World| {
+                        world.send_event(AppExit);
+                    })
+                }
             });
 
             ui.menu_button("View", |ui| {
