@@ -44,8 +44,8 @@ impl Plugin for SyncPlugin {
                 Update,
                 (
                     // ping,
-                    flatten_outbound_deltas,
-                    sync_new_peers.after(flatten_outbound_deltas),
+                    flatten_deltas,
+                    sync_new_peers.after(flatten_deltas),
                     disconnect.pipe(error::handle_errors),
                 ),
             )
@@ -335,28 +335,57 @@ struct Deltas {
     entities: HashMap<NetId, HashMap<NetTypeId, adapters::BackingType>>,
 }
 
-fn flatten_outbound_deltas(
+fn flatten_deltas(
     mut deltas: ResMut<Deltas>,
-    mut events: EventReader<SerializedChangeOutEvent>,
+    entity_map: Res<EntityMap>,
+
+    mut inbound: EventReader<SerializedChangeInEvent>,
+    mut outbound: EventReader<SerializedChangeOutEvent>,
+
     mut errors: EventWriter<ErrorEvent>,
 ) {
-    for SerializedChangeOutEvent(change) in events.read() {
+    let iter = Iterator::chain(
+        outbound.read().map(|it| &it.0),
+        inbound.read().map(|it| &it.0),
+    );
+
+    for change in iter {
         match change {
             SerializedChange::EntitySpawned(net_id) => {
-                deltas.entities.insert(*net_id, HashMap::default());
+                let Some(entity) = entity_map.forign_to_local.get(net_id) else {
+                    continue;
+                };
+                let forign_owned = entity_map
+                    .forign_owned
+                    .values()
+                    .any(|forign_set| forign_set.contains(entity));
+
+                if !forign_owned {
+                    deltas.entities.insert(*net_id, HashMap::default());
+                }
             }
             SerializedChange::EntityDespawned(net_id) => {
                 deltas.entities.remove(net_id);
             }
             SerializedChange::ComponentUpdated(net_id, token, raw) => {
-                if let Some(components) = deltas.entities.get_mut(net_id) {
-                    if let Some(raw) = raw {
-                        components.insert(token.clone(), raw.clone());
+                let Some(entity) = entity_map.forign_to_local.get(net_id) else {
+                    continue;
+                };
+                let forign_owned = entity_map
+                    .forign_owned
+                    .values()
+                    .any(|forign_set| forign_set.contains(entity));
+
+                if !forign_owned {
+                    if let Some(components) = deltas.entities.get_mut(net_id) {
+                        if let Some(raw) = raw {
+                            components.insert(token.clone(), raw.clone());
+                        } else {
+                            components.remove(token);
+                        }
                     } else {
-                        components.remove(token);
+                        errors.send(anyhow!("Got bad change event during flattening").into());
                     }
-                } else {
-                    errors.send(anyhow!("Got bad change event during flattening").into());
                 }
             }
             SerializedChange::EventEmitted(_, _) => {

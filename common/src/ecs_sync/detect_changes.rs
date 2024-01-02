@@ -244,10 +244,10 @@ fn detect_despawns(
     mut events: EventWriter<SerializedChangeOutRawEvent>,
 ) {
     for entity in despawns.read() {
-        let remote_entity = entity_map
-            .local_to_forign
-            .remove(&entity)
-            .expect("Unmapped entity despawned");
+        let Some(remote_entity) = entity_map.local_to_forign.remove(&entity) else {
+            // Entity got spawned and despawned in the same change application tick?
+            continue;
+        };
         entity_map.forign_to_local.remove(&remote_entity);
 
         events.send(SerializedChangeOutRawEvent(

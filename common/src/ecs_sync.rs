@@ -3,7 +3,7 @@ pub mod detect_changes;
 
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
-use ahash::HashMap;
+use ahash::{HashMap, HashSet};
 use bevy::{
     app::App,
     ecs::{
@@ -51,10 +51,10 @@ pub struct SerializedChangeOutEvent(pub SerializedChange);
 
 #[derive(Resource, Default)]
 pub struct EntityMap {
-    local_to_forign: HashMap<Entity, NetId>,
-    forign_to_local: HashMap<NetId, Entity>,
+    pub(crate) local_to_forign: HashMap<Entity, NetId>,
+    pub(crate) forign_to_local: HashMap<NetId, Entity>,
 
-    pub(crate) forign_owned: HashMap<Token, Vec<Entity>>,
+    pub(crate) forign_owned: HashMap<Token, HashSet<Entity>>,
 
     local_modified: HashMap<Entity, Tick>,
 }

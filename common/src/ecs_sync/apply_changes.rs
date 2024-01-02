@@ -7,7 +7,6 @@ use bevy::{
         system::{Commands, Res, ResMut, SystemChangeTick},
         world::World,
     },
-    reflect::List,
 };
 use tracing::error;
 
@@ -48,7 +47,7 @@ fn apply_changes(
                     .forign_owned
                     .entry(*token)
                     .or_default()
-                    .push(local);
+                    .insert(local);
 
                 entity_map.local_modified.insert(local, ticks.this_run());
             }
