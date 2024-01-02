@@ -32,5 +32,10 @@ fn update_state(
         }
     } else {
         robot.insert(RobotStatus::NoPeer);
+
+        // The robot should be disarmed when there are no peers controlling it
+        if let Some(Armed::Armed) = armed {
+            robot.insert(Armed::Disarmed);
+        }
     }
 }
