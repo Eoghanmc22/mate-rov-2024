@@ -1,5 +1,5 @@
 use bevy::{
-    math::vec3,
+    math::{vec3, Vec3A},
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -13,7 +13,9 @@ use bevy::{
 use bevy_egui::EguiContexts;
 use common::components::{Motors, Orientation, Robot};
 use egui::TextureId;
-use motor_math::{ErasedMotorId, Motor, MotorConfig};
+use motor_math::{x3d::X3dMotorId, Direction, ErasedMotorId, Motor, MotorConfig};
+
+const RENDER_LAYERS: RenderLayers = RenderLayers::layer(1);
 
 pub struct AttitudePlugin;
 
@@ -35,12 +37,13 @@ struct OrientationDisplayMarker;
 #[derive(Component)]
 struct MotorMarker(ErasedMotorId);
 
-const RENDER_LAYERS: RenderLayers = RenderLayers::layer(1);
-
 fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     mut egui_context: EguiContexts,
+
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let size = Extent3d {
         width: 512,
@@ -98,6 +101,21 @@ fn setup(
         },
         RENDER_LAYERS,
     ));
+
+    // Makes bevy allocate the gpu resources needed, preveinting a >300ms freeze
+    // on first connection to robot
+    add_motor_conf(
+        &MotorConfig::<X3dMotorId>::new(Motor {
+            position: Vec3A::default(),
+            orientation: Vec3A::default(),
+            direction: Direction::Clockwise,
+        })
+        .erase(),
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        RENDER_LAYERS,
+    );
 
     let texture = egui_context.add_image(image_handle.clone_weak());
     commands.insert_resource(OrientationDisplay(image_handle, texture));
