@@ -44,8 +44,12 @@ impl Drop for Leds {
     fn drop(&mut self) {
         for led in &mut self.0 {
             led.set_mode(Mode::Input);
-            led.set_bias(Bias::Off);
+            led.set_bias(Bias::PullDown);
+            led.set_reset_on_drop(false);
         }
+
+        self.0[2].set_mode(Mode::Output);
+        self.0[2].set_low();
     }
 }
 
