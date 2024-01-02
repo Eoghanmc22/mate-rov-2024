@@ -6,7 +6,7 @@ use common::{
         Armed, CpuTotal, Depth, DepthTarget, Inertial, LoadAverage, Memory, OrientationTarget,
         Robot, Temperatures,
     },
-    sync::ConnectToPeer,
+    sync::{ConnectToPeer, DisconnectPeer, Peer},
 };
 use egui::{load::SizedTexture, Color32, RichText};
 use tokio::net::lookup_host;
@@ -25,11 +25,27 @@ impl Plugin for EguiUiPlugin {
 #[derive(Resource)]
 pub struct ShowInspector;
 
-fn topbar(mut cmds: Commands, mut contexts: EguiContexts, inspector: Option<Res<ShowInspector>>) {
+fn topbar(
+    mut cmds: Commands,
+    mut contexts: EguiContexts,
+    inspector: Option<Res<ShowInspector>>,
+    peers: Query<&Peer>,
+    mut disconnect: EventWriter<DisconnectPeer>,
+) {
     egui::TopBottomPanel::top("Top Bar").show(contexts.ctx_mut(), |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
-                // TODO(mid): Disconnect
+                ui.menu_button("Disconnect", |ui| {
+                    if !peers.is_empty() {
+                        for peer in &peers {
+                            if ui.button(peer.addrs.to_string()).clicked() {
+                                disconnect.send(DisconnectPeer(peer.token));
+                            }
+                        }
+                    } else {
+                        ui.label("No Connections");
+                    }
+                });
                 // TODO(mid): Exit
             });
 

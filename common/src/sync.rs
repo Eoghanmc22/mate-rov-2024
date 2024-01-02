@@ -37,14 +37,16 @@ impl Plugin for SyncPlugin {
             .init_resource::<Deltas>()
             .init_resource::<Peers>()
             .add_event::<ConnectToPeer>()
+            .add_event::<DisconnectPeer>()
             .add_systems(Startup, setup_networking.pipe(error::handle_errors))
             .add_systems(PreUpdate, net_read.before(ChangeApplicationSet))
             .add_systems(
                 Update,
                 (
-                    ping,
+                    // ping,
                     flatten_outbound_deltas,
                     sync_new_peers.after(flatten_outbound_deltas),
+                    disconnect.pipe(error::handle_errors),
                 ),
             )
             .add_systems(PostUpdate, net_write.after(ChangeDetectionSet))
@@ -87,6 +89,9 @@ pub struct Latency {
 #[derive(Event)]
 pub struct ConnectToPeer(pub SocketAddr);
 
+#[derive(Event)]
+pub struct DisconnectPeer(pub NetToken);
+
 fn setup_networking(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let networking = Networking::new().context("Start networking")?;
     let handle = networking.messenger();
@@ -111,7 +116,7 @@ fn setup_networking(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
                 tx.send(event).expect("Channel disconnected");
             })
         })
-        .context("Spawn thread");
+        .context("Spawn thread")?;
 
     Ok(())
 }
@@ -127,6 +132,14 @@ fn bind(net: Res<Net>) -> anyhow::Result<()> {
 fn connect(net: Res<Net>, mut events: EventReader<ConnectToPeer>) -> anyhow::Result<()> {
     for event in events.read() {
         net.0.connect_to(event.0).context("Contact net thread")?;
+    }
+
+    Ok(())
+}
+
+fn disconnect(net: Res<Net>, mut events: EventReader<DisconnectPeer>) -> anyhow::Result<()> {
+    for event in events.read() {
+        net.0.disconnect(event.0).context("Contact net thread")?;
     }
 
     Ok(())

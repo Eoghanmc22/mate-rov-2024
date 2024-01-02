@@ -120,7 +120,6 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             Action::Heave,
         );
 
-        // TODO(mid): does this get despawned on robot disconnect?
         cmds.spawn((
             InputManagerBundle::<Action> {
                 // Stores "which actions are currently pressed"
