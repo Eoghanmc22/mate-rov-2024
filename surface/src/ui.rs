@@ -6,7 +6,7 @@ use common::{
         Armed, CpuTotal, Depth, DepthTarget, Inertial, LoadAverage, Memory, OrientationTarget,
         Robot, Temperatures,
     },
-    sync::{ConnectToPeer, DisconnectPeer, Peer},
+    sync::{ConnectToPeer, DisconnectPeer, Latency, Peer},
 };
 use egui::{load::SizedTexture, Color32, RichText};
 use tokio::net::lookup_host;
@@ -29,7 +29,7 @@ fn topbar(
     mut cmds: Commands,
     mut contexts: EguiContexts,
     inspector: Option<Res<ShowInspector>>,
-    peers: Query<&Peer>,
+    peers: Query<(&Peer, Option<&Name>)>,
     mut disconnect: EventWriter<DisconnectPeer>,
 ) {
     egui::TopBottomPanel::top("Top Bar").show(contexts.ctx_mut(), |ui| {
@@ -37,8 +37,14 @@ fn topbar(
             ui.menu_button("File", |ui| {
                 ui.menu_button("Disconnect", |ui| {
                     if !peers.is_empty() {
-                        for peer in &peers {
-                            if ui.button(peer.addrs.to_string()).clicked() {
+                        for (peer, name) in &peers {
+                            let text = if let Some(name) = name {
+                                format!("{} ({})", name.as_str(), peer.token.0)
+                            } else {
+                                format!("{} ({})", peer.addrs, peer.token.0)
+                            };
+
+                            if ui.button(text).clicked() {
                                 disconnect.send(DisconnectPeer(peer.token));
                             }
                         }
@@ -80,6 +86,8 @@ fn hud(
             Option<&Depth>,
             Option<&DepthTarget>,
             Option<&OrientationTarget>,
+            Option<&Peer>,
+            Option<&Latency>,
         ),
         With<Robot>,
     >,
@@ -98,6 +106,8 @@ fn hud(
         depth,
         depth_target,
         orientation_target,
+        peer,
+        latency,
     )) = robots.get_single()
     {
         egui::Window::new(robot_name.as_str())
@@ -128,6 +138,22 @@ fn hud(
                             }
                         }
                     });
+
+                    ui.add_space(10.0);
+                }
+
+                if let (Some(peer), Some(latency)) = (peer, latency) {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Address:").size(size));
+                        ui.label(RichText::new(format!("{:?}", peer.addrs)).size(size * 0.75));
+                    });
+
+                    if let Some(ping) = latency.ping {
+                        ui.label(
+                            RichText::new(format!("Ping: {:?}ms", ping.as_secs_f32() * 1000.0))
+                                .size(size),
+                        );
+                    }
 
                     ui.add_space(10.0);
                 }

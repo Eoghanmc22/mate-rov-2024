@@ -10,7 +10,10 @@ use bevy::{
 };
 use tracing::error;
 
-use crate::adapters::{dynamic::DynamicAdapter, TypeAdapter};
+use crate::{
+    adapters::{dynamic::DynamicAdapter, TypeAdapter},
+    sync::Peers,
+};
 
 use super::{
     EntityMap, ForignOwned, Replicate, SerializationSettings, SerializedChange,
@@ -34,9 +37,15 @@ fn apply_changes(
     ticks: SystemChangeTick,
     settings: Res<SerializationSettings>,
     mut entity_map: ResMut<EntityMap>,
+    peers: Res<Peers>,
     mut reader: EventReader<SerializedChangeInEvent>,
 ) {
     for SerializedChangeInEvent(change, token) in reader.read() {
+        if !peers.valid_tokens.contains(&token) {
+            // The peer disconnected and has already been cleaned up
+            continue;
+        }
+
         match change {
             SerializedChange::EntitySpawned(forign) => {
                 let local = cmds.spawn((Replicate, *forign, ForignOwned(token.0))).id();
@@ -57,8 +66,14 @@ fn apply_changes(
                     error!("Got despawn for unknown entity");
                     continue;
                 };
+
                 entity_map.local_to_forign.remove(&local);
                 entity_map.local_modified.remove(&local);
+
+                let owned_entities = entity_map.forign_owned.get_mut(token);
+                if let Some(owned_entities) = owned_entities {
+                    owned_entities.remove(&local);
+                }
 
                 cmds.entity(local).despawn();
             }

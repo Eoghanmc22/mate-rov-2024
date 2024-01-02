@@ -10,7 +10,7 @@ use crate::{
     },
     protocol::Protocol,
 };
-use ahash::HashMap;
+use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, prelude::*};
 use crossbeam::channel::{self, Receiver};
@@ -35,6 +35,7 @@ impl Plugin for SyncPlugin {
             .init_resource::<Peers>()
             .add_event::<ConnectToPeer>()
             .add_event::<DisconnectPeer>()
+            .add_event::<SyncPeer>()
             .add_systems(Startup, setup_networking.pipe(error::handle_errors))
             .add_systems(PreUpdate, net_read.before(ChangeApplicationSet))
             .add_systems(
@@ -42,8 +43,8 @@ impl Plugin for SyncPlugin {
                 (
                     // ping,
                     flatten_deltas,
-                    spawn_peer_entities,
                     sync_new_peers.after(flatten_deltas),
+                    spawn_peer_entities,
                     disconnect.pipe(error::handle_errors),
                 ),
             )
@@ -65,12 +66,15 @@ impl Plugin for SyncPlugin {
 struct Net(Messenger<Protocol>, Receiver<NetEvent<Protocol>>);
 
 #[derive(Resource, Default)]
-struct Peers {
+pub struct Peers {
     by_token: HashMap<NetToken, Entity>,
     by_addrs: HashMap<SocketAddr, Entity>,
 
     // In bevy time
     pending: HashMap<NetToken, (SocketAddr, Duration)>,
+
+    // TODO: This is kinda bad
+    pub(crate) valid_tokens: HashSet<NetToken>,
 }
 
 #[derive(Component, Debug)]
@@ -92,6 +96,9 @@ pub struct ConnectToPeer(pub SocketAddr);
 
 #[derive(Event)]
 pub struct DisconnectPeer(pub NetToken);
+
+#[derive(Event)]
+pub struct SyncPeer(pub NetToken);
 
 fn setup_networking(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
     let networking = Networking::new().context("Start networking")?;
@@ -155,8 +162,9 @@ fn net_read(
     mut peers: ResMut<Peers>,
     mut entity_map: ResMut<EntityMap>,
     mut changes: EventWriter<SerializedChangeInEvent>,
+    mut new_peers: EventWriter<SyncPeer>,
 
-    mut query: Query<(&Peer, &mut Latency)>,
+    mut peer_query: Query<(&Peer, &mut Latency)>,
 
     mut errors: EventWriter<ErrorEvent>,
 ) {
@@ -165,10 +173,10 @@ fn net_read(
             NetEvent::Conected(token, addrs) | NetEvent::Accepted(token, addrs) => {
                 info!(?token, ?addrs, "Peer connected");
 
+                new_peers.send(SyncPeer(token));
                 peers.pending.insert(token, (addrs, time.elapsed()));
 
-                // TODO(mid): Make an alternative to the old singleton system
-                // sync_state.singleton_map.insert(token.0, entity);
+                peers.valid_tokens.insert(token);
             }
             NetEvent::Data(token, packet) => match packet {
                 Protocol::EcsUpdate(update) => {
@@ -187,7 +195,7 @@ fn net_read(
                     let latency = peers
                         .by_token
                         .get(&token)
-                        .and_then(|it| query.get_component_mut::<Latency>(*it).ok());
+                        .and_then(|it| peer_query.get_component_mut::<Latency>(*it).ok());
 
                     let Some(mut latency) = latency else {
                         errors.send(anyhow!("Got pong from unknown peer").into());
@@ -208,23 +216,29 @@ fn net_read(
                 );
             }
             NetEvent::Disconnect(token) => {
+                peers.valid_tokens.remove(&token);
+
                 let Some(entity) = peers.by_token.remove(&token) else {
                     errors.send(anyhow!("Unknown peer disconnected").into());
                     continue;
                 };
-                let Ok(peer) = query.get_component::<Peer>(entity) else {
+                let Ok(peer) = peer_query.get_component::<Peer>(entity) else {
                     errors.send(anyhow!("Unknown peer disconnected").into());
                     continue;
                 };
 
                 peers.by_addrs.remove(&peer.addrs);
 
-                // TODO(mid): Make an alternative to the old singleton system
-                // sync_state.singleton_map.remove(&token.0);
-
                 cmds.entity(entity).despawn();
                 if let Some(owned_entities) = entity_map.forign_owned.remove(&token) {
                     for entity in owned_entities {
+                        let forign = entity_map.local_to_forign.remove(&entity);
+                        if let Some(forign) = forign {
+                            entity_map.forign_to_local.remove(&forign);
+                        };
+
+                        entity_map.local_modified.remove(&entity);
+
                         let Some(mut entity) = cmds.get_entity(entity) else {
                             continue;
                         };
@@ -261,9 +275,12 @@ const SINGLETON_DEADLINE: Duration = Duration::from_millis(100);
 
 fn spawn_peer_entities(
     mut cmds: Commands,
+    time: Res<Time>,
     mut peers: ResMut<Peers>,
     query: Query<(Entity, &ForignOwned), Added<Singleton>>,
 ) {
+    let peers = &mut *peers;
+
     for (entity, owner) in &query {
         let token = NetToken(owner.0);
         let data = peers.pending.remove(&token);
@@ -280,7 +297,7 @@ fn spawn_peer_entities(
     let now = time.elapsed();
     peers
         .pending
-        .extract_if(|_, (_, time)| now - time > SINGLETON_DEADLINE)
+        .extract_if(|_, (_, time)| now - *time > SINGLETON_DEADLINE)
         .for_each(|(token, (addrs, _))| {
             let entity = cmds.spawn((Peer { addrs, token }, Latency::default())).id();
 
@@ -428,13 +445,13 @@ fn flatten_deltas(
 fn sync_new_peers(
     net: Res<Net>,
     deltas: Res<Deltas>,
-    query: Query<&Peer, Added<Peer>>,
+    mut new_peers: EventReader<SyncPeer>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
-    'outer: for peer in query.iter() {
+    'outer: for &SyncPeer(peer) in new_peers.read() {
         for entity in deltas.entities.keys() {
             let rst = net.0.send_packet(
-                peer.token,
+                peer,
                 Protocol::EcsUpdate(SerializedChange::EntitySpawned(*entity)),
             );
 
@@ -447,7 +464,7 @@ fn sync_new_peers(
         for (entity, components) in &deltas.entities {
             for (token, raw) in components {
                 let rst = net.0.send_packet(
-                    peer.token,
+                    peer,
                     Protocol::EcsUpdate(SerializedChange::ComponentUpdated(
                         *entity,
                         token.clone(),

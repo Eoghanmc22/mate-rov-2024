@@ -59,7 +59,7 @@ pub struct EntityMap {
 
     pub(crate) forign_owned: HashMap<Token, HashSet<Entity>>,
 
-    local_modified: HashMap<Entity, Tick>,
+    pub(crate) local_modified: HashMap<Entity, Tick>,
 }
 
 #[derive(Resource)]

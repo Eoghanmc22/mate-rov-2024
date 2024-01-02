@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use common::{components::Singleton, ecs_sync::Replicate};
+use common::{
+    components::{Singleton, Surface},
+    ecs_sync::Replicate,
+};
 
 pub struct SurfacePlugin;
 
