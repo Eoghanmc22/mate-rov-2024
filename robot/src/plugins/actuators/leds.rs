@@ -152,6 +152,8 @@ fn update_leds(
     time: Res<Time>,
     mut errors: EventReader<ErrorEvent>,
 ) {
+    let now = time.elapsed_seconds();
+
     let (status, id) = robot.single();
     let thrusters = thrusters
         .iter()
@@ -190,21 +192,12 @@ fn update_leds(
             }
             // Rotate
             LedType::Circle(id) => {
-                let red = (((time.elapsed_seconds() + 0.0 * TAU / 3.0 + TAU * (id as f32 / 11.0))
-                    .sin()
-                    / 2.0
-                    + 0.5)
+                let red = (((now + 0.0 * TAU / 3.0 + TAU * (id as f32 / 11.0)).sin() / 2.0 + 0.5)
                     * 255.0
                     * brightness) as u8;
-                let green =
-                    (((time.elapsed_seconds() + 1.0 * TAU / 3.0 + TAU * (id as f32 / 11.0)).sin()
-                        / 2.0
-                        + 0.5)
-                        * 255.0) as u8;
-                let blue = (((time.elapsed_seconds() + 2.0 * TAU / 3.0 + TAU * (id as f32 / 11.0))
-                    .sin()
-                    / 2.0
-                    + 0.5)
+                let green = (((now + 1.0 * TAU / 3.0 + TAU * (id as f32 / 11.0)).sin() / 2.0 + 0.5)
+                    * 255.0) as u8;
+                let blue = (((now + 2.0 * TAU / 3.0 + TAU * (id as f32 / 11.0)).sin() / 2.0 + 0.5)
                     * 255.0
                     * brightness) as u8;
 
@@ -213,22 +206,13 @@ fn update_leds(
             LedType::Side(id) => {
                 let offset = 0.1;
 
-                let red = (((time.elapsed_seconds() + 0.0 * TAU / 3.0 + (id as f32 * offset))
-                    .sin()
-                    / 2.0
-                    + 0.5)
+                let red = (((now + 0.0 * TAU / 3.0 + (id as f32 * offset)).sin() / 2.0 + 0.5)
                     * 255.0
                     * brightness) as u8;
-                let green = (((time.elapsed_seconds() + 1.0 * TAU / 3.0 + (id as f32 * offset))
-                    .sin()
-                    / 2.0
-                    + 0.5)
+                let green = (((now + 1.0 * TAU / 3.0 + (id as f32 * offset)).sin() / 2.0 + 0.5)
                     * 255.0
                     * brightness) as u8;
-                let blue = (((time.elapsed_seconds() + 2.0 * TAU / 3.0 + (id as f32 * offset))
-                    .sin()
-                    / 2.0
-                    + 0.5)
+                let blue = (((now + 2.0 * TAU / 3.0 + (id as f32 * offset)).sin() / 2.0 + 0.5)
                     * 255.0
                     * brightness) as u8;
 
@@ -246,7 +230,11 @@ fn update_leds(
 
     leds.2 = [LedState::Dim; 3];
     match status {
-        RobotStatus::NoPeer => {}
+        RobotStatus::NoPeer => {
+            if (now * 2.0) as u8 & 1 == 1 {
+                leds.2[1] = LedState::Off;
+            }
+        }
         RobotStatus::Disarmed => {
             leds.2[1] = LedState::On;
         }
