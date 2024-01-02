@@ -44,15 +44,15 @@ impl Icm20602 {
         let raw_gyro_native_y = (raw[10] as u16) << 8 | raw[11] as u16;
         let raw_gyro_native_z = (raw[12] as u16) << 8 | raw[13] as u16;
 
-        let accel_native_x = raw_accel_native_x as i16 as f32 / 16384.0;
-        let accel_native_y = raw_accel_native_y as i16 as f32 / 16384.0;
-        let accel_native_z = raw_accel_native_z as i16 as f32 / 16384.0;
+        let accel_native_x = raw_accel_native_x as i16 as f32 / 4096.0;
+        let accel_native_y = raw_accel_native_y as i16 as f32 / 4096.0;
+        let accel_native_z = raw_accel_native_z as i16 as f32 / 4096.0;
 
         let tempature = raw_tempature as i16 as f32 / 326.8 + 25.0;
 
-        let gyro_native_x = raw_gyro_native_x as i16 as f32 / 65.5;
-        let gyro_native_y = raw_gyro_native_y as i16 as f32 / 65.5;
-        let gyro_native_z = raw_gyro_native_z as i16 as f32 / 65.5;
+        let gyro_native_x = raw_gyro_native_x as i16 as f32 / 16.4;
+        let gyro_native_y = raw_gyro_native_y as i16 as f32 / 16.4;
+        let gyro_native_z = raw_gyro_native_z as i16 as f32 / 16.4;
 
         let accel_x = -accel_native_y;
         let accel_y = -accel_native_x;
@@ -106,14 +106,14 @@ impl Icm20602 {
             .write(&[Self::REG_CONFIG, 0x1])
             .context("Setup lowpass filter")?;
 
-        // 500 deg range, lowpass filter
+        // 2000 deg range, lowpass filter
         self.spi
-            .write(&[Self::REG_GYRO_CONFIG, 0x0 | 0b01 << 3])
+            .write(&[Self::REG_GYRO_CONFIG, 0b11 << 3])
             .context("Setup gyro")?;
 
-        // 2g range
+        // 8g range
         self.spi
-            .write(&[Self::REG_ACCEL_CONFIG, 0x0])
+            .write(&[Self::REG_ACCEL_CONFIG, 0b10 << 3])
             .context("Setup accel")?;
 
         // lowpass filter
