@@ -8,7 +8,7 @@ use common::{
     },
     sync::{ConnectToPeer, DisconnectPeer, Latency, Peer},
 };
-use egui::{load::SizedTexture, Color32, RichText};
+use egui::{load::SizedTexture, Align, Color32, Layout, RichText};
 use tokio::net::lookup_host;
 
 use crate::attitude::OrientationDisplay;
@@ -68,8 +68,14 @@ fn topbar(
                         cmds.insert_resource(ShowInspector);
                     }
                 }
+            });
+
+            // RTL needs reverse order
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label("RHS");
+                ui.label("Test");
             })
-        })
+        });
     });
 }
 
