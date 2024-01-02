@@ -149,10 +149,7 @@ fn hud(
                     });
 
                     if let Some(ping) = latency.ping {
-                        ui.label(
-                            RichText::new(format!("Ping: {:?}ms", ping.as_secs_f32() * 1000.0))
-                                .size(size),
-                        );
+                        ui.label(RichText::new(format!("Ping: {:.2?} frames", ping)).size(size));
                     }
 
                     ui.add_space(10.0);

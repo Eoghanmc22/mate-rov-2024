@@ -13,11 +13,11 @@ pub enum Protocol {
     EcsUpdate(SerializedChange),
     /// Asks the peer to reply with a Pong, used to measure communication latency
     Ping {
-        payload: u64,
+        payload: u32,
     },
     /// Response to a Ping, used to measure communication latency
     Pong {
-        payload: u64,
+        payload: u32,
     },
 }
 

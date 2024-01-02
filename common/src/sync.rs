@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, thread, time::Duration};
+use std::{net::SocketAddr, thread, time::Duration, usize};
 
 use crate::{
     adapters,
@@ -12,7 +12,7 @@ use crate::{
 };
 use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, Context};
-use bevy::{app::AppExit, prelude::*};
+use bevy::{app::AppExit, core::FrameCount, prelude::*};
 use crossbeam::channel::{self, Receiver};
 use networking::{Event as NetEvent, Messenger, Networking, Token as NetToken};
 
@@ -41,7 +41,7 @@ impl Plugin for SyncPlugin {
             .add_systems(
                 Update,
                 (
-                    // ping,
+                    ping,
                     flatten_deltas,
                     sync_new_peers.after(flatten_deltas),
                     spawn_peer_entities,
@@ -71,7 +71,7 @@ pub struct Peers {
     by_addrs: HashMap<SocketAddr, Entity>,
 
     // In bevy time
-    pending: HashMap<NetToken, (SocketAddr, Duration)>,
+    pending: HashMap<NetToken, (SocketAddr, u32)>,
 
     // TODO: This is kinda bad
     pub(crate) valid_tokens: HashSet<NetToken>,
@@ -85,10 +85,10 @@ pub struct Peer {
 
 #[derive(Component, Debug, Default, Reflect)]
 pub struct Latency {
-    // In bevy time
-    pub last_ping_sent: Option<Duration>,
-    pub last_acknowledged: Option<Duration>,
-    pub ping: Option<Duration>,
+    // In frames
+    pub last_ping_sent: Option<u32>,
+    pub last_acknowledged: Option<u32>,
+    pub ping: Option<u32>,
 }
 
 #[derive(Event)]
@@ -157,7 +157,7 @@ fn net_read(
     mut cmds: Commands,
 
     net: Res<Net>,
-    time: Res<Time>,
+    frame: Res<FrameCount>,
 
     mut peers: ResMut<Peers>,
     mut entity_map: ResMut<EntityMap>,
@@ -174,7 +174,7 @@ fn net_read(
                 info!(?token, ?addrs, "Peer connected");
 
                 new_peers.send(SyncPeer(token));
-                peers.pending.insert(token, (addrs, time.elapsed()));
+                peers.pending.insert(token, (addrs, frame.0));
 
                 peers.valid_tokens.insert(token);
             }
@@ -202,10 +202,11 @@ fn net_read(
                         continue;
                     };
 
-                    let sent = Duration::from_millis(payload);
+                    let sent = payload;
+                    let frame = frame.0;
+
                     latency.last_acknowledged = sent.into();
-                    let now = time.elapsed();
-                    latency.ping = Some(now - sent);
+                    latency.ping = Some(frame.wrapping_sub(sent));
                 }
             },
             NetEvent::Error(token, error) => {
@@ -271,11 +272,11 @@ fn net_write(
     }
 }
 
-const SINGLETON_DEADLINE: Duration = Duration::from_millis(100);
+const SINGLETON_DEADLINE: u32 = 3;
 
 fn spawn_peer_entities(
     mut cmds: Commands,
-    time: Res<Time>,
+    frame: Res<FrameCount>,
     mut peers: ResMut<Peers>,
     query: Query<(Entity, &ForignOwned), Added<Singleton>>,
 ) {
@@ -294,10 +295,10 @@ fn spawn_peer_entities(
         }
     }
 
-    let now = time.elapsed();
+    let frame = frame.0;
     peers
         .pending
-        .extract_if(|_, (_, time)| now - *time > SINGLETON_DEADLINE)
+        .extract_if(|_, (_, time)| frame.wrapping_sub(*time) > SINGLETON_DEADLINE)
         .for_each(|(token, (addrs, _))| {
             let entity = cmds.spawn((Peer { addrs, token }, Latency::default())).id();
 
@@ -320,22 +321,30 @@ fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWrit
     }
 }
 
-const PING_INTERVAL: Duration = Duration::from_millis(100);
-const MAX_LATENCY: Duration = Duration::from_millis(50);
+const PING_INTERVAL: u32 = 5;
+const MAX_LATENCY: u32 = 3;
 
 // TODO(high): Auto Reconnect
 fn ping(
     net: Res<Net>,
-    time: Res<Time>,
+    frame: Res<FrameCount>,
     mut query: Query<(&Peer, &mut Latency)>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
-    let now = time.elapsed();
+    let frame = frame.0;
 
     for (peer, mut latency) in &mut query {
-        let should_disconnect = match (latency.last_ping_sent, latency.last_acknowledged) {
-            (Some(last_ping), Some(last_ack)) if last_ack >= last_ping => false,
-            (Some(last_ping), _) => now > MAX_LATENCY + last_ping,
+        let should_disconnect = match (
+            latency.last_ping_sent,
+            latency.last_acknowledged,
+            latency.ping,
+        ) {
+            (_, _, Some(ping)) if ping > MAX_LATENCY => true,
+            (Some(last_ping), last_ack, _)
+                if Some(last_ping) != last_ack && frame.wrapping_sub(last_ping) > MAX_LATENCY =>
+            {
+                true
+            }
             _ => false,
         };
 
@@ -343,36 +352,36 @@ fn ping(
             error!(
                 "Peer at {:?} timed out, now: {:?} lp: {:?}, la: {:?}, elapsed_since: {:?}",
                 peer.token,
-                now,
+                frame,
                 latency.last_ping_sent,
                 latency.last_acknowledged,
-                latency.last_ping_sent.map(|it| now - it)
+                latency.last_ping_sent.map(|it| frame - it)
             );
             let rst = net.0.disconnect(peer.token);
 
             if let Err(_) = rst {
                 errors.send(anyhow!("Could not disconnect peer").into());
             }
-
             continue;
         }
 
-        let should_ping = if let Some(last_ping) = latency.last_ping_sent {
-            now > PING_INTERVAL + last_ping
-        } else {
-            true
+        let should_ping = match (latency.last_ping_sent, latency.last_acknowledged) {
+            (Some(last_ping), Some(last_ack)) => {
+                last_ping == last_ack && frame >= PING_INTERVAL + last_ping
+            }
+            (Some(_), None) => false,
+            _ => true,
         };
 
         if should_ping {
-            let payload = now.as_millis() as u64;
-            let ping = Protocol::Ping { payload };
+            let ping = Protocol::Ping { payload: frame };
             let rst = net.0.send_packet(peer.token, ping);
 
             if let Err(_) = rst {
                 errors.send(anyhow!("Could not send ping").into());
             }
 
-            latency.last_ping_sent = Duration::from_millis(payload).into();
+            latency.last_ping_sent = frame.into();
         }
     }
 }
@@ -478,20 +487,5 @@ fn sync_new_peers(
                 }
             }
         }
-
-        // for (token, raw) in &deltas.resources {
-        //     let rst = net.0.send_packet(
-        //         peer.token,
-        //         Protocol::EcsUpdate(SerializedChange::ResourceUpdated(
-        //             token.clone(),
-        //             Some(raw.clone()),
-        //         )),
-        //     );
-        //
-        //     if let Err(_) = rst {
-        //         errors.send(anyhow!("Could not send sync packet").into());
-        //         continue 'outer;
-        //     }
-        // }
     }
 }
