@@ -1,15 +1,12 @@
-use std::{
-    net::{SocketAddr, ToSocketAddrs},
-    thread,
-    time::Duration,
-};
+use std::{net::SocketAddr, thread, time::Duration};
 
 use crate::{
     adapters,
+    components::Singleton,
     ecs_sync::{
-        apply_changes::ChangeApplicationSet, detect_changes::ChangeDetectionSet, EntityMap, NetId,
-        NetTypeId, SerializationSettings, SerializedChange, SerializedChangeInEvent,
-        SerializedChangeOutEvent,
+        apply_changes::ChangeApplicationSet, detect_changes::ChangeDetectionSet, EntityMap,
+        ForignOwned, NetId, NetTypeId, SerializationSettings, SerializedChange,
+        SerializedChangeInEvent, SerializedChangeOutEvent,
     },
     protocol::Protocol,
 };
@@ -45,6 +42,7 @@ impl Plugin for SyncPlugin {
                 (
                     // ping,
                     flatten_deltas,
+                    spawn_peer_entities,
                     sync_new_peers.after(flatten_deltas),
                     disconnect.pipe(error::handle_errors),
                 ),
@@ -68,8 +66,11 @@ struct Net(Messenger<Protocol>, Receiver<NetEvent<Protocol>>);
 
 #[derive(Resource, Default)]
 struct Peers {
-    pub by_token: HashMap<NetToken, Entity>,
-    pub by_addrs: HashMap<SocketAddr, Entity>,
+    by_token: HashMap<NetToken, Entity>,
+    by_addrs: HashMap<SocketAddr, Entity>,
+
+    // In bevy time
+    pending: HashMap<NetToken, (SocketAddr, Duration)>,
 }
 
 #[derive(Component, Debug)]
@@ -150,9 +151,9 @@ fn net_read(
 
     net: Res<Net>,
     time: Res<Time>,
+
     mut peers: ResMut<Peers>,
     mut entity_map: ResMut<EntityMap>,
-    // mut sync_state: ResMut<SyncState>,
     mut changes: EventWriter<SerializedChangeInEvent>,
 
     mut query: Query<(&Peer, &mut Latency)>,
@@ -164,10 +165,7 @@ fn net_read(
             NetEvent::Conected(token, addrs) | NetEvent::Accepted(token, addrs) => {
                 info!(?token, ?addrs, "Peer connected");
 
-                let entity = cmds.spawn((Peer { addrs, token }, Latency::default())).id();
-
-                peers.by_token.insert(token, entity);
-                peers.by_addrs.insert(addrs, entity);
+                peers.pending.insert(token, (addrs, time.elapsed()));
 
                 // TODO(mid): Make an alternative to the old singleton system
                 // sync_state.singleton_map.insert(token.0, entity);
@@ -257,6 +255,38 @@ fn net_write(
     if let Err(_) = rst {
         errors.send(anyhow!("Could not wake net thread").into());
     }
+}
+
+const SINGLETON_DEADLINE: Duration = Duration::from_millis(100);
+
+fn spawn_peer_entities(
+    mut cmds: Commands,
+    mut peers: ResMut<Peers>,
+    query: Query<(Entity, &ForignOwned), Added<Singleton>>,
+) {
+    for (entity, owner) in &query {
+        let token = NetToken(owner.0);
+        let data = peers.pending.remove(&token);
+
+        if let Some((addrs, _)) = data {
+            cmds.entity(entity)
+                .insert((Peer { addrs, token }, Latency::default()));
+
+            peers.by_token.insert(token, entity);
+            peers.by_addrs.insert(addrs, entity);
+        }
+    }
+
+    let now = time.elapsed();
+    peers
+        .pending
+        .extract_if(|_, (_, time)| now - time > SINGLETON_DEADLINE)
+        .for_each(|(token, (addrs, _))| {
+            let entity = cmds.spawn((Peer { addrs, token }, Latency::default())).id();
+
+            peers.by_token.insert(token, entity);
+            peers.by_addrs.insert(addrs, entity);
+        });
 }
 
 fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWriter<ErrorEvent>) {

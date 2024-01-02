@@ -34,6 +34,9 @@ impl NetId {
     }
 }
 
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct ForignOwned(pub(crate) usize);
+
 pub type NetTypeId = Cow<'static, str>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

@@ -13,7 +13,8 @@ use tracing::error;
 use crate::adapters::{dynamic::DynamicAdapter, TypeAdapter};
 
 use super::{
-    EntityMap, Replicate, SerializationSettings, SerializedChange, SerializedChangeInEvent,
+    EntityMap, ForignOwned, Replicate, SerializationSettings, SerializedChange,
+    SerializedChangeInEvent,
 };
 
 pub struct ChangeApplicationPlugin;
@@ -38,7 +39,7 @@ fn apply_changes(
     for SerializedChangeInEvent(change, token) in reader.read() {
         match change {
             SerializedChange::EntitySpawned(forign) => {
-                let local = cmds.spawn((Replicate, *forign)).id();
+                let local = cmds.spawn((Replicate, *forign, ForignOwned(token.0))).id();
 
                 entity_map.local_to_forign.insert(local, *forign);
                 entity_map.forign_to_local.insert(*forign, local);

@@ -30,7 +30,9 @@ macro_rules! components {
 }
 
 components! {
+    Singleton,
     Robot,
+    Surface,
     Orientation,
     Inertial,
     Magnetic,
@@ -72,7 +74,15 @@ components! {
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct Singleton;
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Robot;
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct Surface;
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]

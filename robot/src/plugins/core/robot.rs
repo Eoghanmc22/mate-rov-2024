@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use common::{
     bundles::RobotCoreBundle,
-    components::{Robot, RobotId, RobotStatus},
+    components::{Robot, RobotId, RobotStatus, Singleton},
     ecs_sync::{NetId, Replicate},
 };
 
@@ -37,6 +37,7 @@ fn setup_robot(mut cmds: Commands, config: Res<RobotConfig>) {
             },
             LocalRobotMarker,
             Replicate,
+            Singleton,
             net_id,
         ))
         .id();
