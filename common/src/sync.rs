@@ -70,7 +70,7 @@ pub struct Peers {
     by_token: HashMap<NetToken, Entity>,
     by_addrs: HashMap<SocketAddr, Entity>,
 
-    // In bevy time
+    // In frames
     pending: HashMap<NetToken, (SocketAddr, u32)>,
 
     // TODO: This is kinda bad
