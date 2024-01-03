@@ -2,7 +2,8 @@ pub mod attitude;
 pub mod input;
 pub mod surface;
 pub mod ui;
-pub mod video_display;
+pub mod video_display_2d;
+pub mod video_display_3d;
 pub mod video_stream;
 
 use std::time::Duration;
@@ -10,10 +11,7 @@ use std::time::Duration;
 use attitude::AttitudePlugin;
 use bevy::{
     core::TaskPoolThreadAssignmentPolicy,
-    diagnostic::{
-        EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
-        SystemInformationDiagnosticsPlugin,
-    },
+    diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     tasks::available_parallelism,
 };
@@ -23,8 +21,9 @@ use bevy_tokio_tasks::TokioTasksPlugin;
 use common::{over_run::OverRunSettings, sync::SyncRole, CommonPlugins};
 use input::InputPlugin;
 use surface::SurfacePlugin;
-use ui::EguiUiPlugin;
-use video_display::VideoDisplayPlugin;
+use ui::{EguiUiPlugin, ShowInspector};
+use video_display_2d::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
+use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
 
 fn main() -> anyhow::Result<()> {
@@ -34,6 +33,7 @@ fn main() -> anyhow::Result<()> {
             max_time: Duration::from_secs_f32(1.0 / 60.0),
             tracy_frame_mark: false,
         })
+        .insert_resource(VideoDisplay2DSettings { enabled: true })
         .add_plugins((
             // Bevy Core
             DefaultPlugins
@@ -66,7 +66,8 @@ fn main() -> anyhow::Result<()> {
                 EguiUiPlugin,
                 AttitudePlugin,
                 VideoStreamPlugin,
-                VideoDisplayPlugin,
+                // VideoDisplay3DPlugin,
+                VideoDisplay2DPlugin,
             ),
             // 3rd Party
             (

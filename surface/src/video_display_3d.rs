@@ -1,13 +1,19 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::{camera::Camera as BevyCamera, view::RenderLayers},
+};
 use bevy_panorbit_camera::PanOrbitCamera;
 use common::components::Camera;
 
-pub struct VideoDisplayPlugin;
+const RENDER_LAYERS: RenderLayers = RenderLayers::layer(3);
 
-impl Plugin for VideoDisplayPlugin {
+pub struct VideoDisplay3DPlugin;
+
+impl Plugin for VideoDisplay3DPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
-            .add_systems(Update, create_display);
+        app.init_resource::<VideoDisplay3DSettings>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, (create_display, enable_camera));
     }
 }
 
@@ -18,17 +24,33 @@ struct DisplayParent;
 #[derive(Component)]
 struct DisplayMarker(UVec2);
 
+#[derive(Resource, Default)]
+pub struct VideoDisplay3DSettings {
+    pub enabled: bool,
+}
+
 fn setup(mut cmds: Commands) {
     cmds.spawn((
         Camera3dBundle {
+            camera: BevyCamera {
+                is_active: false,
+                ..default()
+            },
             transform: Transform::default().looking_at(Vec3::Z, Vec3::Y),
             ..default()
         },
         PanOrbitCamera::default(),
         DisplayCamera,
+        UiCameraConfig { show_ui: false },
+        RENDER_LAYERS,
     ));
 
-    cmds.spawn((SpatialBundle::default(), DisplayParent));
+    cmds.spawn((
+        Name::new("Cameras 3D"),
+        SpatialBundle::default(),
+        DisplayParent,
+        RENDER_LAYERS,
+    ));
 }
 
 fn create_display(
@@ -52,13 +74,13 @@ fn create_display(
         });
 
         cmds.entity(entity).insert((
-            Name::new("Cameras"),
             PbrBundle {
                 transform: transform.cloned().unwrap_or_default(),
                 material,
                 ..default()
             },
             DisplayMarker(UVec2::default()),
+            RENDER_LAYERS,
         ));
 
         let parent = parent.single();
@@ -91,5 +113,19 @@ fn create_display(
             cmds.entity(entity)
                 .insert((mesh, material, DisplayMarker(image.size())));
         }
+    }
+}
+
+fn enable_camera(
+    mut last: Local<bool>,
+    mut camera: Query<&mut BevyCamera, With<DisplayCamera>>,
+    settings: Res<VideoDisplay3DSettings>,
+) {
+    if *last != settings.enabled {
+        for mut camera in camera.iter_mut() {
+            camera.is_active = settings.enabled;
+        }
+
+        *last = settings.enabled;
     }
 }
