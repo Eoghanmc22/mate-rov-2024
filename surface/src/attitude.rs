@@ -99,6 +99,7 @@ fn setup(
             },
             ..default()
         },
+        UiCameraConfig { show_ui: false },
         RENDER_LAYERS,
     ));
 
