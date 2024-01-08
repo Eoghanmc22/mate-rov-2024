@@ -168,7 +168,8 @@ fn update_leds(
             // Choose color besed on ROV status
             LedType::Status => {
                 // TODO(high): Figure out what we want to display here
-                RGB8::default()
+                // RGB8::default()
+                RGB8::new(255, 0, 0)
             }
             // Choose color based on thruster speed
             LedType::Thruster(id) => {

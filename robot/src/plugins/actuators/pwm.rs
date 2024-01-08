@@ -22,8 +22,13 @@ pub struct PwmOutputPlugin;
 impl Plugin for PwmOutputPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, start_pwm_thread.pipe(error::handle_errors));
-        app.add_systems(PostUpdate, listen_to_pwms.pipe(error::handle_errors));
-        app.add_systems(Last, shutdown);
+        app.add_systems(
+            PostUpdate,
+            listen_to_pwms
+                .pipe(error::handle_errors)
+                .run_if(resource_exists::<PwmChannels>()),
+        );
+        app.add_systems(Last, shutdown.run_if(resource_exists::<PwmChannels>()));
     }
 }
 

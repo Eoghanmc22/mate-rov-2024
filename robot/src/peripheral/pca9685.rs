@@ -19,7 +19,10 @@ pub struct Pca9685 {
 }
 
 impl Pca9685 {
-    pub const I2C_BUS: u8 = 4;
+    // Pi 5
+    pub const I2C_BUS: u8 = 3;
+    // Pi 4
+    // pub const I2C_BUS: u8 = 4;
     pub const I2C_ADDRESS: u8 = 0x40;
 
     #[instrument(level = "debug")]
