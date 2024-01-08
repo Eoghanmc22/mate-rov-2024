@@ -321,8 +321,8 @@ fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWrit
     }
 }
 
-const PING_INTERVAL: u32 = 5;
-const MAX_LATENCY: u32 = 3;
+const PING_INTERVAL: u32 = 10;
+const MAX_LATENCY: u32 = 5;
 
 // TODO(high): Auto Reconnect
 fn ping(
