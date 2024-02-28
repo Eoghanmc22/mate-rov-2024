@@ -25,11 +25,79 @@ toml = "0.8"
 crossbeam = "0.8"
 ahash = "0.8"
 
-opencv = "0.88"
+# Wouldnt compile with dnn, need to make an issue
+opencv = { version = "0.88", default-features = false, features = [
+	"alphamat",
+	"aruco",
+	"aruco_detector",
+	"barcode",
+	"bgsegm",
+	"bioinspired",
+	"calib3d",
+	"ccalib",
+	"cudaarithm",
+	"cudabgsegm",
+	"cudacodec",
+	"cudafeatures2d",
+	"cudafilters",
+	"cudaimgproc",
+	"cudaobjdetect",
+	"cudaoptflow",
+	"cudastereo",
+	"cudawarping",
+	"cvv",
+	#"dnn",
+	"dnn_superres",
+	"dpm",
+	"face",
+	"features2d",
+	"flann",
+	"freetype",
+	"fuzzy",
+	"gapi",
+	"hdf",
+	"hfs",
+	"highgui",
+	"img_hash",
+	"imgcodecs",
+	"imgproc",
+	"intensity_transform",
+	"line_descriptor",
+	# "mcc",
+	"ml",
+	"objdetect",
+	"optflow",
+	"ovis",
+	"phase_unwrapping",
+	"photo",
+	"plot",
+	"quality",
+	"rapid",
+	"rgbd",
+	"saliency",
+	"sfm",
+	"shape",
+	"stereo",
+	"stitching",
+	"structured_light",
+	"superres",
+	"surface_matching",
+	"text",
+	"tracking",
+	"video",
+	"videoio",
+	"videostab",
+	"viz",
+	"wechat_qrcode",
+	"xfeatures2d",
+	"ximgproc",
+	"xobjdetect",
+	"xphoto",
+] }
 
 # *brings in all of tokio for a single function*
 tokio = { version = "1.35", features = ["full"] }
-bevy-tokio-tasks = { git = "https://github.com/foxzool/bevy-tokio-tasks.git" }
+bevy-tokio-tasks = { git = "https://github.com/foxzool/bevy-tokio-tasks.git", rev = "b12e1d0867c05a0238eccdde361e01e3ac66d399" }
 
 [features]
 tracy = ["bevy/trace_tracy"]

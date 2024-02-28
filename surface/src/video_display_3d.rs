@@ -73,6 +73,7 @@ fn create_display(
             ..default()
         });
 
+        // TODO: I dont really like this but it gets use removal logic for free
         cmds.entity(entity).insert((
             PbrBundle {
                 transform: transform.cloned().unwrap_or_default(),

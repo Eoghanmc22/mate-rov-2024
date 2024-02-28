@@ -1,3 +1,4 @@
+#![feature(iter_intersperse)]
 pub mod attitude;
 pub mod input;
 pub mod surface;

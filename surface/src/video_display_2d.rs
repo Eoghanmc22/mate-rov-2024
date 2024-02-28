@@ -1,3 +1,5 @@
+use std::mem;
+
 use bevy::{
     prelude::*,
     render::{camera::Camera as BevyCamera, view::RenderLayers},
@@ -13,7 +15,100 @@ impl Plugin for VideoDisplay2DPlugin {
         app.init_resource::<VideoDisplay2DSettings>()
             // .init_resource::<VideoTree>()
             .add_systems(Startup, setup)
-            .add_systems(Update, (create_display, enable_camera));
+            .add_systems(
+                Update,
+                (
+                    create_display,
+                    update_aspect_ratio.after(create_display),
+                    enable_camera,
+                ),
+            );
+    }
+}
+
+#[derive(Default, Component)]
+struct VideoTree(VideoNode);
+enum VideoNode {
+    Branch(Vec<VideoNode>),
+    Leaf(Entity),
+}
+#[derive(Default, Clone, Copy)]
+enum VideoLayout {
+    #[default]
+    Horizontal,
+    Vertical,
+}
+
+impl VideoNode {
+    const MAX_CHILDREN: u32 = 3;
+
+    fn insert(&mut self, entity: Entity) {
+        let total_children = self.count_children();
+
+        match self {
+            VideoNode::Branch(children) => {
+                if children.is_empty() {
+                    *self = VideoNode::Leaf(entity);
+                } else if total_children < Self::MAX_CHILDREN {
+                    children.push(VideoNode::Leaf(entity));
+                } else {
+                    let (_, child) = children
+                        .iter_mut()
+                        .map(|it| (it.count_children(), it))
+                        .min_by_key(|(children, _)| *children)
+                        .expect("Branch did not have children");
+                    child.insert(entity);
+                }
+            }
+            VideoNode::Leaf(this) => {
+                *self = VideoNode::Branch(vec![VideoNode::Leaf(*this), VideoNode::Leaf(entity)]);
+            }
+        }
+    }
+
+    fn remove(&mut self, entity: Entity) {
+        match self {
+            VideoNode::Branch(children) => {
+                for child in &mut *children {
+                    child.remove(entity);
+                }
+
+                children.retain(
+                    |child| !matches!(child, VideoNode::Branch(children) if children.is_empty()),
+                );
+
+                if let [child] = children.as_mut_slice() {
+                    *self = mem::take(child);
+                }
+            }
+            VideoNode::Leaf(this) => {
+                if entity == *this {
+                    *self = VideoNode::Branch(vec![]);
+                }
+            }
+        }
+    }
+
+    fn count_children(&self) -> u32 {
+        match self {
+            VideoNode::Branch(children) => children.iter().map(|it| it.count_children()).sum(),
+            VideoNode::Leaf(_) => 1,
+        }
+    }
+}
+
+impl VideoLayout {
+    fn opposite(&self) -> Self {
+        match self {
+            VideoLayout::Horizontal => VideoLayout::Vertical,
+            VideoLayout::Vertical => VideoLayout::Horizontal,
+        }
+    }
+}
+
+impl Default for VideoNode {
+    fn default() -> Self {
+        VideoNode::Branch(vec![])
     }
 }
 
@@ -45,303 +140,129 @@ fn setup(mut cmds: Commands) {
 
     // Root
     cmds.spawn((
-        //
         Name::new("Cameras 2D"),
-        vertical_root(),
+        root(VideoLayout::default()),
+        VideoTree::default(),
         DisplayParent,
-    ))
-    .with_children(|builder| {
-        builder
-            .spawn(horizontal_subroot())
-            .with_children(|builder| {
-                builder
-                    .spawn(horizontal_container())
-                    .with_children(|builder| {
-                        builder.spawn(horizontal_feed());
-                    });
-
-                builder.spawn(horizontal_separator());
-
-                builder
-                    .spawn(horizontal_container())
-                    .with_children(|builder| {
-                        builder.spawn(horizontal_feed());
-                    });
-            });
-
-        builder.spawn(vertical_separator());
-
-        // builder
-        //     .spawn(vertical_container())
-        //     .with_children(|builder| {
-        //         builder.spawn(vertical_feed());
-        //     });
-        builder
-            .spawn(horizontal_subroot())
-            .with_children(|builder| {
-                builder
-                    .spawn(horizontal_container())
-                    .with_children(|builder| {
-                        builder.spawn(horizontal_feed());
-                    });
-
-                builder.spawn(horizontal_separator());
-
-                builder
-                    .spawn(horizontal_container())
-                    .with_children(|builder| {
-                        builder.spawn(horizontal_feed());
-                    });
-            });
-    });
-}
-
-fn horizontal_root() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-            background_color: Color::RED.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn horizontal_subroot() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                flex_grow: 1.0,
-                min_height: Val::Px(0.0),
-                width: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-            background_color: Color::RED.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn horizontal_container() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                flex_grow: 1.0,
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceEvenly,
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-            background_color: Color::BLUE.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn horizontal_feed() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                max_height: Val::Percent(100.0),
-                aspect_ratio: Some(16.0 / 9.0),
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-            background_color: Color::ORANGE.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn horizontal_separator() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                height: Val::Px(25.0),
-                width: Val::Px(5.0),
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-            background_color: Color::BLACK.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn vertical_root() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
-            background_color: Color::RED.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn vertical_subroot() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                flex_grow: 1.0,
-                min_width: Val::Px(0.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
-            background_color: Color::RED.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn vertical_container() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                flex_grow: 1.0,
-                width: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceEvenly,
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-            background_color: Color::BLUE.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn vertical_feed() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                height: Val::Percent(100.0),
-                max_width: Val::Percent(100.0),
-                aspect_ratio: Some(16.0 / 9.0),
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-            background_color: Color::ORANGE.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
-}
-
-fn vertical_separator() -> impl Bundle {
-    (
-        NodeBundle {
-            style: Style {
-                height: Val::Px(5.0),
-                width: Val::Px(25.0),
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
-            background_color: Color::BLACK.into(),
-            ..default()
-        },
-        RENDER_LAYERS,
-    )
+    ));
 }
 
 fn create_display(
     mut cmds: Commands,
-    new_cameras: Query<
-        (Entity, &Handle<Image>, Option<&Transform>),
-        (With<Camera>, Added<Handle<Image>>),
-    >,
-    cameras: Query<(Entity, &Style, &Handle<Image>, &DisplayMarker)>,
-    parent: Query<Entity, With<DisplayParent>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+
+    new_cameras: Query<Entity, (With<Camera>, Added<Handle<Image>>)>,
+    mut lost_cameras: RemovedComponents<Camera>,
+
+    cameras: Query<&Handle<Image>>,
+    mut parent: Query<(Entity, &mut VideoTree), With<DisplayParent>>,
+
     images: Res<Assets<Image>>,
 ) {
-    // for (entity, handle, transform) in &new_cameras {
-    //     // let material = materials.add(StandardMaterial {
-    //     //     base_color: Color::WHITE,
-    //     //     base_color_texture: Some(handle.clone_weak()),
-    //     //     unlit: true,
-    //     //     ..default()
-    //     // });
-    //
-    //     error!("HIT");
-    //
-    //     cmds.entity(entity).insert((
-    //         ImageBundle {
-    //             // style: Style {
-    //             //     width: Val::Px(200.0),
-    //             //     height: Val::Px(200.0),
-    //             //     position_type: PositionType::Absolute,
-    //             //     left: Val::Px(210.),
-    //             //     bottom: Val::Px(10.),
-    //             //     border: UiRect::all(Val::Px(20.)),
-    //             //     ..default()
-    //             // },
-    //             image: UiImage {
-    //                 texture: handle.clone(),
-    //                 ..default()
-    //             },
-    //             ..default()
-    //         },
-    //         DisplayMarker,
-    //         RENDER_LAYERS,
-    //     ));
-    //
-    //     let parent = parent.single();
-    //     cmds.entity(parent).add_child(entity);
-    // }
-    //
-    // for (entity, style, handle, display) in &cameras {
-    //     let Some(image) = images.get(handle) else {
-    //         continue;
-    //     };
-    //
-    //     if image.size() != display.0 {
-    //         let material = materials.add(StandardMaterial {
-    //             base_color: Color::WHITE,
-    //             base_color_texture: Some(handle.clone()),
-    //             unlit: true,
-    //             ..default()
-    //         });
-    //
-    //         let aspect_ratio = image.aspect_ratio();
-    //
-    //         let mesh_width = 2.0;
-    //         let mesh_height = mesh_width * aspect_ratio;
-    //
-    //         let mesh = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-    //             mesh_width,
-    //             mesh_height,
-    //         ))));
-    //
-    //         cmds.entity(entity)
-    //             .insert((mesh, material, DisplayMarker(image.size())));
-    //     }
-    // }
+    let (parent, mut tree) = parent.single_mut();
+    let mut tree_changed = false;
+
+    for entity in &new_cameras {
+        tree.0.insert(entity);
+        tree_changed = true;
+    }
+
+    for entity in lost_cameras.read() {
+        tree.0.remove(entity);
+        tree_changed = true;
+    }
+
+    if tree_changed {
+        println!("tree changed");
+
+        cmds.entity(parent)
+            .despawn_descendants()
+            .with_children(|builder| {
+                let layout = VideoLayout::default();
+
+                builder.spawn(root(layout)).with_children(|builder| {
+                    build_tree(builder, &tree.0, &cameras, layout);
+                });
+            });
+    }
+}
+
+fn update_aspect_ratio(
+    mut displays: Query<(&mut Style, &UiImage), With<DisplayMarker>>,
+    mut image_events: EventReader<AssetEvent<Image>>,
+    images: Res<Assets<Image>>,
+) {
+    for image_event in image_events.read() {
+        if let AssetEvent::Added { id } | AssetEvent::Modified { id } = image_event {
+            for (mut style, image) in &mut displays {
+                let handle = &image.texture;
+
+                if handle.id() == *id {
+                    let aspect_ratio = images
+                        .get(handle)
+                        // For some reason the image's aspect ratio is height/width
+                        // and style's aspect ratio is width/height
+                        .map(|it| 1.0 / it.aspect_ratio())
+                        .unwrap_or(16.0 / 9.0);
+
+                    // We dont want to unnecessarially trigger anyone's change detection
+                    if style.aspect_ratio != Some(aspect_ratio) {
+                        style.aspect_ratio = Some(aspect_ratio);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn build_tree(
+    builder: &mut ChildBuilder,
+    tree: &VideoNode,
+    cameras: &Query<&Handle<Image>>,
+    layout: VideoLayout,
+) {
+    match tree {
+        VideoNode::Branch(children) => {
+            #[derive(Clone, Copy)]
+            enum ChildType<'a> {
+                Tree(&'a VideoNode),
+                Seprator,
+            }
+
+            for child in children
+                .iter()
+                .map(ChildType::Tree)
+                .intersperse(ChildType::Seprator)
+            {
+                match child {
+                    ChildType::Tree(node) => {
+                        let child_layout = layout.opposite();
+
+                        builder
+                            .spawn(subroot(child_layout))
+                            .with_children(|builder| {
+                                build_tree(builder, node, cameras, child_layout)
+                            });
+                    }
+                    ChildType::Seprator => {
+                        builder.spawn(separator(layout));
+                    }
+                }
+            }
+        }
+        VideoNode::Leaf(camera_entity) => {
+            let weak_texture = cameras
+                .get(*camera_entity)
+                .map(|it| it.clone_weak())
+                .unwrap_or_else(|_| Default::default());
+
+            builder
+                .spawn(container(layout))
+                // TODO: video feed image
+                .with_children(|builder| {
+                    builder.spawn(feed(layout, weak_texture));
+                });
+        }
+    }
 }
 
 fn enable_camera(
@@ -355,5 +276,180 @@ fn enable_camera(
         }
 
         *last = settings.enabled;
+    }
+}
+
+fn root(layout: VideoLayout) -> impl Bundle {
+    match layout {
+        VideoLayout::Horizontal => (
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                background_color: Color::RED.into(),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+        VideoLayout::Vertical => (
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                background_color: Color::RED.into(),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+    }
+}
+
+fn subroot(layout: VideoLayout) -> impl Bundle {
+    match layout {
+        VideoLayout::Horizontal => (
+            NodeBundle {
+                style: Style {
+                    flex_grow: 1.0,
+                    min_height: Val::Px(0.0),
+                    width: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                background_color: Color::RED.into(),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+        VideoLayout::Vertical => (
+            NodeBundle {
+                style: Style {
+                    flex_grow: 1.0,
+                    min_width: Val::Px(0.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                background_color: Color::RED.into(),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+    }
+}
+
+fn container(layout: VideoLayout) -> impl Bundle {
+    match layout {
+        VideoLayout::Horizontal => (
+            NodeBundle {
+                style: Style {
+                    flex_grow: 1.0,
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceEvenly,
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                background_color: Color::BLUE.into(),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+        VideoLayout::Vertical => (
+            NodeBundle {
+                style: Style {
+                    flex_grow: 1.0,
+                    width: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceEvenly,
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                background_color: Color::BLUE.into(),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+    }
+}
+
+fn feed(layout: VideoLayout, texture: Handle<Image>) -> impl Bundle {
+    match layout {
+        VideoLayout::Horizontal => (
+            ImageBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    max_height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                image: UiImage::new(texture),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+        VideoLayout::Vertical => (
+            ImageBundle {
+                style: Style {
+                    height: Val::Percent(100.0),
+                    max_width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                image: UiImage::new(texture),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+    }
+}
+
+fn separator(layout: VideoLayout) -> impl Bundle {
+    match layout {
+        VideoLayout::Horizontal => (
+            NodeBundle {
+                style: Style {
+                    height: Val::Px(25.0),
+                    width: Val::Px(5.0),
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                background_color: Color::BLACK.into(),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
+        VideoLayout::Vertical => (
+            NodeBundle {
+                style: Style {
+                    height: Val::Px(5.0),
+                    width: Val::Px(25.0),
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                background_color: Color::BLACK.into(),
+                ..default()
+            },
+            RENDER_LAYERS,
+            DisplayMarker,
+        ),
     }
 }
