@@ -11,7 +11,9 @@ impl<'a> Header<'a> {
     #[instrument(level = "trace", skip_all)]
     pub fn new(buffer: &mut &'a mut [u8]) -> Self {
         // Lifetime dance taken from `impl Write for &mut [u8]`.
-        let (header, remaining) = mem::take(buffer).split_array_mut();
+        let (header, remaining) = mem::take(buffer)
+            .split_first_chunk_mut()
+            .expect("Needs at least `HEADER_SIZE` bytes in `buffer`");
         *buffer = remaining;
 
         Self(header)
@@ -30,11 +32,7 @@ impl<'a> Header<'a> {
 
     #[instrument(level = "trace", skip_all, ret)]
     pub fn read(buffer: &mut &[u8]) -> Option<usize> {
-        if buffer.len() < HEADER_SIZE {
-            return None;
-        }
-
-        let (header, remaining) = buffer.split_array_ref();
+        let (header, remaining) = buffer.split_first_chunk()?;
         *buffer = remaining;
 
         Some(u32::from_le_bytes(*header) as _)

@@ -1,5 +1,3 @@
-#![feature(split_array)]
-
 pub mod error;
 
 pub(crate) mod acceptor;
