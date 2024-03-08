@@ -110,7 +110,7 @@ fn update_aspect_ratio(
             let mesh_width = 2.0;
             let mesh_height = mesh_width * f32::from(aspect_ratio);
 
-            let mesh = meshes.add(Rectangle::new(mesh_width, mesh_height).mesh());
+            let mesh = meshes.add(Rectangle::new(mesh_width, mesh_height));
 
             cmds.entity(entity)
                 .insert((mesh, material, DisplayMarker(image.size())));

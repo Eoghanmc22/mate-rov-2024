@@ -141,14 +141,11 @@ fn add_motor_conf(
     commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(
-                    Cuboid::new(
-                        frt.position.x * 2.0,
-                        frt.position.y * 2.0,
-                        frt.position.z * 2.0,
-                    )
-                    .mesh(),
-                ),
+                mesh: meshes.add(Cuboid::new(
+                    frt.position.x * 2.0,
+                    frt.position.y * 2.0,
+                    frt.position.z * 2.0,
+                )),
                 material: materials_pbr.add(Color::rgb(0.8, 0.7, 0.6)),
                 transform: Transform::from_scale(Vec3::splat(3.5)),
                 ..default()
@@ -173,13 +170,10 @@ fn add_motor(
 ) {
     builder.spawn((
         PbrBundle {
-            mesh: meshes.add(
-                Cylinder {
-                    radius: 0.005,
-                    half_height: 0.5,
-                }
-                .mesh(),
-            ),
+            mesh: meshes.add(Cylinder {
+                radius: 0.005,
+                half_height: 0.5,
+            }),
             material: materials_pbr.add(Color::GREEN),
             transform: Transform::from_translation(Vec3::from(
                 motor.position + motor.orientation / 2.0,
@@ -194,13 +188,10 @@ fn add_motor(
 
     builder.spawn((
         PbrBundle {
-            mesh: meshes.add(
-                Cylinder {
-                    radius: 0.1,
-                    half_height: 0.05,
-                }
-                .mesh(),
-            ),
+            mesh: meshes.add(Cylinder {
+                radius: 0.1,
+                half_height: 0.05,
+            }),
             material: materials_pbr.add(Color::DARK_GRAY),
             transform: Transform::from_translation(Vec3::from(motor.position))
                 .looking_to(motor.orientation.into(), (-motor.position).into())

@@ -20,6 +20,7 @@ use plugins::{
     actuators::MovementPlugins, core::CorePlugins, monitor::MonitorPlugins, sensors::SensorPlugins,
 };
 
+// TODO: LogPlugin now exposes a way to play with the tracing subscriber
 fn main() -> anyhow::Result<()> {
     let config = fs::read_to_string("robot.toml").context("Read config")?;
     let config: RobotConfig = toml::from_str(&config).context("Parse config")?;
