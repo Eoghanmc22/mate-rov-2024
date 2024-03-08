@@ -3,8 +3,8 @@ use bevy_egui::{EguiContexts, EguiPlugin};
 use bevy_tokio_tasks::TokioTasksRuntime;
 use common::{
     components::{
-        Armed, CpuTotal, Depth, DepthTarget, Inertial, LoadAverage, Memory, OrientationTarget,
-        Robot, Temperatures,
+        Armed, CpuTotal, CurrentDraw, Depth, DepthTarget, Inertial, LoadAverage, MeasuredVoltage,
+        Memory, OrientationTarget, Robot, Temperatures,
     },
     sync::{ConnectToPeer, DisconnectPeer, Latency, Peer},
 };
@@ -89,6 +89,8 @@ fn hud(
         (
             &Name,
             Option<&Armed>,
+            Option<&MeasuredVoltage>,
+            Option<&CurrentDraw>,
             Option<&CpuTotal>,
             Option<&Inertial>,
             Option<&LoadAverage>,
@@ -109,6 +111,8 @@ fn hud(
     if let Ok((
         robot_name,
         armed,
+        voltage,
+        current_draw,
         cpu,
         inertial,
         load,
@@ -148,6 +152,43 @@ fn hud(
                                 ui.label(RichText::new("Disarmed").size(size).color(Color32::RED));
                             }
                         }
+                    });
+
+                    ui.add_space(10.0);
+                }
+
+                if let (Some(voltage), Some(current)) = (voltage, current_draw) {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Power:").size(size));
+
+                        let voltage_color;
+                        if voltage.0 .0 < 11.5 {
+                            voltage_color = Color32::RED;
+                        } else if voltage.0 .0 < 12.5 {
+                            voltage_color = Color32::YELLOW;
+                        } else {
+                            voltage_color = Color32::GREEN;
+                        }
+
+                        let current_color;
+                        if current.0 .0 < 15.0 {
+                            current_color = Color32::GREEN;
+                        } else if current.0 .0 < 20.0 {
+                            current_color = Color32::YELLOW;
+                        } else {
+                            current_color = Color32::RED;
+                        }
+
+                        ui.label(
+                            RichText::new(format!("{}", voltage.0))
+                                .size(size)
+                                .color(voltage_color),
+                        );
+                        ui.label(
+                            RichText::new(format!("{}", current.0))
+                                .size(size)
+                                .color(current_color),
+                        );
                     });
 
                     ui.add_space(10.0);

@@ -1,3 +1,4 @@
+pub mod ads1115;
 pub mod icm20602;
 pub mod mmc5983;
 pub mod ms5937;
