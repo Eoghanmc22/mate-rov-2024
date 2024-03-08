@@ -26,9 +26,9 @@ impl Plugin for PwmOutputPlugin {
             PostUpdate,
             listen_to_pwms
                 .pipe(error::handle_errors)
-                .run_if(resource_exists::<PwmChannels>()),
+                .run_if(resource_exists::<PwmChannels>),
         );
-        app.add_systems(Last, shutdown.run_if(resource_exists::<PwmChannels>()));
+        app.add_systems(Last, shutdown.run_if(resource_exists::<PwmChannels>));
     }
 }
 

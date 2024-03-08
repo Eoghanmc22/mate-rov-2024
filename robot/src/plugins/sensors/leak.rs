@@ -13,9 +13,9 @@ impl Plugin for LeakPlugin {
         app.add_systems(Startup, setup_leak_interupt.pipe(error::handle_errors));
         app.add_systems(
             PreUpdate,
-            read_new_data.run_if(resource_exists::<LeakChannels>()),
+            read_new_data.run_if(resource_exists::<LeakChannels>),
         );
-        app.add_systems(Last, shutdown.run_if(resource_exists::<LeakChannels>()));
+        app.add_systems(Last, shutdown.run_if(resource_exists::<LeakChannels>));
     }
 }
 

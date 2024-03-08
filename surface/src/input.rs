@@ -79,45 +79,42 @@ pub enum LevelingType {
 #[derive(Component)]
 struct InputMarker;
 
-#[derive(Component)]
-struct LinkedGamepad(Gamepad);
-
 fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), Added<Robot>>) {
     for (robot, name) in &new_robots {
         let mut input_map = InputMap::default();
 
-        input_map.insert(GamepadButtonType::Select, Action::Disarm);
-        input_map.insert(GamepadButtonType::Start, Action::Arm);
+        input_map.insert(Action::Disarm, GamepadButtonType::Select);
+        input_map.insert(Action::Arm, GamepadButtonType::Start);
 
-        input_map.insert(KeyCode::Space, Action::Disarm);
-        input_map.insert(KeyCode::Return, Action::Arm);
+        input_map.insert(Action::Disarm, KeyCode::Space);
+        input_map.insert(Action::Arm, KeyCode::Enter);
 
         input_map.insert(
-            GamepadButtonType::North,
             Action::ToggleLeveling(LevelingType::Upright),
+            GamepadButtonType::North,
         );
         input_map.insert(
-            GamepadButtonType::South,
             Action::ToggleLeveling(LevelingType::Inverted),
+            GamepadButtonType::South,
         );
-        input_map.insert(GamepadButtonType::East, Action::ToggleDepthHold);
+        input_map.insert(Action::ToggleDepthHold, GamepadButtonType::East);
 
         input_map.insert(
-            SingleAxis::symmetric(GamepadAxisType::LeftStickX, 0.05),
             Action::Yaw,
+            SingleAxis::symmetric(GamepadAxisType::LeftStickX, 0.05),
         );
         input_map.insert(
-            SingleAxis::symmetric(GamepadAxisType::LeftStickY, 0.05),
             Action::Surge,
+            SingleAxis::symmetric(GamepadAxisType::LeftStickY, 0.05),
         );
 
         input_map.insert(
-            SingleAxis::symmetric(GamepadAxisType::RightStickX, 0.05),
             Action::Sway,
+            SingleAxis::symmetric(GamepadAxisType::RightStickX, 0.05),
         );
         input_map.insert(
-            SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
             Action::Heave,
+            SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
         );
 
         cmds.spawn((
@@ -169,13 +166,13 @@ fn movement(
             continue;
         };
 
-        let x = action_state.value(Action::Sway) * maximums[&Axis::X].0;
-        let y = action_state.value(Action::Surge) * maximums[&Axis::Y].0;
-        let z = action_state.value(Action::Heave) * maximums[&Axis::Z].0;
+        let x = action_state.value(&Action::Sway) * maximums[&Axis::X].0;
+        let y = action_state.value(&Action::Surge) * maximums[&Axis::Y].0;
+        let z = action_state.value(&Action::Heave) * maximums[&Axis::Z].0;
 
-        let x_rot = action_state.value(Action::Pitch) * maximums[&Axis::XRot].0;
-        let y_rot = action_state.value(Action::Roll) * maximums[&Axis::YRot].0;
-        let z_rot = action_state.value(Action::Yaw) * maximums[&Axis::ZRot].0;
+        let x_rot = action_state.value(&Action::Pitch) * maximums[&Axis::XRot].0;
+        let y_rot = action_state.value(&Action::Roll) * maximums[&Axis::YRot].0;
+        let z_rot = action_state.value(&Action::Yaw) * maximums[&Axis::ZRot].0;
 
         let movement = Movement {
             force: vec3a(x, y, z),
@@ -192,8 +189,8 @@ fn arm(
     robots: Query<(Entity, &RobotId), With<Robot>>,
 ) {
     for (robot, action_state) in &inputs {
-        let disarm = action_state.just_pressed(Action::Disarm);
-        let arm = action_state.just_pressed(Action::Arm);
+        let disarm = action_state.just_pressed(&Action::Disarm);
+        let arm = action_state.just_pressed(&Action::Arm);
 
         let robot = robots.iter().find(|&(_, other_robot)| robot == other_robot);
         if let Some((robot, _)) = robot {
@@ -214,7 +211,7 @@ fn depth_hold(
     robots: Query<(Entity, &Depth, Option<&DepthTarget>, &RobotId), With<Robot>>,
 ) {
     for (robot, action_state) in &inputs {
-        let toggle = action_state.just_pressed(Action::ToggleDepthHold);
+        let toggle = action_state.just_pressed(&Action::ToggleDepthHold);
 
         let robot = robots
             .iter()
@@ -243,9 +240,9 @@ fn leveling(
 ) {
     for (robot, action_state) in &inputs {
         let toggle_upright =
-            action_state.just_pressed(Action::ToggleLeveling(LevelingType::Upright));
+            action_state.just_pressed(&Action::ToggleLeveling(LevelingType::Upright));
         let toggle_inverted =
-            action_state.just_pressed(Action::ToggleLeveling(LevelingType::Inverted));
+            action_state.just_pressed(&Action::ToggleLeveling(LevelingType::Inverted));
 
         let robot = robots
             .iter()

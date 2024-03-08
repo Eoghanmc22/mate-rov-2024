@@ -113,7 +113,7 @@ fn detect_changes(
 
         for entity in archetype.entities() {
             let added = world
-                .entity(entity.entity())
+                .entity(entity.id())
                 .get_ref::<Replicate>()
                 .expect("Has Replicate")
                 .is_added();
@@ -141,7 +141,7 @@ fn detect_changes(
                             .get(component_id)
                             .expect("Set has component");
 
-                        set.get_with_ticks(entity.entity()).expect("Set has entity")
+                        set.get_with_ticks(entity.id()).expect("Set has entity")
                     }
                 };
 
@@ -163,7 +163,7 @@ fn detect_changes(
 
                     let remote_entity = entity_map
                         .local_to_forign
-                        .get(&entity.entity())
+                        .get(&entity.id())
                         .expect("Unmapped entity changed");
 
                     changes.push(SerializedChangeOutRawEvent(

@@ -14,7 +14,7 @@ use bevy::{
         system::Resource,
         world::{EntityWorldMut, FromWorld, World},
     },
-    reflect::{FromType, GetTypeRegistration, Reflect, ReflectFromPtr, Typed},
+    reflect::{FromReflect, FromType, GetTypeRegistration, Reflect, ReflectFromPtr, Typed},
 };
 use networking::Token;
 use serde::{Deserialize, Serialize};
@@ -105,7 +105,7 @@ pub trait AppReplicateExt {
 
     fn replicate_reflect<C>(&mut self) -> &mut Self
     where
-        C: Component + Typed + GetTypeRegistration + Default;
+        C: Component + Typed + GetTypeRegistration + FromReflect;
 }
 
 impl AppReplicateExt for App {
@@ -123,7 +123,7 @@ impl AppReplicateExt for App {
 
     fn replicate_reflect<C>(&mut self) -> &mut Self
     where
-        C: Component + Typed + GetTypeRegistration + Default,
+        C: Component + Typed + GetTypeRegistration + FromReflect,
     {
         replicate_inner::<C>(
             self,

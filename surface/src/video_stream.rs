@@ -140,7 +140,7 @@ fn handle_frames(
             if let Some(material) = material {
                 image_events.send(AssetEvent::Modified {
                     id: material.into(),
-                })
+                });
             }
         }
     }

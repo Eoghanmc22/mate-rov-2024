@@ -29,9 +29,9 @@ impl Plugin for OrientationPlugin {
         app.add_systems(Startup, start_inertial_thread.pipe(error::handle_errors));
         app.add_systems(
             PreUpdate,
-            read_new_data.run_if(resource_exists::<InertialChannels>()),
+            read_new_data.run_if(resource_exists::<InertialChannels>),
         );
-        app.add_systems(Last, shutdown.run_if(resource_exists::<InertialChannels>()));
+        app.add_systems(Last, shutdown.run_if(resource_exists::<InertialChannels>));
     }
 }
 

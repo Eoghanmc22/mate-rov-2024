@@ -56,7 +56,7 @@ fn detect_overrun(
                     settings.max_time.as_secs_f32()
                 )
                 .into(),
-            )
+            );
         }
     }
 

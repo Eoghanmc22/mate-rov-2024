@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, thread, time::Duration, usize};
+use std::{net::SocketAddr, thread, usize};
 
 use crate::{
     adapters,
@@ -187,7 +187,7 @@ fn net_read(
 
                     let rst = net.0.send_packet(token, response);
 
-                    if let Err(_) = rst {
+                    if rst.is_err() {
                         errors.send(anyhow!("Could not reply to ping").into());
                     }
                 }
@@ -261,13 +261,13 @@ fn net_write(
     for change in changes.read() {
         let rst = net.0.brodcast_packet(Protocol::EcsUpdate(change.0.clone()));
 
-        if let Err(_) = rst {
+        if rst.is_err() {
             errors.send(anyhow!("Could not brodcast ECS update").into());
         }
     }
 
     let rst = net.0.wake();
-    if let Err(_) = rst {
+    if rst.is_err() {
         errors.send(anyhow!("Could not wake net thread").into());
     }
 }
@@ -310,12 +310,12 @@ fn spawn_peer_entities(
 fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWriter<ErrorEvent>) {
     for _event in exit.read() {
         let rst = net.0.shutdown();
-        if let Err(_) = rst {
+        if rst.is_err() {
             errors.send(anyhow!("Could not send shutdown event to net thread").into());
         }
 
         let rst = net.0.wake();
-        if let Err(_) = rst {
+        if rst.is_err() {
             errors.send(anyhow!("Could not wake net thread").into());
         }
     }
@@ -359,7 +359,7 @@ fn ping(
             );
             let rst = net.0.disconnect(peer.token);
 
-            if let Err(_) = rst {
+            if rst.is_err() {
                 errors.send(anyhow!("Could not disconnect peer").into());
             }
             continue;
@@ -377,7 +377,7 @@ fn ping(
             let ping = Protocol::Ping { payload: frame };
             let rst = net.0.send_packet(peer.token, ping);
 
-            if let Err(_) = rst {
+            if rst.is_err() {
                 errors.send(anyhow!("Could not send ping").into());
             }
 
@@ -464,7 +464,7 @@ fn sync_new_peers(
                 Protocol::EcsUpdate(SerializedChange::EntitySpawned(*entity)),
             );
 
-            if let Err(_) = rst {
+            if rst.is_err() {
                 errors.send(anyhow!("Could not send sync packet").into());
                 continue 'outer;
             }
@@ -481,7 +481,7 @@ fn sync_new_peers(
                     )),
                 );
 
-                if let Err(_) = rst {
+                if rst.is_err() {
                     errors.send(anyhow!("Could not send sync packet").into());
                     continue 'outer;
                 }

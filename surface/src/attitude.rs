@@ -3,7 +3,6 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
-        mesh::shape::Cylinder,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -23,12 +22,18 @@ impl Plugin for AttitudePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
             .add_systems(Update, (update_motor_conf, rotator_system))
-            .insert_resource(GizmoConfig {
-                render_layers: RENDER_LAYERS,
-                ..default()
-            });
+            .insert_gizmo_group(
+                AttitudeGizmo,
+                GizmoConfig {
+                    render_layers: RENDER_LAYERS,
+                    ..default()
+                },
+            );
     }
 }
+
+#[derive(Default, Reflect, GizmoConfigGroup)]
+struct AttitudeGizmo;
 
 #[derive(Resource, Debug, Clone)]
 pub struct OrientationDisplay(pub Handle<Image>, pub TextureId);
@@ -99,7 +104,6 @@ fn setup(
             },
             ..default()
         },
-        UiCameraConfig { show_ui: false },
         RENDER_LAYERS,
     ));
 
@@ -138,14 +142,14 @@ fn add_motor_conf(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(
-                    shape::Box::new(
+                    Cuboid::new(
                         frt.position.x * 2.0,
                         frt.position.y * 2.0,
                         frt.position.z * 2.0,
                     )
-                    .into(),
+                    .mesh(),
                 ),
-                material: materials_pbr.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                material: materials_pbr.add(Color::rgb(0.8, 0.7, 0.6)),
                 transform: Transform::from_scale(Vec3::splat(3.5)),
                 ..default()
             },
@@ -172,12 +176,11 @@ fn add_motor(
             mesh: meshes.add(
                 Cylinder {
                     radius: 0.005,
-                    height: 1.0,
-                    ..default()
+                    half_height: 0.5,
                 }
-                .into(),
+                .mesh(),
             ),
-            material: materials_pbr.add(Color::GREEN.into()),
+            material: materials_pbr.add(Color::GREEN),
             transform: Transform::from_translation(Vec3::from(
                 motor.position + motor.orientation / 2.0,
             ))
@@ -194,12 +197,11 @@ fn add_motor(
             mesh: meshes.add(
                 Cylinder {
                     radius: 0.1,
-                    height: 0.1,
-                    ..default()
+                    half_height: 0.05,
                 }
-                .into(),
+                .mesh(),
             ),
-            material: materials_pbr.add(Color::DARK_GRAY.into()),
+            material: materials_pbr.add(Color::DARK_GRAY),
             transform: Transform::from_translation(Vec3::from(motor.position))
                 .looking_to(motor.orientation.into(), (-motor.position).into())
                 * Transform::from_rotation(Quat::from_rotation_x(90f32.to_radians())),
@@ -235,7 +237,7 @@ fn update_motor_conf(
 fn rotator_system(
     robot: Query<&Orientation, With<Robot>>,
     mut query: Query<&mut Transform, With<OrientationDisplayMarker>>,
-    mut gizmos: Gizmos,
+    mut gizmos: Gizmos<AttitudeGizmo>,
 ) {
     if let Ok(orientation) = robot.get_single() {
         for mut transform in &mut query {

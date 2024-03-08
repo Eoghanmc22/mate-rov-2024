@@ -74,7 +74,7 @@ fn main() -> anyhow::Result<()> {
             (
                 TokioTasksPlugin::default(),
                 // TODO(high): Way to close and re open
-                WorldInspectorPlugin::default().run_if(resource_exists::<ShowInspector>()),
+                WorldInspectorPlugin::default().run_if(resource_exists::<ShowInspector>),
                 PanOrbitCameraPlugin,
             ),
         ))

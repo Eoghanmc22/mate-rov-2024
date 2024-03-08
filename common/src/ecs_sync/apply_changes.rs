@@ -5,7 +5,7 @@ use bevy::{
         reflect::AppTypeRegistry,
         schedule::{IntoSystemConfigs, SystemSet},
         system::{Commands, Res, ResMut, SystemChangeTick},
-        world::World,
+        world::{Mut, World},
     },
 };
 use tracing::error;
@@ -41,7 +41,7 @@ fn apply_changes(
     mut reader: EventReader<SerializedChangeInEvent>,
 ) {
     for SerializedChangeInEvent(change, token) in reader.read() {
-        if !peers.valid_tokens.contains(&token) {
+        if !peers.valid_tokens.contains(token) {
             // The peer disconnected and has already been cleaned up
             continue;
         }
@@ -111,19 +111,26 @@ fn apply_changes(
                                 .expect("Bad update");
                         }
                         TypeAdapter::Reflect(_, component) => {
-                            let reflect = {
-                                let registry = world.resource::<AppTypeRegistry>().read();
-                                let registration = registry
-                                    .get_with_type_path(&token)
-                                    .expect("Update for unknown token");
+                            world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+                                let registry = registry.read();
 
-                                DynamicAdapter::deserialize(&serialized, registration, &registry)
+                                let reflect = {
+                                    let registration = registry
+                                        .get_with_type_path(&token)
+                                        .expect("Update for unknown token");
+
+                                    DynamicAdapter::deserialize(
+                                        &serialized,
+                                        registration,
+                                        &registry,
+                                    )
                                     .expect("Bad update")
-                            };
+                                };
 
-                            if let Some(mut entity) = world.get_entity_mut(local) {
-                                component.insert(&mut entity, &*reflect);
-                            }
+                                if let Some(mut entity) = world.get_entity_mut(local) {
+                                    component.insert(&mut entity, &*reflect, &registry);
+                                }
+                            })
                         }
                     }
                 });

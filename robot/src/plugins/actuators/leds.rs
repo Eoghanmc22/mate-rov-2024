@@ -26,10 +26,10 @@ pub struct LedPlugin;
 impl Plugin for LedPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, start_leds.pipe(error::handle_errors))
-            .add_systems(Update, update_leds.run_if(resource_exists::<LedChannels>()))
+            .add_systems(Update, update_leds.run_if(resource_exists::<LedChannels>))
             .add_systems(
                 PostUpdate,
-                write_state.run_if(resource_exists::<LedChannels>()),
+                write_state.run_if(resource_exists::<LedChannels>),
             )
             .add_systems(Last, shutdown);
     }

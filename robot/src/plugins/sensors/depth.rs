@@ -22,9 +22,9 @@ impl Plugin for DepthPlugin {
         app.add_systems(Startup, start_depth_thread.pipe(error::handle_errors));
         app.add_systems(
             PreUpdate,
-            read_new_data.run_if(resource_exists::<DepthChannels>()),
+            read_new_data.run_if(resource_exists::<DepthChannels>),
         );
-        app.add_systems(Last, shutdown.run_if(resource_exists::<DepthChannels>()));
+        app.add_systems(Last, shutdown.run_if(resource_exists::<DepthChannels>));
     }
 }
 

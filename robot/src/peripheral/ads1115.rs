@@ -18,9 +18,7 @@ impl Ads1115 {
         i2c.set_slave_address(address as u16)
             .context("Set address for ADS1115")?;
 
-        let mut this = Self { i2c };
-
-        Ok(this)
+        Ok(Self { i2c })
     }
 }
 

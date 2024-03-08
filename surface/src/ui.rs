@@ -128,7 +128,7 @@ fn hud(
         egui::Window::new(robot_name.as_str())
             .id("HUD".into())
             .current_pos(context.screen_rect().right_top())
-            .constraint_to(context.available_rect().shrink(20.0))
+            .constrain_to(context.available_rect().shrink(20.0))
             .movable(false)
             .show(context, |ui| {
                 // TODO(mid): Ping
@@ -281,7 +281,7 @@ fn hud(
         egui::Window::new("Not Connected")
             .id("HUD".into())
             .current_pos(context.screen_rect().right_top())
-            .constraint_to(context.available_rect().shrink(20.0))
+            .constrain_to(context.available_rect().shrink(20.0))
             .movable(false)
             .show(contexts.ctx_mut(), |ui| {
                 ui.horizontal(|ui| {

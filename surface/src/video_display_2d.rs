@@ -125,23 +125,25 @@ pub struct VideoDisplay2DSettings {
 }
 
 fn setup(mut cmds: Commands) {
-    cmds.spawn((
-        Camera2dBundle {
-            camera: BevyCamera {
-                is_active: false,
+    let camera = cmds
+        .spawn((
+            Camera2dBundle {
+                camera: BevyCamera {
+                    is_active: false,
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },
-        DisplayCamera,
-        UiCameraConfig { show_ui: true },
-        RENDER_LAYERS,
-    ));
+            DisplayCamera,
+            RENDER_LAYERS,
+        ))
+        .id();
 
     // Root
     cmds.spawn((
         Name::new("Cameras 2D"),
         root(VideoLayout::default()),
+        TargetCamera(camera),
         VideoTree::default(),
         DisplayParent,
     ));
@@ -155,8 +157,6 @@ fn create_display(
 
     cameras: Query<&Handle<Image>>,
     mut parent: Query<(Entity, &mut VideoTree), With<DisplayParent>>,
-
-    images: Res<Assets<Image>>,
 ) {
     let (parent, mut tree) = parent.single_mut();
     let mut tree_changed = false;
@@ -186,6 +186,7 @@ fn create_display(
     }
 }
 
+// FIXME: Approch in display_3d is a bit cleaner and perhaps more efficient
 fn update_aspect_ratio(
     mut displays: Query<(&mut Style, &UiImage), With<DisplayMarker>>,
     mut image_events: EventReader<AssetEvent<Image>>,
@@ -201,7 +202,7 @@ fn update_aspect_ratio(
                         .get(handle)
                         // For some reason the image's aspect ratio is height/width
                         // and style's aspect ratio is width/height
-                        .map(|it| 1.0 / it.aspect_ratio())
+                        .map(|it| 1.0 / f32::from(it.aspect_ratio()))
                         .unwrap_or(16.0 / 9.0);
 
                     // We dont want to unnecessarially trigger anyone's change detection

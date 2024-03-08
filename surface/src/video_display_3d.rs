@@ -13,7 +13,7 @@ impl Plugin for VideoDisplay3DPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<VideoDisplay3DSettings>()
             .add_systems(Startup, setup)
-            .add_systems(Update, (create_display, enable_camera));
+            .add_systems(Update, (create_display, update_aspect_ratio, enable_camera));
     }
 }
 
@@ -41,7 +41,6 @@ fn setup(mut cmds: Commands) {
         },
         PanOrbitCamera::default(),
         DisplayCamera,
-        UiCameraConfig { show_ui: false },
         RENDER_LAYERS,
     ));
 
@@ -59,11 +58,8 @@ fn create_display(
         (Entity, &Handle<Image>, Option<&Transform>),
         (With<Camera>, Added<Handle<Image>>),
     >,
-    cameras: Query<(Entity, &Handle<Image>, &DisplayMarker)>,
     parent: Query<Entity, With<DisplayParent>>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    images: Res<Assets<Image>>,
 ) {
     for (entity, handle, transform) in &new_cameras {
         let material = materials.add(StandardMaterial {
@@ -87,7 +83,15 @@ fn create_display(
         let parent = parent.single();
         cmds.entity(parent).add_child(entity);
     }
+}
 
+fn update_aspect_ratio(
+    mut cmds: Commands,
+    cameras: Query<(Entity, &Handle<Image>, &DisplayMarker)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    images: Res<Assets<Image>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     for (entity, handle, display) in &cameras {
         let Some(image) = images.get(handle) else {
             continue;
@@ -104,12 +108,9 @@ fn create_display(
             let aspect_ratio = image.aspect_ratio();
 
             let mesh_width = 2.0;
-            let mesh_height = mesh_width * aspect_ratio;
+            let mesh_height = mesh_width * f32::from(aspect_ratio);
 
-            let mesh = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-                mesh_width,
-                mesh_height,
-            ))));
+            let mesh = meshes.add(Rectangle::new(mesh_width, mesh_height).mesh());
 
             cmds.entity(entity)
                 .insert((mesh, material, DisplayMarker(image.size())));

@@ -24,9 +24,9 @@ impl Plugin for PowerPlugin {
         app.add_systems(Startup, start_power_thread.pipe(error::handle_errors));
         app.add_systems(
             PreUpdate,
-            read_new_data.run_if(resource_exists::<PowerChannels>()),
+            read_new_data.run_if(resource_exists::<PowerChannels>),
         );
-        app.add_systems(Last, shutdown.run_if(resource_exists::<PowerChannels>()));
+        app.add_systems(Last, shutdown.run_if(resource_exists::<PowerChannels>));
     }
 }
 
