@@ -68,6 +68,7 @@ components! {
     CurrentDraw,
     PwmChannel,
     PwmSignal,
+    PwmManualControl,
     PidConfig,
     PidResult
 }
@@ -275,6 +276,12 @@ pub struct PwmChannel(pub PwmChannelId);
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, Copy, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PwmSignal(pub Duration);
+
+#[derive(
+    Component, Serialize, Deserialize, Reflect, Debug, Clone, Copy, Eq, PartialEq, Default,
+)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct PwmManualControl;
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]

@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use common::{
     components::{
         ActualForce, ActualMovement, CurrentDraw, MotorContribution, MotorDefinition, Motors,
-        MovementContribution, MovementCurrentCap, PwmSignal, RobotId, TargetForce, TargetMovement,
+        MovementContribution, MovementCurrentCap, PwmManualControl, PwmSignal, RobotId,
+        TargetForce, TargetMovement,
     },
     ecs_sync::NetId,
 };
@@ -40,12 +41,14 @@ pub struct MotorDataRes(pub MotorData);
 
 fn accumulate_movements(
     mut cmds: Commands,
-    robot: Query<(Entity, &NetId, &Motors), With<LocalRobotMarker>>,
+    robot: Query<(Entity, &NetId, &Motors), (With<LocalRobotMarker>, Without<PwmManualControl>)>,
     movements: Query<(&RobotId, &MovementContribution)>,
 
     motor_data: Res<MotorDataRes>,
 ) {
-    let (entity, net_id, Motors(motor_config)) = robot.single();
+    let Ok((entity, net_id, Motors(motor_config))) = robot.get_single() else {
+        return;
+    };
     let mut robot = cmds.entity(entity);
 
     let mut total_movement = Movement::default();
@@ -69,13 +72,20 @@ fn accumulate_movements(
 // TODO(mid): Split into smaller systems
 fn accumulate_motor_forces(
     mut cmds: Commands,
-    robot: Query<(Entity, &NetId, &Motors, &MovementCurrentCap), With<LocalRobotMarker>>,
+    robot: Query<
+        (Entity, &NetId, &Motors, &MovementCurrentCap),
+        (With<LocalRobotMarker>, Without<PwmManualControl>),
+    >,
     motor_forces: Query<(&RobotId, &MotorContribution)>,
     motors: Query<(Entity, &MotorDefinition, &RobotId)>,
 
     motor_data: Res<MotorDataRes>,
 ) {
-    let (entity, net_id, Motors(motor_config), MovementCurrentCap(current_cap)) = robot.single();
+    let Ok((entity, net_id, Motors(motor_config), MovementCurrentCap(current_cap))) =
+        robot.get_single()
+    else {
+        return;
+    };
     let mut robot = cmds.entity(entity);
 
     let mut all_forces = HashMap::default();

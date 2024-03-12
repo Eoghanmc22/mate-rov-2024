@@ -1,14 +1,17 @@
+use std::time::Duration;
+
 use bevy::{app::AppExit, math::Vec3A, prelude::*};
 use bevy_egui::{EguiContexts, EguiPlugin};
 use bevy_tokio_tasks::TokioTasksRuntime;
 use common::{
     components::{
         Armed, CpuTotal, CurrentDraw, Depth, DepthTarget, Inertial, LoadAverage, MeasuredVoltage,
-        Memory, OrientationTarget, Robot, Temperatures,
+        Memory, OrientationTarget, PwmChannel, PwmManualControl, PwmSignal, Robot, RobotId,
+        Temperatures,
     },
     sync::{ConnectToPeer, DisconnectPeer, Latency, Peer},
 };
-use egui::{load::SizedTexture, Align, Color32, Layout, RichText};
+use egui::{load::SizedTexture, widgets, Align, Color32, Layout, RichText};
 use tokio::net::lookup_host;
 
 use crate::attitude::OrientationDisplay;
@@ -17,18 +20,35 @@ pub struct EguiUiPlugin;
 
 impl Plugin for EguiUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(EguiPlugin)
-            .add_systems(Update, (topbar, hud.after(topbar)));
+        app.add_plugins(EguiPlugin).add_systems(
+            Update,
+            (
+                topbar,
+                hud.after(topbar),
+                pwm_control
+                    .after(topbar)
+                    .run_if(resource_exists::<PwmControl>),
+                cleanup_pwm_control
+                    .after(topbar)
+                    .run_if(resource_removed::<PwmControl>()),
+            ),
+        );
     }
 }
 
 #[derive(Resource)]
 pub struct ShowInspector;
 
+#[derive(Resource)]
+pub struct PwmControl(bool);
+
 fn topbar(
     mut cmds: Commands,
     mut contexts: EguiContexts,
+
     inspector: Option<Res<ShowInspector>>,
+    pwm_control: Option<Res<PwmControl>>,
+
     peers: Query<(&Peer, Option<&Name>)>,
     mut disconnect: EventWriter<DisconnectPeer>,
 ) {
@@ -61,11 +81,25 @@ fn topbar(
             });
 
             ui.menu_button("View", |ui| {
-                if ui.button("ECS Inspector").clicked() {
+                if ui
+                    .selectable_label(inspector.is_some(), "ECS Inspector")
+                    .clicked()
+                {
                     if inspector.is_some() {
                         cmds.remove_resource::<ShowInspector>()
                     } else {
                         cmds.insert_resource(ShowInspector);
+                    }
+                }
+
+                if ui
+                    .selectable_label(pwm_control.is_some(), "PWM Control")
+                    .clicked()
+                {
+                    if pwm_control.is_some() {
+                        cmds.remove_resource::<PwmControl>()
+                    } else {
+                        cmds.insert_resource(PwmControl(false));
                     }
                 }
             });
@@ -131,8 +165,6 @@ fn hud(
             .constrain_to(context.available_rect().shrink(20.0))
             .movable(false)
             .show(context, |ui| {
-                // TODO(mid): Ping
-
                 let size = 20.0;
 
                 if let Some(attitude) = attitude {
@@ -315,5 +347,79 @@ fn hud(
                     }
                 });
             });
+    }
+}
+
+fn pwm_control(
+    mut cmds: Commands,
+    mut contexts: EguiContexts,
+    mut pwm_control: ResMut<PwmControl>,
+    robots: Query<(Entity, Option<&PwmManualControl>, &RobotId), With<Robot>>,
+    motors: Query<(Entity, Option<&PwmSignal>, &PwmChannel, &RobotId)>,
+) {
+    let context = contexts.ctx_mut();
+    let mut open = true;
+
+    egui::Window::new("PWM Control")
+        .current_pos(context.screen_rect().left_top())
+        .constrain_to(context.available_rect().shrink(20.0))
+        .open(&mut open)
+        .show(contexts.ctx_mut(), |ui| {
+            if let Ok((robot, manual, robot_id)) = robots.get_single() {
+                let mut enabled = pwm_control.0;
+                ui.checkbox(&mut enabled, "Manual Enabled");
+
+                if enabled != pwm_control.0 || enabled != manual.is_some() {
+                    pwm_control.0 = enabled;
+
+                    if enabled {
+                        info!("Enabled manual control");
+                        cmds.entity(robot).insert(PwmManualControl);
+                    } else {
+                        info!("Disabled manual control");
+                        cmds.entity(robot).remove::<PwmManualControl>();
+                    }
+                }
+
+                for (motor, signal, channel, m_robot_id) in &motors {
+                    if robot_id != m_robot_id {
+                        continue;
+                    }
+
+                    let last_value = if let Some(signal) = signal {
+                        (signal.0.as_micros() as i32 - 1500) as f32 / 400.0
+                    } else {
+                        0.0
+                    };
+                    let mut value = last_value;
+
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{}", channel.0));
+                        ui.add(widgets::Slider::new(&mut value, -1.0..=1.0));
+                        if ui.button("Clear").clicked() {
+                            value = 0.0;
+                        }
+                    });
+
+                    if value != last_value {
+                        let signal = 1500 + (value * 400.0) as i32;
+                        cmds.entity(motor)
+                            .insert(PwmSignal(Duration::from_micros(signal as u64)));
+                    }
+                }
+            } else {
+                ui.label("No robot");
+            };
+        });
+
+    if !open {
+        cmds.remove_resource::<PwmControl>()
+    }
+}
+
+fn cleanup_pwm_control(mut cmds: Commands, robots: Query<Entity, With<Robot>>) {
+    info!("Disabled manual control");
+    for robot in &robots {
+        cmds.entity(robot).remove::<PwmManualControl>();
     }
 }

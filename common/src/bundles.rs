@@ -15,6 +15,7 @@ pub struct RobotBundle {
     pub system: RobotSystemBundle,
     pub actuators: RobotActuatorBundle,
     pub power: RobotPowerBundle,
+    // pub manual: Option<PwmManualControl>,
 }
 
 #[derive(Bundle, PartialEq)]
