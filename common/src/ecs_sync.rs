@@ -2,6 +2,7 @@ pub mod apply_changes;
 pub mod detect_changes;
 
 use std::any::Any;
+use std::sync::Arc;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
 use ahash::{HashMap, HashSet};
@@ -72,12 +73,12 @@ pub struct SerializationSettings {
     marker_id: ComponentId,
 
     // TODO: Store an Arc<ComponentInfo> referenced by both maps
-    component_lookup: HashMap<NetTypeId, ComponentId>,
-    tracked_components: HashMap<ComponentId, ComponentInfo>,
+    component_by_token: HashMap<NetTypeId, Arc<ComponentInfo>>,
+    component_by_id: HashMap<ComponentId, Arc<ComponentInfo>>,
 
     // TODO: Store an Arc<EventInfo> referenced by both maps
-    event_lookup: HashMap<NetTypeId, ComponentId>,
-    tracked_events: HashMap<ComponentId, EventInfo>,
+    event_by_token: HashMap<NetTypeId, Arc<EventInfo>>,
+    event_by_id: HashMap<ComponentId, Arc<EventInfo>>,
 }
 
 #[derive(Clone)]
@@ -112,10 +113,10 @@ impl FromWorld for SerializationSettings {
 
         Self {
             marker_id,
-            component_lookup: Default::default(),
-            tracked_components: Default::default(),
-            event_lookup: Default::default(),
-            tracked_events: Default::default(),
+            component_by_token: Default::default(),
+            component_by_id: Default::default(),
+            event_by_token: Default::default(),
+            event_by_id: Default::default(),
         }
     }
 }
@@ -208,7 +209,7 @@ where
     let component_id = app.world.init_component::<C>();
     let ignored_id = app.world.init_component::<Ignore<C>>();
 
-    let component_info = ComponentInfo {
+    let component_info = Arc::new(ComponentInfo {
         type_name: C::type_path(),
         type_id: TypeId::of::<C>(),
         component_id,
@@ -217,14 +218,14 @@ where
         remove_fn: |entity| {
             entity.remove::<C>();
         },
-    };
+    });
 
     let mut settings = app.world.resource_mut::<SerializationSettings>();
     settings
-        .component_lookup
-        .insert(component_info.type_name.into(), component_id);
+        .component_by_token
+        .insert(component_info.type_name.into(), component_info.clone());
     settings
-        .tracked_components
+        .component_by_id
         .insert(component_id, component_info);
 }
 
@@ -236,19 +237,19 @@ where
     app.add_event::<E>();
 
     let component_id = app.world.init_resource::<Events<E>>();
-    let event_info = EventInfo {
+    let event_info = Arc::new(EventInfo {
         type_name: E::type_path(),
         type_id: TypeId::of::<E>(),
         component_id,
         type_adapter,
         reader_factory: ErasedManualEventReader::new::<E>,
-    };
+    });
 
     let mut settings = app.world.resource_mut::<SerializationSettings>();
     settings
-        .event_lookup
-        .insert(event_info.type_name.into(), component_id);
-    settings.tracked_events.insert(component_id, event_info);
+        .event_by_token
+        .insert(event_info.type_name.into(), event_info.clone());
+    settings.event_by_id.insert(component_id, event_info);
 }
 
 pub struct ErasedManualEventReader {

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bevy::app::{App, Plugin, PostUpdate};
 use bevy::ecs::event::{Event, EventReader};
 use bevy::ecs::reflect::AppTypeRegistry;
@@ -79,14 +81,14 @@ fn detect_new_entities(
     }
 }
 
-struct EventReaders(Vec<(ErasedManualEventReader, EventInfo)>);
+struct EventReaders(Vec<(ErasedManualEventReader, Arc<EventInfo>)>);
 
 impl FromWorld for EventReaders {
     fn from_world(world: &mut World) -> Self {
         Self(
             world
                 .resource::<SerializationSettings>()
-                .tracked_events
+                .event_by_id
                 .values()
                 .map(|info| ((info.reader_factory)(), info.clone()))
                 .collect(),
@@ -138,7 +140,7 @@ fn detect_changes(
 
             for (component_id, sync_info) in archetype
                 .components()
-                .filter_map(|it| Some(it).zip(settings.tracked_components.get(&it)))
+                .filter_map(|it| Some(it).zip(settings.component_by_id.get(&it)))
                 .filter(|(_, sync_info)| !archetype.contains(sync_info.ignore_component))
             {
                 let (ptr, tick) = match archetype
@@ -235,7 +237,7 @@ fn detect_removals(
     let mut changes = Vec::new();
 
     let (settings, entity_map, removals, entities) = set.p0();
-    for (component_id, sync_info) in &settings.tracked_components {
+    for (component_id, sync_info) in &settings.component_by_id {
         let Some(removal_events) = removals.get(*component_id) else {
             continue;
         };

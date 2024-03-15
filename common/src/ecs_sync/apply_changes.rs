@@ -83,18 +83,15 @@ fn apply_changes(
                     continue;
                 };
 
-                let Some(&component_id) = settings.component_lookup.get(token) else {
+                let Some(sync_info) = settings.component_by_token.get(token) else {
                     error!("Got update for unknown entity token");
                     continue;
-                };
-
-                let Some(sync_info) = settings.tracked_components.get(&component_id) else {
-                    unreachable!();
                 };
 
                 let type_adapter = sync_info.type_adapter.clone();
                 let serialized = serialized.clone();
                 let token = token.clone();
+                let component_id = sync_info.component_id;
 
                 cmds.add(move |world: &mut World| {
                     // TODO(mid): Error handling
@@ -143,13 +140,9 @@ fn apply_changes(
                     continue;
                 };
 
-                let Some(&component_id) = settings.component_lookup.get(token) else {
+                let Some(sync_info) = settings.component_by_token.get(token) else {
                     error!("Got update for unknown entity token");
                     continue;
-                };
-
-                let Some(sync_info) = settings.tracked_components.get(&component_id) else {
-                    unreachable!();
                 };
 
                 let remover = sync_info.remove_fn;
@@ -162,13 +155,9 @@ fn apply_changes(
                 entity_map.local_modified.insert(local, ticks.this_run());
             }
             SerializedChange::EventEmitted(token, serialized) => {
-                let Some(&component_id) = settings.event_lookup.get(token) else {
+                let Some(sync_info) = settings.event_by_token.get(token) else {
                     error!("Got unknown event");
                     continue;
-                };
-
-                let Some(sync_info) = settings.tracked_events.get(&component_id) else {
-                    unreachable!();
                 };
 
                 let type_adapter = sync_info.type_adapter.clone();
