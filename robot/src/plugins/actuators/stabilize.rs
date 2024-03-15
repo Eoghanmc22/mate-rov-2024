@@ -97,7 +97,9 @@ fn stabalize_system(
 
         // TODO(mid): Is this any good?
         let error = Quat::from_rotation_arc(observed_up.into(), target_up.into());
-        let pitch_error = instant_twist(error, orientation.0 * Vec3A::X).to_degrees();
+        let error_colinear = Quat::from_rotation_arc_colinear(observed_up.into(), target_up.into());
+
+        let pitch_error = instant_twist(error_colinear, orientation.0 * Vec3A::X).to_degrees();
         let roll_error = instant_twist(error, orientation.0 * Vec3A::Y).to_degrees();
 
         let res_pitch = state
