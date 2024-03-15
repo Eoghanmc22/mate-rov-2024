@@ -43,8 +43,8 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 1.0,
-                ki: 0.0,
+                kp: 0.4,
+                ki: 0.15,
                 kd: 0.0,
                 max_integral: 0.0,
             },
@@ -62,8 +62,8 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 1.0,
-                ki: 0.0,
+                kp: 0.3,
+                ki: 0.05,
                 kd: 0.0,
                 max_integral: 0.0,
             },
@@ -109,12 +109,12 @@ fn stabalize_system(
 
         let pitch_movement = Movement {
             force: Vec3A::ZERO,
-            torque: Vec3A::X * pitch_error,
+            torque: Vec3A::X * res_pitch.correction,
         };
 
         let roll_movement = Movement {
             force: Vec3A::ZERO,
-            torque: Vec3A::Y * roll_error,
+            torque: Vec3A::Y * res_roll.correction,
         };
 
         cmds.entity(state.pitch)

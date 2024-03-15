@@ -9,11 +9,11 @@ position = [
     0.241,
 ]
 orientation = [
-    0.254,
+    -0.254,
     -0.571,
-    0.781,
+    -0.781,
 ]
-direction = "Clockwise"
+direction = "CounterClockwise"
 
 [motor_config.X3d.motors]
 FrontRightTop = 0

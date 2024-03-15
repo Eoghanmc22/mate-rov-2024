@@ -35,8 +35,8 @@ fn setup_depth_hold(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 1.0,
-                ki: 0.0,
+                kp: 250.0,
+                ki: 100.0,
                 kd: 0.0,
                 max_integral: 0.0,
             },
