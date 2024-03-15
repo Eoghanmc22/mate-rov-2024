@@ -1,6 +1,7 @@
 pub mod apply_changes;
 pub mod detect_changes;
 
+use std::any::Any;
 use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
 use ahash::{HashMap, HashSet};
@@ -9,20 +10,24 @@ use bevy::{
     ecs::{
         component::{Component, ComponentId, Tick},
         entity::Entity,
-        event::Event,
+        event::{Event, Events, ManualEventReader},
         reflect::ReflectComponent,
         system::Resource,
         world::{EntityWorldMut, FromWorld, World},
     },
+    ptr::Ptr,
     reflect::{FromReflect, FromType, GetTypeRegistration, Reflect, ReflectFromPtr, Typed},
 };
 use networking::Token;
 use serde::{Deserialize, Serialize};
 
-use crate::adapters::{
-    self,
-    serde::{ReflectSerdeAdapter, SerdeAdapter},
-    TypeAdapter,
+use crate::{
+    adapters::{
+        self,
+        serde::{ReflectSerdeAdapter, SerdeAdapter},
+        ComponentTypeAdapter, EventTypeAdapter,
+    },
+    reflect::ReflectEvent,
 };
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -65,8 +70,14 @@ pub struct EntityMap {
 #[derive(Resource)]
 pub struct SerializationSettings {
     marker_id: ComponentId,
+
+    // TODO: Store an Arc<ComponentInfo> referenced by both maps
     component_lookup: HashMap<NetTypeId, ComponentId>,
     tracked_components: HashMap<ComponentId, ComponentInfo>,
+
+    // TODO: Store an Arc<EventInfo> referenced by both maps
+    event_lookup: HashMap<NetTypeId, ComponentId>,
+    tracked_events: HashMap<ComponentId, EventInfo>,
 }
 
 #[derive(Clone)]
@@ -74,9 +85,18 @@ pub struct ComponentInfo {
     type_name: &'static str,
     type_id: TypeId,
     component_id: ComponentId,
-    type_adapter: TypeAdapter,
+    type_adapter: ComponentTypeAdapter,
     ignore_component: ComponentId,
     remove_fn: RemoveFn,
+}
+
+#[derive(Clone)]
+pub struct EventInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    component_id: ComponentId,
+    type_adapter: EventTypeAdapter,
+    reader_factory: fn() -> ErasedManualEventReader,
 }
 
 pub type RemoveFn = fn(&mut EntityWorldMut);
@@ -94,6 +114,8 @@ impl FromWorld for SerializationSettings {
             marker_id,
             component_lookup: Default::default(),
             tracked_components: Default::default(),
+            event_lookup: Default::default(),
+            tracked_events: Default::default(),
         }
     }
 }
@@ -106,6 +128,14 @@ pub trait AppReplicateExt {
     fn replicate_reflect<C>(&mut self) -> &mut Self
     where
         C: Component + Typed + GetTypeRegistration + FromReflect;
+
+    fn replicate_event<C>(&mut self) -> &mut Self
+    where
+        C: Event + Typed + GetTypeRegistration + SerdeAdapter;
+
+    fn replicate_event_reflect<C>(&mut self) -> &mut Self
+    where
+        C: Event + Typed + GetTypeRegistration + FromReflect;
 }
 
 impl AppReplicateExt for App {
@@ -115,7 +145,7 @@ impl AppReplicateExt for App {
     {
         replicate_inner::<C>(
             self,
-            TypeAdapter::Serde(<ReflectSerdeAdapter as FromType<C>>::from_type()),
+            ComponentTypeAdapter::Serde(<ReflectSerdeAdapter as FromType<C>>::from_type()),
         );
 
         self
@@ -127,7 +157,7 @@ impl AppReplicateExt for App {
     {
         replicate_inner::<C>(
             self,
-            TypeAdapter::Reflect(
+            ComponentTypeAdapter::Reflect(
                 <ReflectFromPtr as FromType<C>>::from_type(),
                 <ReflectComponent as FromType<C>>::from_type(),
             ),
@@ -135,9 +165,41 @@ impl AppReplicateExt for App {
 
         self
     }
+
+    fn replicate_event<E>(&mut self) -> &mut Self
+    where
+        E: Event + Typed + GetTypeRegistration + SerdeAdapter,
+    {
+        replicate_event_inner::<E>(
+            self,
+            EventTypeAdapter::Serde(
+                <ReflectSerdeAdapter as FromType<E>>::from_type(),
+                |world, ptr| unsafe {
+                    world.send_event(ptr.read::<E>());
+                },
+            ),
+        );
+
+        self
+    }
+
+    fn replicate_event_reflect<E>(&mut self) -> &mut Self
+    where
+        E: Event + Typed + GetTypeRegistration + FromReflect,
+    {
+        replicate_event_inner::<E>(
+            self,
+            EventTypeAdapter::Reflect(
+                <ReflectFromPtr as FromType<E>>::from_type(),
+                <ReflectEvent as FromType<E>>::from_type(),
+            ),
+        );
+
+        self
+    }
 }
 
-fn replicate_inner<C>(app: &mut App, type_adapter: TypeAdapter)
+fn replicate_inner<C>(app: &mut App, type_adapter: ComponentTypeAdapter)
 where
     C: Component + Typed + GetTypeRegistration,
 {
@@ -164,6 +226,63 @@ where
     settings
         .tracked_components
         .insert(component_id, component_info);
+}
+
+fn replicate_event_inner<E>(app: &mut App, type_adapter: EventTypeAdapter)
+where
+    E: Event + Typed + GetTypeRegistration,
+{
+    app.register_type::<E>();
+    app.add_event::<E>();
+
+    let component_id = app.world.init_resource::<Events<E>>();
+    let event_info = EventInfo {
+        type_name: E::type_path(),
+        type_id: TypeId::of::<E>(),
+        component_id,
+        type_adapter,
+        reader_factory: ErasedManualEventReader::new::<E>,
+    };
+
+    let mut settings = app.world.resource_mut::<SerializationSettings>();
+    settings
+        .event_lookup
+        .insert(event_info.type_name.into(), component_id);
+    settings.tracked_events.insert(component_id, event_info);
+}
+
+pub struct ErasedManualEventReader {
+    reader: Option<Box<dyn Any + Send + Sync>>,
+    read_event:
+        for<'a> fn(&'a World, &'a mut Option<Box<dyn Any + Send + Sync>>) -> Option<Ptr<'a>>,
+}
+
+impl ErasedManualEventReader {
+    pub fn new<E: Event>() -> Self {
+        ErasedManualEventReader {
+            reader: None,
+
+            read_event: |world, reader| {
+                let events = world.get_resource::<Events<E>>()?;
+                let reader = reader
+                    .get_or_insert_with(|| Box::new(events.get_reader()))
+                    .downcast_mut::<ManualEventReader<E>>()
+                    .unwrap();
+
+                reader.read(events).next().map(Into::into)
+            },
+        }
+    }
+
+    pub fn read_event<'a>(&'a mut self, world: &'a World) -> Option<Ptr<'a>> {
+        (self.read_event)(world, &mut self.reader)
+    }
+}
+
+impl Clone for ErasedManualEventReader {
+    fn clone(&self) -> Self {
+        todo!()
+    }
 }
 
 // #[cfg(test)]

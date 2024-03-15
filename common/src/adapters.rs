@@ -5,9 +5,15 @@ pub mod serde;
 
 use std::sync::Arc;
 
-use bevy::{ecs::reflect::ReflectComponent, reflect::ReflectFromPtr};
+use bevy::{
+    ecs::{reflect::ReflectComponent, world::World},
+    ptr::OwningPtr,
+    reflect::ReflectFromPtr,
+};
 use bincode::{DefaultOptions, Options};
 use thiserror::Error;
+
+use crate::reflect::ReflectEvent;
 
 use self::serde::ReflectSerdeAdapter;
 
@@ -15,9 +21,16 @@ use self::serde::ReflectSerdeAdapter;
 pub type BackingType = Arc<Vec<u8>>;
 
 #[derive(Clone)]
-pub enum TypeAdapter {
+pub enum ComponentTypeAdapter {
     Serde(ReflectSerdeAdapter),
     Reflect(ReflectFromPtr, ReflectComponent),
+}
+
+#[derive(Clone)]
+pub enum EventTypeAdapter {
+    // TODO: Make a type to store this function, or come up with a better approch
+    Serde(ReflectSerdeAdapter, unsafe fn(&mut World, OwningPtr<'_>)),
+    Reflect(ReflectFromPtr, ReflectEvent),
 }
 
 /// The serializeation settings used

@@ -9,6 +9,7 @@ use common::{
         Memory, OrientationTarget, PwmChannel, PwmManualControl, PwmSignal, Robot, RobotId,
         Temperatures,
     },
+    events::ResyncCameras,
     sync::{ConnectToPeer, DisconnectPeer, Latency, Peer},
 };
 use egui::{load::SizedTexture, widgets, Align, Color32, Layout, RichText};
@@ -55,6 +56,12 @@ fn topbar(
     egui::TopBottomPanel::top("Top Bar").show(contexts.ctx_mut(), |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
+                if ui.button("Resync Cameras").clicked() {
+                    cmds.add(|world: &mut World| {
+                        world.send_event(ResyncCameras);
+                    })
+                }
+
                 ui.menu_button("Disconnect", |ui| {
                     if !peers.is_empty() {
                         for (peer, name) in &peers {

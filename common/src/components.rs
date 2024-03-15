@@ -73,15 +73,15 @@ components! {
     PidResult
 }
 
-#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Singleton;
 
-#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Robot;
 
-#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Surface;
 

@@ -17,13 +17,13 @@ direction = "Clockwise"
 
 [motor_config.X3d.motors]
 FrontRightTop = 0
-FrontRightBottom = 1
-FrontLeftTop = 2
-FrontLeftBottom = 3
-BackRightTop = 4
-BackRightBottom = 5
-BackLeftTop = 6
-BackLeftBottom = 7
+FrontRightBottom = 6
+FrontLeftTop = 3
+FrontLeftBottom = 2
+BackRightTop = 1
+BackRightBottom = 7
+BackLeftTop = 5
+BackLeftBottom = 4
 
 [cameras."/dev/video2"]
 name = "Front"

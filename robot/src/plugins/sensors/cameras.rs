@@ -15,6 +15,7 @@ use common::{
     components::{Camera, RobotId},
     ecs_sync::{NetId, Replicate},
     error::{self, Errors},
+    events::ResyncCameras,
     sync::Peer,
 };
 use crossbeam::channel::{self, Receiver, Sender};
@@ -234,14 +235,17 @@ fn handle_peers(
     channels: Res<CameraChannels>,
     mut disconnected: RemovedComponents<Peer>,
     connected: Query<&Peer, Changed<Peer>>,
+    mut resync_events: EventReader<ResyncCameras>,
 ) {
     let mut event = None;
+
+    for _resync in resync_events.read() {
+        event = Some(CameraEvent::Resync);
+    }
 
     for _disconnection in disconnected.read() {
         event = Some(CameraEvent::LostPeer);
     }
-
-    // TODO(low): Send resync event if needed
 
     for peer in connected.iter() {
         event = Some(CameraEvent::NewPeer(peer.addrs));

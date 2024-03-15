@@ -11,7 +11,7 @@ use bevy::{
 use tracing::error;
 
 use crate::{
-    adapters::{dynamic::DynamicAdapter, TypeAdapter},
+    adapters::{dynamic::DynamicAdapter, ComponentTypeAdapter, EventTypeAdapter},
     sync::Peers,
 };
 
@@ -99,7 +99,7 @@ fn apply_changes(
                 cmds.add(move |world: &mut World| {
                     // TODO(mid): Error handling
                     match type_adapter {
-                        TypeAdapter::Serde(adapter) => {
+                        ComponentTypeAdapter::Serde(adapter) => {
                             adapter
                                 .deserialize(&serialized, |ptr|
                                     // SAFETY: We used the type adapter associated with this component id
@@ -110,7 +110,7 @@ fn apply_changes(
                                     })
                                 .expect("Bad update");
                         }
-                        TypeAdapter::Reflect(_, component) => {
+                        ComponentTypeAdapter::Reflect(_, component) => {
                             world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
                                 let registry = registry.read();
 
@@ -161,7 +161,55 @@ fn apply_changes(
 
                 entity_map.local_modified.insert(local, ticks.this_run());
             }
-            SerializedChange::EventEmitted(_, _) => todo!(),
+            SerializedChange::EventEmitted(token, serialized) => {
+                let Some(&component_id) = settings.event_lookup.get(token) else {
+                    error!("Got unknown event");
+                    continue;
+                };
+
+                let Some(sync_info) = settings.tracked_events.get(&component_id) else {
+                    unreachable!();
+                };
+
+                let type_adapter = sync_info.type_adapter.clone();
+                let serialized = serialized.clone();
+                let token = token.clone();
+
+                cmds.add(move |world: &mut World| {
+                    // TODO(mid): Error handling
+                    match type_adapter {
+                        EventTypeAdapter::Serde(adapter, sender) => {
+                            adapter
+                                .deserialize(&serialized, |ptr|
+                                    // SAFETY: We used the type adapter associated with this component id
+                                    unsafe {
+                                        (sender)(world, ptr)
+                                    })
+                                .expect("Bad update");
+                        }
+                        EventTypeAdapter::Reflect(_, event) => {
+                            world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+                                let registry = registry.read();
+
+                                let reflect = {
+                                    let registration = registry
+                                        .get_with_type_path(&token)
+                                        .expect("Update for unknown token");
+
+                                    DynamicAdapter::deserialize(
+                                        &serialized,
+                                        registration,
+                                        &registry,
+                                    )
+                                    .expect("Bad update")
+                                };
+
+                                event.send(world, &*reflect)
+                            })
+                        }
+                    }
+                });
+            }
         }
     }
 }

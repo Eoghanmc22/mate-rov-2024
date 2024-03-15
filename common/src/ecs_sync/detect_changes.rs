@@ -2,7 +2,8 @@ use bevy::app::{App, Plugin, PostUpdate};
 use bevy::ecs::event::{Event, EventReader};
 use bevy::ecs::reflect::AppTypeRegistry;
 use bevy::ecs::schedule::SystemSet;
-use bevy::ecs::system::ParamSet;
+use bevy::ecs::system::{Local, ParamSet};
+use bevy::ecs::world::FromWorld;
 use bevy::ecs::{
     archetype::ArchetypeId,
     change_detection::DetectChanges,
@@ -19,11 +20,11 @@ use bevy::ecs::{
 use bevy::utils::HashSet;
 
 use crate::adapters::dynamic::DynamicAdapter;
-use crate::adapters::TypeAdapter;
+use crate::adapters::{ComponentTypeAdapter, EventTypeAdapter};
 
 use super::{
-    EntityMap, NetId, Replicate, SerializationSettings, SerializedChange, SerializedChangeInEvent,
-    SerializedChangeOutEvent,
+    EntityMap, ErasedManualEventReader, EventInfo, NetId, Replicate, SerializationSettings,
+    SerializedChange, SerializedChangeInEvent, SerializedChangeOutEvent,
 };
 
 // TODO(mid): Events as RPC
@@ -78,12 +79,29 @@ fn detect_new_entities(
     }
 }
 
+struct EventReaders(Vec<(ErasedManualEventReader, EventInfo)>);
+
+impl FromWorld for EventReaders {
+    fn from_world(world: &mut World) -> Self {
+        Self(
+            world
+                .resource::<SerializationSettings>()
+                .tracked_events
+                .values()
+                .map(|info| ((info.reader_factory)(), info.clone()))
+                .collect(),
+        )
+    }
+}
+
 // Detect when entities change
 // Traverse all archetypes
 // filter for the ones we care about
 // check for ignore components
 // if any non ignored components have changed, sync them
 fn detect_changes(
+    mut readers: Local<EventReaders>,
+
     mut set: ParamSet<(
         (
             &World,
@@ -151,8 +169,8 @@ fn detect_changes(
 
                 if changed || added {
                     let serialized = match &sync_info.type_adapter {
-                        TypeAdapter::Serde(adapter) => unsafe { adapter.serialize(ptr) },
-                        TypeAdapter::Reflect(from_ptr, _) => {
+                        ComponentTypeAdapter::Serde(adapter) => unsafe { adapter.serialize(ptr) },
+                        ComponentTypeAdapter::Reflect(from_ptr, _) => {
                             let reflect = unsafe { from_ptr.as_reflect(ptr) };
                             let registry = registry.read();
 
@@ -175,6 +193,26 @@ fn detect_changes(
                     ));
                 }
             }
+        }
+    }
+
+    for (reader, sync_info) in &mut readers.0 {
+        while let Some(ptr) = reader.read_event(world) {
+            let serialized = match &sync_info.type_adapter {
+                EventTypeAdapter::Serde(adapter, _) => unsafe { adapter.serialize(ptr) },
+                EventTypeAdapter::Reflect(from_ptr, _) => {
+                    let reflect = unsafe { from_ptr.as_reflect(ptr) };
+                    let registry = registry.read();
+
+                    DynamicAdapter::serialize(reflect, &registry)
+                }
+            }
+            .expect("serialize error");
+
+            changes.push(SerializedChangeOutRawEvent(SerializedChange::EventEmitted(
+                sync_info.type_name.into(),
+                serialized,
+            )));
         }
     }
 

@@ -28,8 +28,10 @@ pub mod components;
 pub mod ctrlc;
 pub mod ecs_sync;
 pub mod error;
+pub mod events;
 pub mod over_run;
 pub mod protocol;
+pub mod reflect;
 pub mod sync;
 pub mod types;
 
@@ -39,6 +41,7 @@ impl Plugin for CommunicationTypes {
     fn build(&self, app: &mut App) {
         types::register_types(app);
         components::register_components(app);
+        events::register_events(app);
 
         app.register_type::<NetId>()
             .register_type::<Replicate>()
