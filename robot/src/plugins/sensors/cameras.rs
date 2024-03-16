@@ -58,6 +58,8 @@ fn start_camera_thread(
     let (tx_events, rx_events) = channel::bounded(10);
     let (tx_camreas, rx_cameras) = channel::bounded(10);
 
+    info!("Setting up cameras");
+
     let _ = tx_events.send(CameraEvent::Resync);
 
     cmds.insert_resource(CameraChannels(tx_events, rx_cameras));

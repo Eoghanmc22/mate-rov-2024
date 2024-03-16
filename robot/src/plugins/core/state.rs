@@ -10,7 +10,8 @@ pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, update_state);
+        app.add_systems(PreUpdate, update_state)
+            .add_systems(Update, log_state_transition);
     }
 }
 
@@ -36,6 +37,14 @@ fn update_state(
         // The robot should be disarmed when there are no peers controlling it
         if let Some(Armed::Armed) = armed {
             robot.insert(Armed::Disarmed);
+        }
+    }
+}
+
+fn log_state_transition(robot: Query<Ref<RobotStatus>, With<LocalRobotMarker>>) {
+    for status in &robot {
+        if status.is_changed() {
+            info!("Robot State: {status:?}");
         }
     }
 }

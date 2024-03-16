@@ -22,12 +22,16 @@ use plugins::{
 
 // TODO: LogPlugin now exposes a way to play with the tracing subscriber
 fn main() -> anyhow::Result<()> {
+    info!("---------- Starting Robot Code ----------");
+
+    info!("Reading config");
     let config = fs::read_to_string("robot.toml").context("Read config")?;
     let config: RobotConfig = toml::from_str(&config).context("Parse config")?;
 
     let name = config.name.clone();
     let port = config.port;
 
+    info!("Starting bevy");
     App::new()
         .insert_resource(config)
         .add_plugins((
@@ -47,12 +51,15 @@ fn main() -> anyhow::Result<()> {
             //         ..default()
             //     },
             // })
+            // Logging
             LogPlugin::default(),
+            // Diagnostics
             (
                 DiagnosticsPlugin,
                 EntityCountDiagnosticsPlugin,
                 FrameTimeDiagnosticsPlugin,
             ),
+            // MATE
             (
                 CommonPlugins {
                     role: SyncRole::Server { port },
@@ -67,7 +74,7 @@ fn main() -> anyhow::Result<()> {
         ))
         .run();
 
-    info!("Clean exit");
+    info!("---------- Robot Code Exited Cleanly ----------");
 
     Ok(())
 }

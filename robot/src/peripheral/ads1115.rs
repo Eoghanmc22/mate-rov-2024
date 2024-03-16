@@ -1,5 +1,5 @@
 use rppal::i2c::I2c;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use anyhow::Context;
 
@@ -13,6 +13,8 @@ impl Ads1115 {
 
     #[instrument(level = "debug")]
     pub fn new(bus: u8, address: u8) -> anyhow::Result<Self> {
+        info!("Setting up ADS1115 (ADC)");
+
         let mut i2c = I2c::with_bus(bus).context("Open i2c")?;
 
         i2c.set_slave_address(address as u16)

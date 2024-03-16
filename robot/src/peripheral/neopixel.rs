@@ -4,7 +4,7 @@ use std::{fmt::Debug, iter, ops::DerefMut, slice::SliceIndex, usize};
 use anyhow::Context;
 use rgb::{ComponentMap, RGB8};
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
-use tracing::instrument;
+use tracing::{info, instrument};
 
 pub struct Neopixel {
     pub spi: Spi,
@@ -23,6 +23,8 @@ impl Neopixel {
         slave_select: SlaveSelect,
         clock_speed: u32,
     ) -> anyhow::Result<Self> {
+        info!("Setting up Neopixels");
+
         let spi = Spi::new(bus, slave_select, clock_speed, Mode::Mode0).context("Open spi")?;
         let buffer = NeopixelBuffer::new(len);
 

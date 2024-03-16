@@ -3,7 +3,7 @@ use common::types::{
     units::{Celsius, Dps, GForce},
 };
 use std::{thread, time::Duration};
-use tracing::{debug, instrument};
+use tracing::{debug, info, instrument};
 
 use anyhow::Context;
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
@@ -19,6 +19,8 @@ impl Icm20602 {
 
     #[instrument(level = "debug")]
     pub fn new(bus: Bus, slave_select: SlaveSelect, clock_speed: u32) -> anyhow::Result<Self> {
+        info!("Setting up ICM20602 (Gyro and Accelerometer)");
+
         let spi = Spi::new(bus, slave_select, clock_speed, Mode::Mode0).context("Open spi")?;
 
         let mut this = Self { spi };

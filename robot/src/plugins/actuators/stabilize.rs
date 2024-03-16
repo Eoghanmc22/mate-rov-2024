@@ -43,10 +43,10 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 0.4,
-                ki: 0.15,
+                kp: 0.3,
+                ki: 0.1,
                 kd: 0.0,
-                max_integral: 0.0,
+                max_integral: 90.0,
             },
             Replicate,
         ))
@@ -62,10 +62,10 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 0.3,
+                kp: 0.2,
                 ki: 0.05,
                 kd: 0.0,
-                max_integral: 0.0,
+                max_integral: 90.0,
             },
             Replicate,
         ))

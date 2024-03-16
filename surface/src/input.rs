@@ -196,8 +196,10 @@ fn arm(
         let robot = robots.iter().find(|&(_, other_robot)| robot == other_robot);
         if let Some((robot, _)) = robot {
             if disarm {
+                info!("Disarming");
                 cmds.entity(robot).insert(Armed::Disarmed);
             } else if arm {
+                info!("Arming");
                 cmds.entity(robot).insert(Armed::Armed);
             }
         } else if arm || disarm {
@@ -221,10 +223,14 @@ fn depth_hold(
             if toggle {
                 match depth_target {
                     Some(_) => {
+                        info!("Clear Depth Hold");
                         cmds.entity(robot).remove::<DepthTarget>();
                     }
                     None => {
-                        cmds.entity(robot).insert(DepthTarget(depth.0.depth));
+                        let depth = depth.0.depth;
+
+                        info!("Set Depth Hold: {:.2}", depth);
+                        cmds.entity(robot).insert(DepthTarget(depth));
                     }
                 }
             }
@@ -252,12 +258,15 @@ fn leveling(
             if toggle_upright || toggle_inverted {
                 match orientation_target {
                     Some(_) => {
+                        info!("Clear Depth Hold");
                         cmds.entity(robot).remove::<OrientationTarget>();
                     }
                     None => {
                         if toggle_upright {
+                            info!("Set Level Upright");
                             cmds.entity(robot).insert(OrientationTarget(Vec3A::Z));
                         } else if toggle_inverted {
+                            info!("Set Level Inverted");
                             cmds.entity(robot).insert(OrientationTarget(Vec3A::NEG_Z));
                         }
                     }

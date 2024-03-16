@@ -132,6 +132,8 @@ fn setup_networking(
 
     errors: Res<Errors>,
 ) -> anyhow::Result<()> {
+    info!("Init networking");
+
     let networking = Networking::new().context("Start networking")?;
     let handle = networking.messenger();
 
@@ -143,6 +145,8 @@ fn setup_networking(
     thread::Builder::new()
         .name("Net Thread".to_owned())
         .spawn(move || {
+            info!("Starting networking thread");
+
             networking.start(|event| {
                 if tx.is_full() {
                     warn!("Not consuming packets fast enough, Network threads will block");
@@ -168,6 +172,7 @@ fn setup_networking(
                 .next()
                 .context("Take first bind ip")?;
 
+            info!("Binding server acceptor");
             handle.bind_at(bind).context("Contact net thread")?;
 
             // Set up mdns service broadcasting
@@ -180,11 +185,13 @@ fn setup_networking(
                     .context("Create service info")?
                     .enable_addr_auto();
 
+            info!("Begin broadcasting service");
             mdns.register(service_info)
                 .context("Register mdns service")?;
         }
         SyncRole::Client => {
             // Set up mdns service discovery
+            info!("Begin searching for services");
             let mdns_events = mdns.browse(SERVICE_TYPE).context("Begin search for peer")?;
             cmds.insert_resource(MdnsBrowse(mdns_events));
             cmds.init_resource::<MdnsPeers>();
@@ -198,6 +205,7 @@ fn setup_networking(
 
 fn connect(net: Res<Net>, mut events: EventReader<ConnectToPeer>) -> anyhow::Result<()> {
     for event in events.read() {
+        info!("Connecting to {}", event.0);
         net.0.connect_to(event.0).context("Contact net thread")?;
     }
 
@@ -206,6 +214,7 @@ fn connect(net: Res<Net>, mut events: EventReader<ConnectToPeer>) -> anyhow::Res
 
 fn disconnect(net: Res<Net>, mut events: EventReader<DisconnectPeer>) -> anyhow::Result<()> {
     for event in events.read() {
+        info!("Disconnecting from {:?}", event.0);
         net.0.disconnect(event.0).context("Contact net thread")?;
     }
 

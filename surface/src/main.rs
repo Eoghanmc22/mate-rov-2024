@@ -28,6 +28,8 @@ use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
 
 fn main() -> anyhow::Result<()> {
+    info!("---------- Starting Drive Station ----------");
+
     // FIXME(high): Times out when focus is lost
     App::new()
         .insert_resource(OverRunSettings {
@@ -37,22 +39,20 @@ fn main() -> anyhow::Result<()> {
         .insert_resource(VideoDisplay2DSettings { enabled: true })
         .add_plugins((
             // Bevy Core
-            DefaultPlugins
-                .build()
-                .disable::<bevy::audio::AudioPlugin>()
-                .set(TaskPoolPlugin {
-                    task_pool_options: TaskPoolOptions {
-                        compute: TaskPoolThreadAssignmentPolicy {
-                            // set the minimum # of compute threads
-                            // to the total number of available threads
-                            min_threads: available_parallelism(),
-                            max_threads: std::usize::MAX, // unlimited max threads
-                            percent: 1.0,                 // this value is irrelevant in this case
-                        },
-                        // keep the defaults for everything else
-                        ..default()
-                    },
-                }),
+            DefaultPlugins.build().disable::<bevy::audio::AudioPlugin>(),
+            // .set(TaskPoolPlugin {
+            //     task_pool_options: TaskPoolOptions {
+            //         compute: TaskPoolThreadAssignmentPolicy {
+            //             // set the minimum # of compute threads
+            //             // to the total number of available threads
+            //             min_threads: available_parallelism(),
+            //             max_threads: std::usize::MAX, // unlimited max threads
+            //             percent: 1.0,                 // this value is irrelevant in this case
+            //         },
+            //         // keep the defaults for everything else
+            //         ..default()
+            //     },
+            // }),
             // Diagnostics
             (
                 LogDiagnosticsPlugin::default(),
@@ -82,6 +82,8 @@ fn main() -> anyhow::Result<()> {
             ),
         ))
         .run();
+
+    info!("---------- Drive Station Exited Cleanly ----------");
 
     Ok(())
 }

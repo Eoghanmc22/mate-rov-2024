@@ -6,7 +6,7 @@ use common::types::{
     units::{Celsius, Mbar, Meters},
 };
 use rppal::i2c::I2c;
-use tracing::{debug, instrument};
+use tracing::{debug, info, instrument};
 
 pub struct Ms5837 {
     i2c: I2c,
@@ -20,6 +20,8 @@ impl Ms5837 {
 
     #[instrument(level = "debug")]
     pub fn new(bus: u8, address: u8) -> anyhow::Result<Self> {
+        info!("Setting up MS5837 (Depth Sensor)");
+
         let mut i2c = I2c::with_bus(bus).context("Open i2c")?;
 
         i2c.set_slave_address(address as u16)

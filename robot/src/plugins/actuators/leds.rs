@@ -239,7 +239,7 @@ fn update_leds(
         RobotStatus::Disarmed => {
             leds.2[1] = LedState::On;
         }
-        RobotStatus::Ready | RobotStatus::Moving(_) => {
+        RobotStatus::Ready => {
             leds.2[0] = LedState::On;
             leds.2[1] = LedState::On;
         }

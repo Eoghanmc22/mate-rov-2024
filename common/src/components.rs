@@ -124,8 +124,6 @@ pub enum RobotStatus {
     Disarmed,
     /// Peer is connected and robot is armed
     Ready,
-    /// The robot is moving, includes speed
-    Moving(Newtons),
 }
 
 #[derive(

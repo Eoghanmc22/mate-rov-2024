@@ -1,7 +1,7 @@
 use common::types::hw::MagneticFrame;
 use common::types::units::Gauss;
 use std::{thread, time::Duration};
-use tracing::{debug, instrument, trace};
+use tracing::{debug, info, instrument, trace};
 
 use anyhow::Context;
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
@@ -18,6 +18,8 @@ impl Mcc5983 {
 
     #[instrument(level = "debug")]
     pub fn new(bus: Bus, slave_select: SlaveSelect, clock_speed: u32) -> anyhow::Result<Self> {
+        info!("Setting up MCC5983 (Magnetometer)");
+
         let spi = Spi::new(bus, slave_select, clock_speed, Mode::Mode0).context("Open spi")?;
 
         let mut this = Self {

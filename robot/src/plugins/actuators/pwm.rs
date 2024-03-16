@@ -72,6 +72,7 @@ fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
             let mut next_channel_pwms = HashMap::default();
             let mut batch_started = false;
 
+            let mut last_armed = Armed::Disarmed;
             let mut armed = Armed::Disarmed;
             let mut channel_pwms = HashMap::default();
             let mut last_batch = Instant::now();
@@ -169,6 +170,12 @@ fn start_pwm_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
                     warn!("Could not write pwms");
 
                     let _ = errors.send(err);
+                }
+
+                if last_armed != armed {
+                    info!("PWM Chip: {armed:?}");
+
+                    last_armed = armed;
                 }
 
                 span.exit();

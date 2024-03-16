@@ -6,7 +6,7 @@ use rppal::{
     gpio::{Gpio, OutputPin},
     i2c::I2c,
 };
-use tracing::{debug, instrument};
+use tracing::{debug, info, instrument};
 
 // PWM_OE (GPIO66) is active low
 // pwm chip is on i2c4 at address 0x40
@@ -27,6 +27,8 @@ impl Pca9685 {
 
     #[instrument(level = "debug")]
     pub fn new(bus: u8, address: u8, period: Duration) -> anyhow::Result<Self> {
+        info!("Setting up PCA9685 (PWM Controller)");
+
         let gpio = Gpio::new().context("Open gpio")?;
         let mut i2c = I2c::with_bus(bus).context("Open i2c")?;
         let output_enable = gpio

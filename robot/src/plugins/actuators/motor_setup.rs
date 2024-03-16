@@ -33,6 +33,8 @@ impl Plugin for MotorSetupPlugin {
 fn create_motors(mut cmds: Commands, robot: Res<LocalRobot>, config: Res<RobotConfig>) {
     let (motors, motor_config) = config.motor_config.flatten();
 
+    info!("Generating motor config");
+
     cmds.entity(robot.entity).insert(RobotActuatorBundle {
         movement_target: TargetMovement(Default::default()),
         movement_actual: ActualMovement(Default::default()),
