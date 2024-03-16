@@ -1,6 +1,6 @@
 use std::{ffi::c_void, mem, sync::Arc, thread};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use bevy::{
     prelude::*,
     render::{
@@ -10,7 +10,7 @@ use bevy::{
 };
 use common::{
     components::Camera,
-    error::{self, Errors},
+    error::{self, ErrorEvent, Errors},
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use opencv::{
@@ -31,13 +31,32 @@ impl Plugin for VideoStreamPlugin {
                     .pipe(error::handle_errors)
                     .before(handle_frames),
                 handle_frames,
+                handle_video_processors,
             ),
         );
     }
 }
 
+pub trait VideoProcessor: Send + Sync + 'static {
+    fn begin(&mut self);
+    fn process<'a>(&'a mut self, img: &Mat) -> &'a Mat;
+    fn end(&mut self);
+}
+type BoxedVideoProcessor = Box<dyn VideoProcessor>;
+
 #[derive(Component)]
-struct VideoThread(Arc<()>, Sender<Image>, Receiver<Image>);
+pub struct VideoProcessorFactory(pub fn(&mut World) -> BoxedVideoProcessor);
+
+#[derive(Component)]
+struct VideoThread(
+    // Used so the video thread can detect when its handle is droped from the ecs
+    Arc<()>,
+    // Channels for displaying and reusing bevy images
+    Sender<Image>,
+    Receiver<Image>,
+    // Channel to update the thread's VideoProcessor
+    Sender<Option<BoxedVideoProcessor>>,
+);
 
 fn handle_added_camera(
     mut cmds: Commands,
@@ -51,9 +70,10 @@ fn handle_added_camera(
         let handle = Arc::new(());
         let (tx_cv, rx_cv) = channel::bounded(10);
         let (tx_bevy, rx_bevy) = channel::bounded(10);
+        let (tx_proc, rx_proc) = channel::bounded(10);
 
         cmds.entity(entity).insert((
-            VideoThread(handle.clone(), tx_bevy, rx_cv),
+            VideoThread(handle.clone(), tx_bevy, rx_cv, tx_proc),
             images.add(Image::default()),
         ));
 
@@ -76,6 +96,8 @@ fn handle_added_camera(
 
                 // Loop until the VideoThread component is dropped
                 let mut mat = Mat::default();
+                let mut proc: Option<BoxedVideoProcessor> = None;
+
                 while handle.strong_count() > 0 {
                     let res = src.read(&mut mat).context("Read video frame");
                     let ret = match res {
@@ -86,11 +108,29 @@ fn handle_added_camera(
                         }
                     };
 
+                    if let Some(mut new_proc) = rx_proc.try_iter().last() {
+                        if let Some(proc) = &mut proc {
+                            proc.end();
+                        }
+
+                        if let Some(new_proc) = &mut new_proc {
+                            new_proc.begin();
+                        }
+
+                        proc = new_proc;
+                    }
+
+                    let mat = if let Some(proc) = &mut proc {
+                        proc.process(&mat)
+                    } else {
+                        &mat
+                    };
+
                     images.extend(rx_bevy.try_iter());
                     images.truncate(15);
                     let mut image = images.pop().unwrap_or_default();
 
-                    let res = mat_to_image(&mat, &mut image).context("Mat to image");
+                    let res = mat_to_image(mat, &mut image).context("Mat to image");
                     if let Err(err) = res {
                         let _ = errors.send(err);
                         continue;
@@ -99,6 +139,10 @@ fn handle_added_camera(
                     if ret {
                         let _ = tx_cv.send(image);
                     }
+                }
+
+                if let Some(proc) = &mut proc {
+                    proc.end();
                 }
             })
             .context("Spawn thread")?;
@@ -142,6 +186,45 @@ fn handle_frames(
                     id: material.into(),
                 });
             }
+        }
+    }
+}
+
+fn handle_video_processors(
+    mut cmds: Commands,
+
+    cameras: Query<&VideoThread, With<Camera>>,
+    cameras_with_processor: Query<(&VideoThread, Ref<VideoProcessorFactory>), With<Camera>>,
+    mut removed: RemovedComponents<VideoProcessorFactory>,
+    mut errors: EventWriter<ErrorEvent>,
+) {
+    for entity in removed.read() {
+        if let Ok(thread) = cameras.get(entity) {
+            let rst = thread.3.send(None);
+            if rst.is_err() {
+                errors.send(anyhow!("Could not remove video processor").into());
+            }
+        } else {
+            // The whole entity probably despawned and the video thread will shutdown
+        }
+    }
+
+    for (thread, processor) in &cameras_with_processor {
+        if processor.is_changed() {
+            let proc_tx = thread.3.clone();
+            let processor = processor.0;
+
+            cmds.add(move |world: &mut World| {
+                let processor = (processor)(world);
+
+                let rst = proc_tx.send(Some(processor));
+                if rst.is_err() {
+                    let _ = world
+                        .resource::<Errors>()
+                        .0
+                        .send(anyhow!("Could not send new video processor"));
+                }
+            });
         }
     }
 }

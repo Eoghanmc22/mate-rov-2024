@@ -5,6 +5,7 @@ pub mod surface;
 pub mod ui;
 pub mod video_display_2d;
 pub mod video_display_3d;
+pub mod video_pipelines;
 pub mod video_stream;
 
 use std::time::Duration;

@@ -1,7 +1,7 @@
 use anyhow::Context;
 use bevy::{
     ptr::{OwningPtr, Ptr},
-    reflect::{FromType, Reflect},
+    reflect::FromType,
 };
 use bincode::Options;
 use serde::{Deserialize, Serialize};
@@ -85,7 +85,7 @@ impl ReflectSerdeAdapter {
 
 impl<T> FromType<T> for ReflectSerdeAdapter
 where
-    for<'a> T: Reflect + SerdeAdapter,
+    T: SerdeAdapter,
 {
     fn from_type() -> Self {
         Self {
