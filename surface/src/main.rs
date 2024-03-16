@@ -37,6 +37,7 @@ fn main() -> anyhow::Result<()> {
             tracy_frame_mark: false,
         })
         .insert_resource(VideoDisplay2DSettings { enabled: true })
+        .insert_resource(ClearColor(Color::rgb_u8(33, 34, 37)))
         .add_plugins((
             // Bevy Core
             DefaultPlugins.build().disable::<bevy::audio::AudioPlugin>(),

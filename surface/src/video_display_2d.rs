@@ -291,7 +291,6 @@ fn root(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
-                background_color: Color::RED.into(),
                 ..default()
             },
             RENDER_LAYERS,
@@ -306,7 +305,6 @@ fn root(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Column,
                     ..default()
                 },
-                background_color: Color::RED.into(),
                 ..default()
             },
             RENDER_LAYERS,
@@ -327,7 +325,6 @@ fn subroot(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
-                background_color: Color::RED.into(),
                 ..default()
             },
             RENDER_LAYERS,
@@ -343,7 +340,6 @@ fn subroot(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Column,
                     ..default()
                 },
-                background_color: Color::RED.into(),
                 ..default()
             },
             RENDER_LAYERS,
@@ -364,7 +360,6 @@ fn container(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
-                background_color: Color::BLUE.into(),
                 ..default()
             },
             RENDER_LAYERS,
@@ -380,7 +375,6 @@ fn container(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
-                background_color: Color::BLUE.into(),
                 ..default()
             },
             RENDER_LAYERS,
@@ -432,7 +426,6 @@ fn separator(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
-                background_color: Color::BLACK.into(),
                 ..default()
             },
             RENDER_LAYERS,
@@ -446,7 +439,6 @@ fn separator(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
-                background_color: Color::BLACK.into(),
                 ..default()
             },
             RENDER_LAYERS,
