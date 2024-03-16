@@ -99,15 +99,21 @@ fn stabalize_system(
         let error = Quat::from_rotation_arc(observed_up.into(), target_up.into());
         let error_colinear = Quat::from_rotation_arc_colinear(observed_up.into(), target_up.into());
 
-        let pitch_error = instant_twist(error_colinear, orientation.0 * Vec3A::X).to_degrees();
+        let pitch_error = instant_twist(error, orientation.0 * Vec3A::X).to_degrees();
         let roll_error = instant_twist(error, orientation.0 * Vec3A::Y).to_degrees();
 
-        let res_pitch = state
-            .pitch_controller
-            .update(pitch_error, pitch_pid_config, time.delta());
-        let res_roll = state
-            .roll_controller
-            .update(roll_error, roll_pid_config, time.delta());
+        let pitch_error_colinear =
+            instant_twist(error_colinear, orientation.0 * Vec3A::X).to_degrees();
+        let roll_error_adjusted = roll_error + (pitch_error - pitch_error_colinear);
+
+        let res_pitch =
+            state
+                .pitch_controller
+                .update(pitch_error_colinear, pitch_pid_config, time.delta());
+        let res_roll =
+            state
+                .roll_controller
+                .update(roll_error_adjusted, roll_pid_config, time.delta());
 
         let pitch_movement = Movement {
             force: Vec3A::ZERO,
