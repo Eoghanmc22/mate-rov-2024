@@ -16,6 +16,5 @@ impl PluginGroup for SensorPlugins {
             .add(power::PowerPlugin)
             .add(depth::DepthPlugin)
             .add(leak::LeakPlugin)
-            .build()
     }
 }

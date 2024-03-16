@@ -11,13 +11,18 @@ pub struct MovementPlugins;
 
 impl PluginGroup for MovementPlugins {
     fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::start::<Self>()
+        let plugins = PluginGroupBuilder::start::<Self>()
             .add(motor_setup::MotorSetupPlugin)
             .add(motor_math::MotorMathPlugin)
-            .add(pwm::PwmOutputPlugin)
             .add(stabilize::StabilizePlugin)
-            .add(depth_hold::DepthHoldPlugin)
-            .add(leds::LedPlugin)
-            .build()
+            .add(depth_hold::DepthHoldPlugin);
+
+        #[cfg(rpi)]
+        let plugins = plugins
+            // Plugins depending on robot hardware
+            .add(pwm::PwmOutputPlugin)
+            .add(leds::LedPlugin);
+
+        plugins
     }
 }

@@ -10,6 +10,5 @@ impl PluginGroup for CorePlugins {
         PluginGroupBuilder::start::<Self>()
             .add(robot::RobotPlugin)
             .add(state::StatePlugin)
-            .build()
     }
 }

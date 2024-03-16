@@ -34,7 +34,7 @@ pub fn error_channel(errors: Res<Errors>, mut events: EventWriter<ErrorEvent>) {
 
 pub fn read_errors(mut events: EventReader<ErrorEvent>) {
     for ErrorEvent(error) in events.read() {
-        error!("Error: {error:?}");
+        error!("{error:?}");
     }
 }
 

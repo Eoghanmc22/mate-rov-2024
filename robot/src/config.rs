@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]
 pub struct RobotConfig {
     pub name: String,
+    pub port: u16,
+
     pub motor_config: MotorConfigDefinition,
     pub motor_amperage_budget: f32,
 

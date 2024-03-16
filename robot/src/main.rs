@@ -25,6 +25,9 @@ fn main() -> anyhow::Result<()> {
     let config = fs::read_to_string("robot.toml").context("Read config")?;
     let config: RobotConfig = toml::from_str(&config).context("Parse config")?;
 
+    let name = config.name.clone();
+    let port = config.port;
+
     App::new()
         .insert_resource(config)
         .add_plugins((
@@ -51,8 +54,12 @@ fn main() -> anyhow::Result<()> {
                 FrameTimeDiagnosticsPlugin,
             ),
             (
-                CommonPlugins(SyncRole::Server),
+                CommonPlugins {
+                    role: SyncRole::Server { port },
+                    name,
+                },
                 CorePlugins,
+                #[cfg(rpi)]
                 SensorPlugins,
                 MovementPlugins,
                 MonitorPlugins,

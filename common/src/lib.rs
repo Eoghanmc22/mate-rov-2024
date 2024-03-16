@@ -10,6 +10,7 @@
 use bevy::{
     app::{Plugin, PluginGroup, PluginGroupBuilder},
     core::Name,
+    ecs::system::Resource,
     prelude::App,
     transform::components::Transform,
 };
@@ -52,12 +53,23 @@ impl Plugin for CommunicationTypes {
     }
 }
 
-pub struct CommonPlugins(pub SyncRole);
+pub struct CommonPlugins {
+    pub name: String,
+    pub role: SyncRole,
+}
+
+#[derive(Resource, Debug, Clone)]
+pub struct InstanceName(String);
 
 impl PluginGroup for CommonPlugins {
     fn build(self) -> PluginGroupBuilder {
+        let name = self.name;
+
         PluginGroupBuilder::start::<Self>()
-            .add(SyncPlugin(self.0))
+            .add(move |app: &mut App| {
+                app.insert_resource(InstanceName(name.clone()));
+            })
+            .add(SyncPlugin(self.role))
             .add(CommunicationTypes)
             .add(ChangeDetectionPlugin)
             .add(ChangeApplicationPlugin)

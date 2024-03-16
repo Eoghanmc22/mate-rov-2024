@@ -1,4 +1,7 @@
-use std::{net::SocketAddr, thread, usize};
+use std::{
+    net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
+    thread, usize,
+};
 
 use crate::{
     adapters,
@@ -9,19 +12,24 @@ use crate::{
         SerializedChangeInEvent, SerializedChangeOutEvent,
     },
     protocol::Protocol,
+    InstanceName,
 };
 use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, Context};
 use bevy::{app::AppExit, core::FrameCount, prelude::*};
 use crossbeam::channel::{self, Receiver};
+use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use networking::{Event as NetEvent, Messenger, Networking, Token as NetToken};
 
 use crate::error::{self, ErrorEvent, Errors};
 
+const SERVICE_TYPE: &str = "_bevy_ecs_sync._tcp.local.";
+
 pub struct SyncPlugin(pub SyncRole);
 
+#[derive(Resource, Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum SyncRole {
-    Server,
+    Server { port: u16 },
     Client,
 }
 
@@ -33,6 +41,7 @@ impl Plugin for SyncPlugin {
             .init_resource::<EntityMap>()
             .init_resource::<Deltas>()
             .init_resource::<Peers>()
+            .insert_resource(self.0)
             .add_event::<ConnectToPeer>()
             .add_event::<DisconnectPeer>()
             .add_event::<SyncPeer>()
@@ -51,13 +60,14 @@ impl Plugin for SyncPlugin {
             .add_systems(PostUpdate, net_write.after(ChangeDetectionSet))
             .add_systems(Last, shutdown);
 
-        match self.0 {
-            SyncRole::Server => {
-                app.add_systems(PostStartup, bind.pipe(error::handle_errors));
-            }
-            SyncRole::Client => {
-                app.add_systems(Update, connect.pipe(error::handle_errors));
-            }
+        if let SyncRole::Client = self.0 {
+            app.add_systems(
+                Update,
+                (
+                    connect.pipe(error::handle_errors),
+                    discover_peers.run_if(resource_exists::<MdnsBrowse>),
+                ),
+            );
         }
     }
 }
@@ -91,6 +101,20 @@ pub struct Latency {
     pub ping: Option<u32>,
 }
 
+#[derive(Resource)]
+pub struct MdnsDaemon(ServiceDaemon);
+
+#[derive(Resource)]
+pub struct MdnsBrowse(flume::Receiver<ServiceEvent>);
+
+#[derive(Resource, Default)]
+pub struct MdnsPeers(pub HashMap<String, DiscoveredPeer>);
+
+pub struct DiscoveredPeer {
+    pub info: ServiceInfo,
+    pub addresses: Vec<SocketAddr>,
+}
+
 #[derive(Event)]
 pub struct ConnectToPeer(pub SocketAddr);
 
@@ -100,13 +124,20 @@ pub struct DisconnectPeer(pub NetToken);
 #[derive(Event)]
 pub struct SyncPeer(pub NetToken);
 
-fn setup_networking(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
+fn setup_networking(
+    mut cmds: Commands,
+
+    role: Res<SyncRole>,
+    name: Res<InstanceName>,
+
+    errors: Res<Errors>,
+) -> anyhow::Result<()> {
     let networking = Networking::new().context("Start networking")?;
     let handle = networking.messenger();
 
     let (tx, rx) = channel::bounded(200);
 
-    cmds.insert_resource(Net(handle, rx));
+    cmds.insert_resource(Net(handle.clone(), rx));
 
     let errors = errors.0.clone();
     thread::Builder::new()
@@ -126,13 +157,41 @@ fn setup_networking(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<(
         })
         .context("Spawn thread")?;
 
-    Ok(())
-}
+    let mdns = ServiceDaemon::new().context("Could not create mdns daemon")?;
 
-fn bind(net: Res<Net>) -> anyhow::Result<()> {
-    net.0
-        .bind_at("0.0.0.0:44445".parse().context("Create socket address")?)
-        .context("Contact net thread")?;
+    match &*role {
+        SyncRole::Server { port } => {
+            // Bind server socket
+            let bind = (Ipv4Addr::new(0, 0, 0, 0), *port)
+                .to_socket_addrs()
+                .context("Resolve bind ip")?
+                .next()
+                .context("Take first bind ip")?;
+
+            handle.bind_at(bind).context("Contact net thread")?;
+
+            // Set up mdns service broadcasting
+            let hostname = hostname::get().context("Lookup hostname")?;
+            let hostname = hostname.to_str().unwrap();
+            let instance_name = &name.0;
+
+            let service_info =
+                ServiceInfo::new(SERVICE_TYPE, instance_name, hostname, (), *port, None)
+                    .context("Create service info")?
+                    .enable_addr_auto();
+
+            mdns.register(service_info)
+                .context("Register mdns service")?;
+        }
+        SyncRole::Client => {
+            // Set up mdns service discovery
+            let mdns_events = mdns.browse(SERVICE_TYPE).context("Begin search for peer")?;
+            cmds.insert_resource(MdnsBrowse(mdns_events));
+            cmds.init_resource::<MdnsPeers>();
+        }
+    }
+
+    cmds.insert_resource(MdnsDaemon(mdns));
 
     Ok(())
 }
@@ -151,6 +210,39 @@ fn disconnect(net: Res<Net>, mut events: EventReader<DisconnectPeer>) -> anyhow:
     }
 
     Ok(())
+}
+
+fn discover_peers(mut peers: ResMut<MdnsPeers>, browse: Res<MdnsBrowse>) {
+    for event in browse.0.try_iter() {
+        match event {
+            ServiceEvent::ServiceResolved(info) => {
+                let name = info.get_fullname().split('.').next().unwrap_or("Unknown");
+                let host = info.get_hostname();
+
+                info!("Discovered Peer: {}@{}local", name, host);
+
+                let addresses = info
+                    .get_addresses_v4()
+                    .iter()
+                    .flat_map(|address| {
+                        (**address, info.get_port())
+                            .to_socket_addrs()
+                            .into_iter()
+                            .flatten()
+                    })
+                    .collect();
+
+                peers.0.insert(
+                    info.get_fullname().to_owned(),
+                    DiscoveredPeer { info, addresses },
+                );
+            }
+            ServiceEvent::ServiceRemoved(_, name) => {
+                peers.0.remove(&name);
+            }
+            _ => {}
+        }
+    }
 }
 
 fn net_read(
@@ -307,7 +399,12 @@ fn spawn_peer_entities(
         });
 }
 
-fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWriter<ErrorEvent>) {
+fn shutdown(
+    net: Res<Net>,
+    mut exit: EventReader<AppExit>,
+    mdns: Option<Res<MdnsDaemon>>,
+    mut errors: EventWriter<ErrorEvent>,
+) {
     for _event in exit.read() {
         let rst = net.0.shutdown();
         if rst.is_err() {
@@ -317,6 +414,13 @@ fn shutdown(net: Res<Net>, mut exit: EventReader<AppExit>, mut errors: EventWrit
         let rst = net.0.wake();
         if rst.is_err() {
             errors.send(anyhow!("Could not wake net thread").into());
+        }
+
+        if let Some(mdns) = &mdns {
+            let rst = mdns.0.shutdown();
+            if rst.is_err() {
+                errors.send(anyhow!("Could not mdns daemon").into());
+            }
         }
     }
 }

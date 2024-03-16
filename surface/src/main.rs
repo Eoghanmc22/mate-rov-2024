@@ -61,7 +61,10 @@ fn main() -> anyhow::Result<()> {
             ),
             // MATE
             (
-                CommonPlugins(SyncRole::Client).build(),
+                CommonPlugins {
+                    name: "Drive Station".to_owned(),
+                    role: SyncRole::Client,
+                },
                 SurfacePlugin,
                 InputPlugin,
                 EguiUiPlugin,

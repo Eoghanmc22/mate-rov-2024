@@ -6,8 +6,6 @@ pub struct MonitorPlugins;
 
 impl PluginGroup for MonitorPlugins {
     fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::start::<Self>()
-            .add(hw_stat::HwStatPlugin)
-            .build()
+        PluginGroupBuilder::start::<Self>().add(hw_stat::HwStatPlugin)
     }
 }

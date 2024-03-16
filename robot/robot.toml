@@ -1,4 +1,5 @@
-name = "Demo"
+name = "Dark Shark"
+port = 44445
 motor_amperage_budget = 20.0
 
 # This is dummy data

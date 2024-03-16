@@ -10,7 +10,7 @@ use common::{
         Temperatures,
     },
     events::ResyncCameras,
-    sync::{ConnectToPeer, DisconnectPeer, Latency, Peer},
+    sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
 };
 use egui::{load::SizedTexture, widgets, Align, Color32, Layout, RichText};
 use tokio::net::lookup_host;
@@ -121,6 +121,8 @@ fn topbar(
 }
 
 fn hud(
+    mut cmds: Commands,
+
     mut host: Local<String>,
     runtime: ResMut<TokioTasksRuntime>,
 
@@ -145,6 +147,8 @@ fn hud(
         ),
         With<Robot>,
     >,
+
+    peers: Option<Res<MdnsPeers>>,
 ) {
     let context = contexts.ctx_mut();
 
@@ -175,7 +179,8 @@ fn hud(
                 let size = 20.0;
 
                 if let Some(attitude) = attitude {
-                    ui.image(SizedTexture::new(attitude.1, (250.0, 250.0)));
+                    let size = 250.0f32.max(ui.available_width());
+                    ui.image(SizedTexture::new(attitude.1, (size, size)));
 
                     ui.add_space(10.0);
                 }
@@ -353,6 +358,40 @@ fn hud(
                         });
                     }
                 });
+
+                if let Some(peers) = peers {
+                    let peers = &peers.0;
+
+                    if !peers.is_empty() {
+                        ui.add_space(15.0);
+
+                        ui.heading("Peers:");
+
+                        for peer in peers.values() {
+                            let name = peer
+                                .info
+                                .get_fullname()
+                                .split('.')
+                                .next()
+                                .unwrap_or("Unknown");
+                            let host = peer.info.get_hostname();
+
+                            ui.label(format!("{}@{}local", name, host));
+
+                            ui.indent(peer.info.get_fullname(), |ui| {
+                                for addrs in &peer.addresses {
+                                    let addrs = *addrs;
+
+                                    if ui.button(format!("{}", addrs.ip())).clicked() {
+                                        cmds.add(move |world: &mut World| {
+                                            world.send_event(ConnectToPeer(addrs));
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
             });
     }
 }

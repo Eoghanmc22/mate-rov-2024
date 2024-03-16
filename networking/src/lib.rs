@@ -79,7 +79,7 @@ pub enum Message<P> {
     Shutdown,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Messenger<P> {
     waker: Arc<Waker>,
     sender: Sender<Message<P>>,
