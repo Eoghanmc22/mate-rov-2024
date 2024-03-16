@@ -149,7 +149,7 @@ fn update_leds(
     mut leds: ResMut<LedChannels>,
     robot: Query<(&RobotStatus, &RobotId), With<LocalRobotMarker>>,
     thrusters: Query<(&PwmChannel, &PwmSignal, &RobotId)>,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     mut errors: EventReader<ErrorEvent>,
 ) {
     let now = time.elapsed_seconds_wrapped();

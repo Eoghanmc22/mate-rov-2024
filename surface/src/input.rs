@@ -10,6 +10,7 @@ use common::{
         Robot, RobotId,
     },
     ecs_sync::{NetId, Replicate},
+    types::units::Meters,
 };
 use leafwing_input_manager::{
     action_state::ActionState, axislike::SingleAxis, input_map::InputMap,
@@ -22,7 +23,8 @@ pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(InputManagerPlugin::<Action>::default())
+        app.register_type::<InputInterpolation>()
+            .add_plugins(InputManagerPlugin::<Action>::default())
             .add_systems(
                 Update,
                 (
@@ -32,8 +34,25 @@ impl Plugin for InputPlugin {
                     arm,
                     depth_hold,
                     leveling,
+                    trim_orientation,
+                    trim_depth,
                 ),
             );
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+pub struct InputInterpolation {
+    depth_mps: f32,
+    trim_dps: f32,
+}
+
+impl Default for InputInterpolation {
+    fn default() -> Self {
+        Self {
+            depth_mps: 1.5,
+            trim_dps: 90.0,
+        }
     }
 }
 
@@ -53,19 +72,21 @@ pub enum Action {
     // ResetGain,
     ToggleDepthHold,
     ToggleLeveling(LevelingType),
-    // TrimPitch,
-    // TrimPitchInverted,
-    // TrimRoll,
-    // TrimRollInverted,
 
     // SetRobotMode(),
     Surge,
+    SurgeInverted,
     Heave,
+    HeaveInverted,
     Sway,
+    SwayInverted,
 
     Pitch,
+    PitchInverted,
     Roll,
+    RollInverted,
     Yaw,
+    YawInverted,
     // HoldAxis,
 }
 
@@ -109,7 +130,6 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
         );
 
         input_map.insert(
-            // Action::Roll,
             Action::Sway,
             SingleAxis::symmetric(GamepadAxisType::RightStickX, 0.05),
         );
@@ -117,6 +137,18 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             Action::Heave,
             SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
         );
+
+        input_map.insert(
+            Action::Pitch,
+            SingleAxis::symmetric(GamepadAxisType::RightZ, 0.05),
+        );
+        input_map.insert(
+            Action::PitchInverted,
+            SingleAxis::symmetric(GamepadAxisType::LeftZ, 0.05),
+        );
+
+        input_map.insert(Action::Roll, GamepadButtonType::RightTrigger);
+        input_map.insert(Action::RollInverted, GamepadButtonType::LeftTrigger);
 
         cmds.spawn((
             InputManagerBundle::<Action> {
@@ -130,6 +162,7 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
                 contribution: MovementContribution(Movement::default()),
                 robot: RobotId(*robot),
             },
+            InputInterpolation::default(),
             InputMarker,
             Replicate,
         ));
@@ -156,24 +189,47 @@ fn handle_disconnected_robots(
 fn movement(
     mut cmds: Commands,
     inputs: Query<(Entity, &RobotId, &ActionState<Action>), With<InputMarker>>,
-    robots: Query<(&MovementAxisMaximums, &RobotId), With<Robot>>,
+    robots: Query<
+        (
+            &MovementAxisMaximums,
+            Option<&DepthTarget>,
+            Option<&OrientationTarget>,
+            &RobotId,
+        ),
+        With<Robot>,
+    >,
 ) {
     for (entity, robot, action_state) in &inputs {
-        let Some((MovementAxisMaximums(maximums), _)) =
-            robots.iter().find(|(_, robot_id)| robot_id.0 == robot.0)
+        let Some((MovementAxisMaximums(maximums), depth_target, orientation_target, _)) = robots
+            .iter()
+            .find(|(_, _, _, robot_id)| robot_id.0 == robot.0)
         else {
             error!("Could not find robot for input");
 
             continue;
         };
 
-        let x = action_state.value(&Action::Sway) * maximums[&Axis::X].0;
-        let y = action_state.value(&Action::Surge) * maximums[&Axis::Y].0;
-        let z = action_state.value(&Action::Heave) * maximums[&Axis::Z].0;
+        let x = action_state.value(&Action::Sway) * maximums[&Axis::X].0
+            - action_state.value(&Action::SwayInverted) * maximums[&Axis::X].0;
+        let y = action_state.value(&Action::Surge) * maximums[&Axis::Y].0
+            - action_state.value(&Action::SurgeInverted) * maximums[&Axis::Y].0;
+        let z = action_state.value(&Action::Heave) * maximums[&Axis::Z].0
+            - action_state.value(&Action::HeaveInverted) * maximums[&Axis::Z].0;
 
-        let x_rot = action_state.value(&Action::Pitch) * maximums[&Axis::XRot].0;
-        let y_rot = action_state.value(&Action::Roll) * maximums[&Axis::YRot].0;
-        let z_rot = action_state.value(&Action::Yaw) * maximums[&Axis::ZRot].0;
+        let x_rot = action_state.value(&Action::Pitch) * maximums[&Axis::XRot].0
+            - action_state.value(&Action::PitchInverted) * maximums[&Axis::XRot].0;
+        let y_rot = action_state.value(&Action::Roll) * maximums[&Axis::YRot].0
+            - action_state.value(&Action::RollInverted) * maximums[&Axis::YRot].0;
+        let z_rot = action_state.value(&Action::Yaw) * maximums[&Axis::ZRot].0
+            - action_state.value(&Action::YawInverted) * maximums[&Axis::ZRot].0;
+
+        let z = if depth_target.is_none() { z } else { 0.0 };
+
+        let (x_rot, y_rot) = if orientation_target.is_none() {
+            (x_rot, y_rot)
+        } else {
+            (0.0, 0.0)
+        };
 
         let movement = Movement {
             force: vec3a(x, y, z),
@@ -194,6 +250,7 @@ fn arm(
         let arm = action_state.just_pressed(&Action::Arm);
 
         let robot = robots.iter().find(|&(_, other_robot)| robot == other_robot);
+
         if let Some((robot, _)) = robot {
             if disarm {
                 info!("Disarming");
@@ -219,6 +276,7 @@ fn depth_hold(
         let robot = robots
             .iter()
             .find(|&(_, _, _, other_robot)| robot == other_robot);
+
         if let Some((robot, depth, depth_target, _)) = robot {
             if toggle {
                 match depth_target {
@@ -254,25 +312,100 @@ fn leveling(
         let robot = robots
             .iter()
             .find(|&(_, _, other_robot)| robot == other_robot);
+
         if let Some((robot, orientation_target, _)) = robot {
             if toggle_upright || toggle_inverted {
+                let new_target = if toggle_upright {
+                    Vec3A::Z
+                } else {
+                    Vec3A::NEG_Z
+                };
+
                 match orientation_target {
-                    Some(_) => {
+                    Some(old_target) if old_target.0 == new_target => {
                         info!("Clear Depth Hold");
                         cmds.entity(robot).remove::<OrientationTarget>();
                     }
-                    None => {
+                    _ => {
                         if toggle_upright {
                             info!("Set Level Upright");
-                            cmds.entity(robot).insert(OrientationTarget(Vec3A::Z));
-                        } else if toggle_inverted {
+                        } else {
                             info!("Set Level Inverted");
-                            cmds.entity(robot).insert(OrientationTarget(Vec3A::NEG_Z));
                         }
+
+                        cmds.entity(robot).insert(OrientationTarget(Vec3A::Z));
                     }
                 }
             }
         } else if toggle_upright || toggle_inverted {
+            warn!("No ROV attached");
+        }
+    }
+}
+
+fn trim_orientation(
+    mut cmds: Commands,
+    inputs: Query<(&RobotId, &ActionState<Action>, &InputInterpolation), With<InputMarker>>,
+    robots: Query<(Entity, Option<&OrientationTarget>, &RobotId), With<Robot>>,
+    time: Res<Time<Real>>,
+) {
+    for (robot, action_state, interpolation) in &inputs {
+        let pitch = action_state.value(&Action::Pitch) - action_state.value(&Action::PitchInverted);
+        let roll = action_state.value(&Action::Roll) - action_state.value(&Action::RollInverted);
+
+        let robot = robots
+            .iter()
+            .find(|&(_, _, other_robot)| robot == other_robot);
+
+        if let Some((robot, orientation_target, _)) = robot {
+            let Some(&OrientationTarget(mut orientation_target)) = orientation_target else {
+                continue;
+            };
+
+            if pitch != 0.0 {
+                let input = pitch * interpolation.trim_dps * time.delta_seconds();
+                orientation_target = Quat::from_rotation_x(input) * orientation_target;
+            }
+
+            if roll != 0.0 {
+                let input = roll * interpolation.trim_dps * time.delta_seconds();
+                orientation_target = Quat::from_rotation_y(input) * orientation_target;
+            }
+
+            if pitch != 0.0 || roll != 0.0 {
+                cmds.entity(robot)
+                    .insert(OrientationTarget(orientation_target));
+            }
+        } else if pitch != 0.0 || roll != 0.0 {
+            warn!("No ROV attached");
+        }
+    }
+}
+
+fn trim_depth(
+    mut cmds: Commands,
+    inputs: Query<(&RobotId, &ActionState<Action>, &InputInterpolation), With<InputMarker>>,
+    robots: Query<(Entity, Option<&DepthTarget>, &RobotId), With<Robot>>,
+    time: Res<Time<Real>>,
+) {
+    for (robot, action_state, interpolation) in &inputs {
+        let z = action_state.value(&Action::Heave) - action_state.value(&Action::HeaveInverted);
+
+        let robot = robots
+            .iter()
+            .find(|&(_, _, other_robot)| robot == other_robot);
+
+        if let Some((robot, depth_target, _)) = robot {
+            let Some(&DepthTarget(Meters(mut depth_target))) = depth_target else {
+                continue;
+            };
+
+            if z != 0.0 {
+                let input = z * interpolation.depth_mps * time.delta_seconds();
+                depth_target -= input;
+                cmds.entity(robot).insert(DepthTarget(depth_target.into()));
+            }
+        } else if z != 0.0 {
             warn!("No ROV attached");
         }
     }
