@@ -123,7 +123,7 @@ pub enum RobotStatus {
     /// Peer is connected and robot is disarmed
     Disarmed,
     /// Peer is connected and robot is armed
-    Ready,
+    Armed,
 }
 
 #[derive(

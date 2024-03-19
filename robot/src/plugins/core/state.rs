@@ -19,20 +19,28 @@ impl Plugin for StatePlugin {
 fn update_state(
     mut cmds: Commands,
     peers: Query<&Peer>,
-    robot: Query<(Entity, Option<&Armed>), With<LocalRobotMarker>>,
+    robot: Query<(Entity, Option<&RobotStatus>, Option<&Armed>), With<LocalRobotMarker>>,
 ) {
-    let (robot, armed) = robot.single();
+    let (robot, status, armed) = robot.single();
     let mut robot = cmds.entity(robot);
 
     if !peers.is_empty() {
-        if let Some(Armed::Armed) = armed {
-            robot.insert(RobotStatus::Ready);
-            // TODO(mid): Moving state
-        } else {
-            robot.insert(RobotStatus::Disarmed);
+        match armed {
+            Some(Armed::Armed) => {
+                if status != Some(&RobotStatus::Armed) {
+                    robot.insert(RobotStatus::Armed);
+                }
+            }
+            _ => {
+                if status != Some(&RobotStatus::Disarmed) {
+                    robot.insert(RobotStatus::Disarmed);
+                }
+            }
         }
     } else {
-        robot.insert(RobotStatus::NoPeer);
+        if status != Some(&RobotStatus::NoPeer) {
+            robot.insert(RobotStatus::NoPeer);
+        }
 
         // The robot should be disarmed when there are no peers controlling it
         if let Some(Armed::Armed) = armed {
@@ -44,7 +52,7 @@ fn update_state(
 fn log_state_transition(robot: Query<Ref<RobotStatus>, With<LocalRobotMarker>>) {
     for status in &robot {
         if status.is_changed() {
-            info!("Robot State: {status:?}");
+            info!("Robot State: {:?}", *status);
         }
     }
 }
