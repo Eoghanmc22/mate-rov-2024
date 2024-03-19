@@ -7,7 +7,7 @@ use common::{
     components::{
         Armed, CpuTotal, CurrentDraw, Depth, DepthTarget, Inertial, LoadAverage, MeasuredVoltage,
         Memory, OrientationTarget, PwmChannel, PwmManualControl, PwmSignal, Robot, RobotId,
-        Temperatures,
+        RobotStatus, Temperatures,
     },
     events::ResyncCameras,
     sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
@@ -46,6 +46,8 @@ pub struct PwmControl(bool);
 fn topbar(
     mut cmds: Commands,
     mut contexts: EguiContexts,
+
+    robots: Query<(&Name, &RobotStatus), With<Robot>>,
 
     inspector: Option<Res<ShowInspector>>,
     pwm_control: Option<Res<PwmControl>>,
@@ -113,8 +115,22 @@ fn topbar(
 
             // RTL needs reverse order
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label("RHS");
-                ui.label("Test");
+                if !robots.is_empty() {
+                    for (robot, state) in &robots {
+                        let color = match state {
+                            RobotStatus::NoPeer => Color32::WHITE,
+                            RobotStatus::Disarmed => Color32::RED,
+                            RobotStatus::Armed => Color32::GREEN,
+                        };
+
+                        ui.label(RichText::new(format!("{state:?}")).color(color));
+                        ui.label(format!("{}: ", robot.as_str()));
+                    }
+                } else {
+                    ui.label(
+                        RichText::new(format!("{:?}", RobotStatus::NoPeer)).color(Color32::WHITE),
+                    );
+                }
             })
         });
     });
@@ -149,6 +165,8 @@ fn hud(
     >,
 
     peers: Option<Res<MdnsPeers>>,
+
+    mut disconnect: EventWriter<DisconnectPeer>,
 ) {
     let context = contexts.ctx_mut();
 
@@ -170,157 +188,166 @@ fn hud(
         latency,
     )) = robots.get_single()
     {
-        egui::Window::new(robot_name.as_str())
+        let mut open = true;
+
+        let window = egui::Window::new(robot_name.as_str())
             .id("HUD".into())
             .current_pos(context.screen_rect().right_top())
             .constrain_to(context.available_rect().shrink(20.0))
-            .movable(false)
-            .show(context, |ui| {
-                let size = 20.0;
+            .movable(false);
 
-                if let Some(attitude) = attitude {
-                    let size = 250.0f32.max(ui.available_width());
-                    ui.image(SizedTexture::new(attitude.1, (size, size)));
+        let window = if let Some(peer) = peer {
+            window.open(&mut open)
+        } else {
+            window
+        };
 
-                    ui.add_space(10.0);
-                }
+        window.show(context, |ui| {
+            let size = 20.0;
 
-                if let Some(armed) = armed {
-                    ui.horizontal(|ui| {
-                        ui.label(RichText::new("Status:").size(size));
-                        match armed {
-                            Armed::Armed => {
-                                ui.label(RichText::new("Armed").size(size).color(Color32::GREEN));
-                            }
-                            Armed::Disarmed => {
-                                ui.label(RichText::new("Disarmed").size(size).color(Color32::RED));
-                            }
-                        }
-                    });
+            if let Some(attitude) = attitude {
+                let size = 250.0f32.max(ui.available_width());
+                ui.image(SizedTexture::new(attitude.1, (size, size)));
 
-                    ui.add_space(10.0);
-                }
+                ui.add_space(10.0);
+            }
 
-                if let (Some(voltage), Some(current)) = (voltage, current_draw) {
-                    ui.horizontal(|ui| {
-                        ui.label(RichText::new("Power:").size(size));
+            // if let Some(armed) = armed {
+            //     ui.horizontal(|ui| {
+            //         ui.label(RichText::new("Status:").size(size));
+            //         match armed {
+            //             Armed::Armed => {
+            //                 ui.label(RichText::new("Armed").size(size).color(Color32::GREEN));
+            //             }
+            //             Armed::Disarmed => {
+            //                 ui.label(RichText::new("Disarmed").size(size).color(Color32::RED));
+            //             }
+            //         }
+            //     });
+            //
+            //     ui.add_space(10.0);
+            // }
 
-                        let voltage_color;
-                        if voltage.0 .0 < 11.5 {
-                            voltage_color = Color32::RED;
-                        } else if voltage.0 .0 < 12.5 {
-                            voltage_color = Color32::YELLOW;
-                        } else {
-                            voltage_color = Color32::GREEN;
-                        }
+            if let (Some(voltage), Some(current)) = (voltage, current_draw) {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Power:").size(size));
 
-                        let current_color;
-                        if current.0 .0 < 15.0 {
-                            current_color = Color32::GREEN;
-                        } else if current.0 .0 < 20.0 {
-                            current_color = Color32::YELLOW;
-                        } else {
-                            current_color = Color32::RED;
-                        }
-
-                        ui.label(
-                            RichText::new(format!("{}", voltage.0))
-                                .size(size)
-                                .color(voltage_color),
-                        );
-                        ui.label(
-                            RichText::new(format!("{}", current.0))
-                                .size(size)
-                                .color(current_color),
-                        );
-                    });
-
-                    ui.add_space(10.0);
-                }
-
-                if let (Some(peer), Some(latency)) = (peer, latency) {
-                    ui.horizontal(|ui| {
-                        ui.label(RichText::new("Address:").size(size));
-                        ui.label(RichText::new(format!("{:?}", peer.addrs)).size(size * 0.75));
-                    });
-
-                    if let Some(ping) = latency.ping {
-                        ui.label(RichText::new(format!("Ping: {:.2?} frames", ping)).size(size));
-                    }
-
-                    ui.add_space(10.0);
-                }
-
-                if let Some(cpu) = cpu {
-                    ui.label(RichText::new(format!("CPU: {:.2}%", cpu.0.usage)).size(size));
-                }
-                if let Some(load) = load {
-                    ui.label(
-                        RichText::new(format!(
-                            "Load: {:.2}, {:.2}, {:.2}",
-                            load.one_min, load.five_min, load.fifteen_min
-                        ))
-                        .size(size),
-                    );
-                }
-
-                if let Some(memory) = memory {
-                    let ram_usage = memory.used_mem as f64 / memory.total_mem as f64 * 100.0;
-                    ui.label(RichText::new(format!("RAM: {:.2}%", ram_usage)).size(size));
-                }
-
-                if cpu.is_some() || load.is_some() || memory.is_some() {
-                    ui.add_space(10.0);
-                }
-
-                if let Some(inertial) = inertial {
-                    ui.label(
-                        RichText::new(format!("IMU Temp: {}", inertial.0.tempature)).size(size),
-                    );
-                }
-
-                if let Some(temps) = temps {
-                    for temp in &temps.0 {
-                        ui.label(
-                            RichText::new(format!("{}: {}", temp.name, temp.tempature)).size(size),
-                        );
-                    }
-                }
-
-                if let Some(depth) = depth {
-                    ui.label(
-                        RichText::new(format!("Water Temp: {}", depth.0.temperature)).size(size),
-                    );
-                }
-
-                if inertial.is_some() || temps.is_some() {
-                    ui.add_space(10.0);
-                }
-
-                if let Some(depth) = depth {
-                    ui.label(RichText::new(format!("Depth: {}", depth.0.depth)).size(size));
-
-                    if let Some(depth_target) = depth_target {
-                        ui.label(
-                            RichText::new(format!("Depth Target: {}", depth_target.0)).size(size),
-                        );
-                    }
-
-                    ui.add_space(10.0);
-                }
-
-                if let Some(orientation_target) = orientation_target {
-                    let target = if orientation_target.0 == Vec3A::Z {
-                        "Upright"
-                    } else if orientation_target.0 == Vec3A::NEG_Z {
-                        "Inverted"
+                    let voltage_color;
+                    if voltage.0 .0 < 11.5 {
+                        voltage_color = Color32::RED;
+                    } else if voltage.0 .0 < 12.5 {
+                        voltage_color = Color32::YELLOW;
                     } else {
-                        "Custom"
-                    };
+                        voltage_color = Color32::GREEN;
+                    }
 
-                    RichText::new(format!("Orientation Target: {target}")).size(size);
+                    let current_color;
+                    if current.0 .0 < 15.0 {
+                        current_color = Color32::GREEN;
+                    } else if current.0 .0 < 20.0 {
+                        current_color = Color32::YELLOW;
+                    } else {
+                        current_color = Color32::RED;
+                    }
+
+                    ui.label(
+                        RichText::new(format!("{}", voltage.0))
+                            .size(size)
+                            .color(voltage_color),
+                    );
+                    ui.label(
+                        RichText::new(format!("{}", current.0))
+                            .size(size)
+                            .color(current_color),
+                    );
+                });
+
+                ui.add_space(10.0);
+            }
+
+            if let (Some(peer), Some(latency)) = (peer, latency) {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Address:").size(size));
+                    ui.label(RichText::new(format!("{:?}", peer.addrs)).size(size * 0.75));
+                });
+
+                if let Some(ping) = latency.ping {
+                    ui.label(RichText::new(format!("Ping: {:.2?} frames", ping)).size(size));
                 }
-            });
+
+                ui.add_space(10.0);
+            }
+
+            if let Some(cpu) = cpu {
+                ui.label(RichText::new(format!("CPU: {:.2}%", cpu.0.usage)).size(size));
+            }
+            if let Some(load) = load {
+                ui.label(
+                    RichText::new(format!(
+                        "Load: {:.2}, {:.2}, {:.2}",
+                        load.one_min, load.five_min, load.fifteen_min
+                    ))
+                    .size(size),
+                );
+            }
+
+            if let Some(memory) = memory {
+                let ram_usage = memory.used_mem as f64 / memory.total_mem as f64 * 100.0;
+                ui.label(RichText::new(format!("RAM: {:.2}%", ram_usage)).size(size));
+            }
+
+            if cpu.is_some() || load.is_some() || memory.is_some() {
+                ui.add_space(10.0);
+            }
+
+            if let Some(inertial) = inertial {
+                ui.label(RichText::new(format!("IMU Temp: {}", inertial.0.tempature)).size(size));
+            }
+
+            if let Some(temps) = temps {
+                for temp in &temps.0 {
+                    ui.label(
+                        RichText::new(format!("{}: {}", temp.name, temp.tempature)).size(size),
+                    );
+                }
+            }
+
+            if let Some(depth) = depth {
+                ui.label(RichText::new(format!("Water Temp: {}", depth.0.temperature)).size(size));
+            }
+
+            if inertial.is_some() || temps.is_some() {
+                ui.add_space(10.0);
+            }
+
+            if let Some(depth) = depth {
+                ui.label(RichText::new(format!("Depth: {}", depth.0.depth)).size(size));
+
+                if let Some(depth_target) = depth_target {
+                    ui.label(RichText::new(format!("Depth Target: {}", depth_target.0)).size(size));
+                }
+
+                ui.add_space(10.0);
+            }
+
+            if let Some(orientation_target) = orientation_target {
+                let target = if orientation_target.0 == Vec3A::Z {
+                    "Upright"
+                } else if orientation_target.0 == Vec3A::NEG_Z {
+                    "Inverted"
+                } else {
+                    "Custom"
+                };
+
+                RichText::new(format!("Orientation Target: {target}")).size(size);
+            }
+        });
+
+        if let Some(peer) = peer {
+            if !open {
+                disconnect.send(DisconnectPeer(peer.token));
+            }
+        }
     } else {
         egui::Window::new("Not Connected")
             .id("HUD".into())
