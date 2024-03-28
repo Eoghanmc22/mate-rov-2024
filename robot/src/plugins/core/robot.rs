@@ -3,9 +3,8 @@ use common::{
     bundles::RobotCoreBundle,
     components::{Robot, RobotId, RobotStatus, Singleton},
     ecs_sync::{NetId, Replicate},
+    InstanceName,
 };
-
-use crate::config::RobotConfig;
 
 pub struct RobotPlugin;
 
@@ -24,13 +23,13 @@ impl Plugin for RobotPlugin {
     }
 }
 
-fn setup_robot(mut cmds: Commands, config: Res<RobotConfig>) {
+fn setup_robot(mut cmds: Commands, name: Res<InstanceName>) {
     let net_id = NetId::random();
 
     let robot = cmds
         .spawn((
             RobotCoreBundle {
-                name: Name::new(config.name.clone()),
+                name: Name::new(name.0.clone()),
                 status: RobotStatus::default(),
                 robot_id: RobotId(net_id),
                 marker: Robot,

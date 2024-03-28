@@ -108,7 +108,7 @@ fn update_aspect_ratio(
             let aspect_ratio = image.aspect_ratio();
 
             let mesh_width = 2.0;
-            let mesh_height = mesh_width * f32::from(aspect_ratio);
+            let mesh_height = mesh_width / f32::from(aspect_ratio);
 
             let mesh = meshes.add(Rectangle::new(mesh_width, mesh_height));
 

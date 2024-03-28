@@ -79,7 +79,7 @@ fn apply_changes(
             }
             SerializedChange::ComponentUpdated(forign, token, Some(serialized)) => {
                 let Some(&local) = entity_map.forign_to_local.get(forign) else {
-                    error!("Got update for unknown entity");
+                    error!("Got update for unknown entity: {token}");
                     continue;
                 };
 

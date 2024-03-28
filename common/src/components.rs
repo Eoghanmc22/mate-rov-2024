@@ -138,7 +138,7 @@ pub enum Armed {
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Eq)]
 #[reflect(from_reflect = false)]
-#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, /*Serialize, Deserialize,*/ Debug, PartialEq)]
 pub struct Camera {
     // TODO(low): This bad
     #[reflect(ignore)]
@@ -221,7 +221,7 @@ pub struct ActualForce(pub Newtons);
 pub struct MotorDefinition(pub ErasedMotorId, pub Motor);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
-#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+#[reflect(SerdeAdapter, /*Serialize, Deserialize,*/ Debug, PartialEq)]
 #[reflect(from_reflect = false)]
 pub struct Motors(
     // TODO(low): This bad
@@ -245,7 +245,7 @@ pub struct MeasuredVoltage(pub Volts);
 pub struct MovementContribution(pub Movement);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
-#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[reflect(SerdeAdapter, /*Serialize, Deserialize,*/ Debug, PartialEq, Default)]
 #[reflect(from_reflect = false)]
 pub struct MotorContribution(
     // TODO(low): This bad

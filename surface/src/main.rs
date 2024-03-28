@@ -29,7 +29,7 @@ use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
 
 fn main() -> anyhow::Result<()> {
-    info!("---------- Starting Drive Station ----------");
+    info!("---------- Starting Control Station ----------");
 
     // FIXME(high): Times out when focus is lost
     App::new()
@@ -64,7 +64,7 @@ fn main() -> anyhow::Result<()> {
             // MATE
             (
                 CommonPlugins {
-                    name: "Drive Station".to_owned(),
+                    name: "Control Station".to_owned(),
                     role: SyncRole::Client,
                 },
                 SurfacePlugin,
@@ -85,7 +85,7 @@ fn main() -> anyhow::Result<()> {
         ))
         .run();
 
-    info!("---------- Drive Station Exited Cleanly ----------");
+    info!("---------- Control Station Exited Cleanly ----------");
 
     Ok(())
 }

@@ -200,9 +200,7 @@ fn update_aspect_ratio(
                 if handle.id() == *id {
                     let aspect_ratio = images
                         .get(handle)
-                        // For some reason the image's aspect ratio is height/width
-                        // and style's aspect ratio is width/height
-                        .map(|it| 1.0 / f32::from(it.aspect_ratio()))
+                        .map(|it| f32::from(it.aspect_ratio()))
                         .unwrap_or(16.0 / 9.0);
 
                     // We dont want to unnecessarially trigger anyone's change detection

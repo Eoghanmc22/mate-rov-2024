@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use common::{
     components::{Singleton, Surface},
     ecs_sync::Replicate,
+    InstanceName,
 };
 
 pub struct SurfacePlugin;
@@ -17,17 +18,20 @@ pub struct LocalSurface {
 
 impl Plugin for SurfacePlugin {
     fn build(&self, app: &mut App) {
-        let surface = app
-            .world
-            .spawn((
-                Name::new("Control Station"),
-                Surface,
-                LocalSurfaceMarker,
-                Replicate,
-                Singleton,
-            ))
-            .id();
-
-        app.world.insert_resource(LocalSurface { entity: surface })
+        app.add_systems(PreStartup, setup_surface);
     }
+}
+
+fn setup_surface(mut cmds: Commands, name: Res<InstanceName>) {
+    let surface = cmds
+        .spawn((
+            Name::new(name.0.clone()),
+            Surface,
+            LocalSurfaceMarker,
+            Replicate,
+            Singleton,
+        ))
+        .id();
+
+    cmds.insert_resource(LocalSurface { entity: surface })
 }

@@ -59,7 +59,7 @@ pub struct CommonPlugins {
 }
 
 #[derive(Resource, Debug, Clone)]
-pub struct InstanceName(String);
+pub struct InstanceName(pub String);
 
 impl PluginGroup for CommonPlugins {
     fn build(self) -> PluginGroupBuilder {

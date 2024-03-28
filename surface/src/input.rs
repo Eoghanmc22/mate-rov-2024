@@ -50,8 +50,8 @@ pub struct InputInterpolation {
 impl Default for InputInterpolation {
     fn default() -> Self {
         Self {
-            depth_mps: 1.5,
-            trim_dps: 90.0,
+            depth_mps: 0.3,
+            trim_dps: 15.0,
         }
     }
 }
@@ -138,17 +138,20 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
         );
 
-        input_map.insert(
-            Action::Pitch,
-            SingleAxis::symmetric(GamepadAxisType::RightZ, 0.05),
-        );
-        input_map.insert(
-            Action::PitchInverted,
-            SingleAxis::symmetric(GamepadAxisType::LeftZ, 0.05),
-        );
+        // input_map.insert(
+        //     Action::Pitch,
+        //     SingleAxis::symmetric(GamepadAxisType::RightZ, 0.05),
+        // );
+        // input_map.insert(
+        //     Action::PitchInverted,
+        //     SingleAxis::symmetric(GamepadAxisType::LeftZ, 0.05),
+        // );
 
-        input_map.insert(Action::Roll, GamepadButtonType::RightTrigger);
-        input_map.insert(Action::RollInverted, GamepadButtonType::LeftTrigger);
+        input_map.insert(Action::Pitch, GamepadButtonType::RightTrigger);
+        input_map.insert(Action::PitchInverted, GamepadButtonType::LeftTrigger);
+
+        input_map.insert(Action::Roll, GamepadButtonType::RightTrigger2);
+        input_map.insert(Action::RollInverted, GamepadButtonType::LeftTrigger2);
 
         cmds.spawn((
             InputManagerBundle::<Action> {
@@ -403,6 +406,9 @@ fn trim_depth(
             if z != 0.0 {
                 let input = z * interpolation.depth_mps * time.delta_seconds();
                 depth_target -= input;
+                if depth_target < 0.1 {
+                    depth_target = 0.1;
+                }
                 cmds.entity(robot).insert(DepthTarget(depth_target.into()));
             }
         } else if z != 0.0 {

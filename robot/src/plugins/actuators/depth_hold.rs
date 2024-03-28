@@ -38,7 +38,7 @@ fn setup_depth_hold(mut cmds: Commands, robot: Res<LocalRobot>) {
                 kp: 150.0,
                 ki: 10.0,
                 kd: 0.0,
-                max_integral: 5.0,
+                max_integral: 3.0,
             },
             Replicate,
         ))
