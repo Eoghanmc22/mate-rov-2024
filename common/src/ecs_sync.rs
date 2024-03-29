@@ -35,6 +35,11 @@ use crate::{
 pub struct NetId(u128);
 
 impl NetId {
+    // FIXME: Should use Option and non zero
+    pub fn invalid() -> Self {
+        Self(0)
+    }
+
     pub fn random() -> Self {
         Self(rand::random())
     }

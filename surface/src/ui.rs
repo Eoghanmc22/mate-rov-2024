@@ -4,18 +4,21 @@ use bevy::{app::AppExit, math::Vec3A, prelude::*};
 use bevy_egui::{EguiContexts, EguiPlugin};
 use bevy_tokio_tasks::TokioTasksRuntime;
 use common::{
+    bundles::MovementContributionBundle,
     components::{
         Armed, CpuTotal, CurrentDraw, Depth, DepthTarget, Inertial, LoadAverage, MeasuredVoltage,
-        Memory, OrientationTarget, PwmChannel, PwmManualControl, PwmSignal, Robot, RobotId,
-        RobotStatus, Temperatures,
+        Memory, MovementAxisMaximums, MovementContribution, OrientationTarget, PwmChannel,
+        PwmManualControl, PwmSignal, Robot, RobotId, RobotStatus, Temperatures,
     },
+    ecs_sync::NetId,
     events::{CalibrateSeaLevel, ResyncCameras},
     sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
 };
 use egui::{
-    load::SizedTexture, text::LayoutJob, widgets, Align, Color32, Layout, RichText, Style,
-    TextFormat, Visuals,
+    load::SizedTexture, text::LayoutJob, widgets, Align, Color32, Id, Label, Layout, RichText,
+    Style, TextFormat, Visuals,
 };
+use motor_math::{solve::reverse::Axis, Movement};
 use tokio::net::lookup_host;
 
 use crate::{attitude::OrientationDisplay, DARK_MODE};
@@ -30,6 +33,7 @@ impl Plugin for EguiUiPlugin {
             (
                 topbar,
                 hud.after(topbar),
+                movement_control.after(topbar),
                 pwm_control
                     .after(topbar)
                     .run_if(resource_exists::<PwmControl>),
@@ -46,6 +50,9 @@ pub struct ShowInspector;
 
 #[derive(Resource)]
 pub struct PwmControl(bool);
+
+#[derive(Component)]
+pub struct MovementController;
 
 fn set_style(mut contexts: EguiContexts) {
     contexts.ctx_mut().set_visuals(if DARK_MODE {
@@ -127,6 +134,17 @@ fn topbar(
                     } else {
                         cmds.insert_resource(ShowInspector);
                     }
+                }
+
+                if ui.button("Movement Controller").clicked() {
+                    cmds.spawn((
+                        MovementController,
+                        MovementContributionBundle {
+                            name: Name::new("Manual Movement Controller"),
+                            contribution: Default::default(),
+                            robot: RobotId(NetId::invalid()),
+                        },
+                    ));
                 }
 
                 if ui
@@ -305,7 +323,7 @@ fn hud(
             .constrain_to(context.available_rect().shrink(20.0))
             .movable(false);
 
-        let window = if let Some(peer) = peer {
+        let window = if let Some(_peer) = peer {
             window.open(&mut open)
         } else {
             window
@@ -603,5 +621,105 @@ fn cleanup_pwm_control(mut cmds: Commands, robots: Query<Entity, With<Robot>>) {
     info!("Disabled manual control");
     for robot in &robots {
         cmds.entity(robot).remove::<PwmManualControl>();
+    }
+}
+
+fn movement_control(
+    mut cmds: Commands,
+    mut contexts: EguiContexts,
+
+    mut controllers: Query<
+        (Entity, &mut RobotId, &mut MovementContribution),
+        (With<MovementController>, Without<Robot>),
+    >,
+    robots: Query<(&Name, &RobotId, &MovementAxisMaximums), With<Robot>>,
+    // motors: Query<(Entity, Option<&PwmSignal>, &PwmChannel, &RobotId)>,
+) {
+    for (contoller, mut selected_robot, mut contribution) in &mut controllers {
+        let mut open = true;
+
+        let context = contexts.ctx_mut();
+        egui::Window::new("Movement Controller")
+            .id(Id::new(contoller))
+            .constrain_to(context.available_rect().shrink(20.0))
+            .open(&mut open)
+            .show(context, |ui| {
+                ui.label("Robot:");
+                let Some(maximums) = ui
+                    .horizontal(|ui| {
+                        let mut maximums = None;
+
+                        for (name, robot_id, this_maximums) in &robots {
+                            ui.selectable_value(&mut selected_robot.0, robot_id.0, name.as_str());
+
+                            if selected_robot.0 == robot_id.0 {
+                                maximums = Some(this_maximums.0.clone());
+                            }
+                        }
+                        ui.selectable_value(&mut selected_robot.0, NetId::invalid(), "None");
+
+                        if selected_robot.0 != NetId::invalid() {
+                            maximums
+                        } else {
+                            None
+                        }
+                    })
+                    .inner
+                else {
+                    return;
+                };
+
+                let mut movement = contribution.0;
+
+                ui.horizontal(|ui| {
+                    ui.add_sized([40.0, 0.0], Label::new("X:"));
+                    let max = maximums[&Axis::X].0;
+                    ui.add(widgets::Slider::new(&mut movement.force.x, -max..=max));
+                });
+
+                ui.horizontal(|ui| {
+                    ui.add_sized([40.0, 0.0], Label::new("Y:"));
+                    let max = maximums[&Axis::Y].0;
+                    ui.add(widgets::Slider::new(&mut movement.force.y, -max..=max));
+                });
+
+                ui.horizontal(|ui| {
+                    ui.add_sized([40.0, 0.0], Label::new("Z:"));
+                    let max = maximums[&Axis::Z].0;
+                    ui.add(widgets::Slider::new(&mut movement.force.z, -max..=max));
+                });
+
+                ui.horizontal(|ui| {
+                    ui.add_sized([40.0, 0.0], Label::new("Pitch"));
+                    let max = maximums[&Axis::XRot].0;
+                    ui.add(widgets::Slider::new(&mut movement.torque.x, -max..=max));
+                });
+
+                ui.horizontal(|ui| {
+                    ui.add_sized([40.0, 0.0], Label::new("Roll:"));
+                    let max = maximums[&Axis::YRot].0;
+                    ui.add(widgets::Slider::new(&mut movement.torque.y, -max..=max));
+                });
+
+                ui.horizontal(|ui| {
+                    ui.add_sized([40.0, 0.0], Label::new("Yaw:"));
+                    let max = maximums[&Axis::ZRot].0;
+                    ui.add(widgets::Slider::new(&mut movement.torque.z, -max..=max));
+                });
+
+                ui.add_space(7.0);
+
+                if ui.button("Clear").clicked() {
+                    movement = Movement::default();
+                }
+
+                if movement != contribution.0 {
+                    contribution.0 = movement;
+                }
+            });
+
+        if !open {
+            cmds.entity(contoller).despawn();
+        }
     }
 }
