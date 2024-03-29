@@ -15,7 +15,7 @@ use crate::{
     types::{
         hw::{DepthFrame, InertialFrame, MagneticFrame, PwmChannelId},
         system::{ComponentTemperature, Cpu, Disk, Network, Process},
-        units::{Amperes, Meters, Newtons, Volts},
+        units::{Amperes, Mbar, Meters, Newtons, Volts},
     },
 };
 
@@ -38,6 +38,7 @@ components! {
     Magnetic,
     Depth,
     DepthTarget,
+    DepthSettings,
     OrientationTarget,
     Leak,
     RobotStatus,
@@ -105,6 +106,13 @@ pub struct Depth(pub DepthFrame);
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DepthTarget(pub Meters);
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct DepthSettings {
+    pub sea_level: Mbar,
+    pub water_density: f32,
+}
 
 /// Desired up vector
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]

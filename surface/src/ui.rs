@@ -68,12 +68,6 @@ fn topbar(
     egui::TopBottomPanel::top("Top Bar").show(contexts.ctx_mut(), |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
-                if ui.button("Resync Cameras").clicked() {
-                    cmds.add(|world: &mut World| {
-                        world.send_event(ResyncCameras);
-                    })
-                }
-
                 ui.menu_button("Disconnect", |ui| {
                     if !peers.is_empty() {
                         for (peer, name) in &peers {
@@ -95,6 +89,20 @@ fn topbar(
                 if ui.button("Exit").clicked() {
                     cmds.add(|world: &mut World| {
                         world.send_event(AppExit);
+                    })
+                }
+            });
+
+            ui.menu_button("Sensors", |ui| {
+                if ui.button("Resync Cameras").clicked() {
+                    cmds.add(|world: &mut World| {
+                        world.send_event(ResyncCameras);
+                    })
+                }
+
+                if ui.button("Calibrate Sea Level").clicked() {
+                    cmds.add(|world: &mut World| {
+                        world.send_event(CalibrateSeaLevel);
                     })
                 }
             });

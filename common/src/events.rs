@@ -18,9 +18,14 @@ macro_rules! events {
 }
 
 events! {
-    ResyncCameras
+    ResyncCameras,
+    CalibrateSeaLevel
 }
 
 #[derive(Event, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ResyncCameras;
+
+#[derive(Event, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct CalibrateSeaLevel;

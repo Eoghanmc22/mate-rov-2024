@@ -143,6 +143,7 @@ fn accumulate_motor_forces(
         0.05,
     );
 
+    // Implement slew rate limiting
     let motor_cmds = {
         let slew_motor_cmds = motor_cmds
             .into_iter()

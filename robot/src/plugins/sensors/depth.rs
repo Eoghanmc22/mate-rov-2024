@@ -6,14 +6,18 @@ use std::{
 use anyhow::Context;
 use bevy::{app::AppExit, prelude::*};
 use common::{
-    components::Depth,
+    components::{Depth, DepthSettings},
     error::{self, Errors},
+    events::CalibrateSeaLevel,
     types::hw::DepthFrame,
 };
 use crossbeam::channel::{self, Receiver, Sender};
 use tracing::{span, Level};
 
-use crate::{peripheral::ms5937::Ms5837, plugins::core::robot::LocalRobot};
+use crate::{
+    peripheral::ms5937::Ms5837,
+    plugins::core::robot::{LocalRobot, LocalRobotMarker},
+};
 
 pub struct DepthPlugin;
 
@@ -24,14 +28,32 @@ impl Plugin for DepthPlugin {
             PreUpdate,
             read_new_data.run_if(resource_exists::<DepthChannels>),
         );
+        app.add_systems(
+            Update,
+            (
+                calibrate_sea_level,
+                listen_for_settings
+                    .pipe(error::handle_errors)
+                    .after(calibrate_sea_level),
+            ),
+        );
         app.add_systems(Last, shutdown.run_if(resource_exists::<DepthChannels>));
     }
 }
 
 #[derive(Resource)]
-struct DepthChannels(Receiver<DepthFrame>, Sender<()>);
+struct DepthChannels(Receiver<DepthFrame>, Sender<Message>);
 
-fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result<()> {
+enum Message {
+    Settings(DepthSettings),
+    Shutdown,
+}
+
+fn start_depth_thread(
+    mut cmds: Commands,
+    robot: Res<LocalRobot>,
+    errors: Res<Errors>,
+) -> anyhow::Result<()> {
     let (tx_data, rx_data) = channel::bounded(5);
     let (tx_exit, rx_exit) = channel::bounded(1);
 
@@ -39,6 +61,14 @@ fn start_depth_thread(mut cmds: Commands, errors: Res<Errors>) -> anyhow::Result
         Ms5837::new(Ms5837::I2C_BUS, Ms5837::I2C_ADDRESS).context("Depth sensor (Ms5837)")?;
 
     cmds.insert_resource(DepthChannels(rx_data, tx_exit));
+
+    let sea_level = depth.read_frame().context("Read Sea Level")?;
+    depth.sea_level = sea_level.pressure;
+
+    cmds.entity(robot.0).insert(DepthSettings {
+        sea_level: depth.sea_level,
+        fluid_density: depth.fluid_density,
+    });
 
     let errors = errors.0.clone();
     thread::Builder::new()
@@ -92,8 +122,36 @@ fn read_new_data(mut cmds: Commands, channels: Res<DepthChannels>, robot: Res<Lo
     }
 }
 
+fn calibrate_sea_level(
+    mut cmds: Commands,
+    mut events: EventReader<CalibrateSeaLevel>,
+    robot: Query<(&Depth, &mut DepthSettings), With<LocalRobotMarker>>,
+) {
+    for _ in events.read() {
+        info!("Calibrating Sea Level");
+
+        for (depth, settings) in &robot {
+            settings.sea_level = depth.0.pressure;
+        }
+    }
+}
+
+fn listen_for_settings(
+    channels: Res<DepthChannels>,
+    robot: Query<&DepthSettings, (With<LocalRobotMarker>, Changed<DepthSettings>)>,
+) -> anyhow::Result<()> {
+    for settings in &robot {
+        channels
+            .1
+            .send(Message::Settings(*settings))
+            .context("Send new settings to Depth Thread")?;
+    }
+
+    Ok(())
+}
+
 fn shutdown(channels: Res<DepthChannels>, mut exit: EventReader<AppExit>) {
     for _event in exit.read() {
-        let _ = channels.1.send(());
+        let _ = channels.1.send(Message::Shutdown);
     }
 }

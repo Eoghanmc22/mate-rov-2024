@@ -11,7 +11,9 @@ use tracing::{debug, info, instrument};
 pub struct Ms5837 {
     i2c: I2c,
     calibration: [u16; 8],
-    fluid_density: f32,
+
+    pub fluid_density: f32,
+    pub sea_level: Mbar,
 }
 
 impl Ms5837 {
@@ -30,8 +32,8 @@ impl Ms5837 {
         let mut this = Self {
             i2c,
             calibration: [0; 8],
-            // TODO(mid): Tweak and add to ECS
             fluid_density: 1000.0,
+            sea_level: 1013.25,
         };
 
         this.initialize().context("Init MS5837")?;
@@ -44,8 +46,8 @@ impl Ms5837 {
         let raw = self.read_raw().context("Read raw frame")?;
 
         let (pressure, temperature) = calculate_pressure_and_temperature(raw, &self.calibration);
-        let altitude = pressure_to_altitude(pressure);
-        let depth = pressure_to_depth(pressure, self.fluid_density);
+        let altitude = pressure_to_altitude(pressure, self.sea_level.0);
+        let depth = pressure_to_depth(pressure, self.fluid_density, self.sea_level.0);
 
         Ok(DepthFrame {
             depth,
@@ -53,10 +55,6 @@ impl Ms5837 {
             pressure,
             temperature,
         })
-    }
-
-    pub fn set_fluid_density(&mut self, density: f32) {
-        self.fluid_density = density;
     }
 }
 
@@ -180,12 +178,12 @@ fn calculate_pressure_and_temperature(raw: (u32, u32), calibration: &[u16; 8]) -
     (pressure, temperature)
 }
 
-fn pressure_to_depth(pressure: Mbar, density: f32) -> Meters {
-    Meters((pressure.0 * 100.0 - 101300.0) / (density * 9.80665))
+fn pressure_to_depth(pressure: Mbar, density: f32, sea_level: f32) -> Meters {
+    Meters(((pressure.0 - sea_level) * 100.0) / (density * 9.80665))
 }
 
-fn pressure_to_altitude(pressure: Mbar) -> Meters {
-    Meters((1.0 - f32::powf(pressure.0 / 1013.25, 0.190284)) * 145366.45 * 0.3048)
+fn pressure_to_altitude(pressure: Mbar, sea_level: f32) -> Meters {
+    Meters((1.0 - f32::powf(pressure.0 / sea_level, 0.190284)) * 145366.45 * 0.3048)
 }
 
 fn crc4(mut data: [u16; 8]) -> u8 {
