@@ -336,7 +336,7 @@ fn leveling(
                             info!("Set Level Inverted");
                         }
 
-                        cmds.entity(robot).insert(OrientationTarget(Vec3A::Z));
+                        cmds.entity(robot).insert(OrientationTarget(new_target));
                     }
                 }
             }

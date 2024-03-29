@@ -17,6 +17,7 @@ use bevy::{
     prelude::*,
     tasks::available_parallelism,
 };
+use bevy_egui::EguiSettings;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use bevy_tokio_tasks::TokioTasksPlugin;
@@ -28,6 +29,8 @@ use video_display_2d::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
 use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
 
+pub const DARK_MODE: bool = true;
+
 fn main() -> anyhow::Result<()> {
     info!("---------- Starting Control Station ----------");
 
@@ -38,7 +41,11 @@ fn main() -> anyhow::Result<()> {
             tracy_frame_mark: false,
         })
         .insert_resource(VideoDisplay2DSettings { enabled: true })
-        .insert_resource(ClearColor(Color::rgb_u8(33, 34, 37)))
+        .insert_resource(if DARK_MODE {
+            ClearColor(Color::rgb_u8(33, 34, 37))
+        } else {
+            ClearColor(Color::rgb_u8(240, 238, 233))
+        })
         .add_plugins((
             // Bevy Core
             DefaultPlugins.build().disable::<bevy::audio::AudioPlugin>(),

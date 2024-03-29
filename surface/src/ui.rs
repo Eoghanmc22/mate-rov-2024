@@ -13,16 +13,18 @@ use common::{
     sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
 };
 use egui::{
-    load::SizedTexture, text::LayoutJob, widgets, Align, Color32, Layout, RichText, TextFormat,
+    load::SizedTexture, text::LayoutJob, widgets, Align, Color32, Layout, RichText, Style,
+    TextFormat, Visuals,
 };
 use tokio::net::lookup_host;
 
-use crate::attitude::OrientationDisplay;
+use crate::{attitude::OrientationDisplay, DARK_MODE};
 
 pub struct EguiUiPlugin;
 
 impl Plugin for EguiUiPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, set_style);
         app.add_plugins(EguiPlugin).add_systems(
             Update,
             (
@@ -44,6 +46,14 @@ pub struct ShowInspector;
 
 #[derive(Resource)]
 pub struct PwmControl(bool);
+
+fn set_style(mut contexts: EguiContexts) {
+    contexts.ctx_mut().set_visuals(if DARK_MODE {
+        Visuals::dark()
+    } else {
+        Visuals::light()
+    });
+}
 
 fn topbar(
     mut cmds: Commands,
@@ -139,9 +149,13 @@ fn topbar(
                     for (robot, state, depth_target, orientation_target) in &robots {
                         layout_job.append(
                             robot.as_str(),
-                            2.0,
+                            20.0,
                             TextFormat {
-                                color: Color32::WHITE,
+                                color: if DARK_MODE {
+                                    Color32::WHITE
+                                } else {
+                                    Color32::BLACK
+                                },
                                 ..default()
                             },
                         );
@@ -149,7 +163,11 @@ fn topbar(
                             ":",
                             0.0,
                             TextFormat {
-                                color: Color32::WHITE,
+                                color: if DARK_MODE {
+                                    Color32::WHITE
+                                } else {
+                                    Color32::BLACK
+                                },
                                 ..default()
                             },
                         );
@@ -158,9 +176,13 @@ fn topbar(
                             RobotStatus::NoPeer => {
                                 layout_job.append(
                                     "Unknown",
-                                    1.0,
+                                    7.0,
                                     TextFormat {
-                                        color: Color32::WHITE,
+                                        color: if DARK_MODE {
+                                            Color32::WHITE
+                                        } else {
+                                            Color32::BLACK
+                                        },
                                         ..default()
                                     },
                                 );
@@ -168,7 +190,7 @@ fn topbar(
                             RobotStatus::Disarmed => {
                                 layout_job.append(
                                     "Disarmed",
-                                    1.0,
+                                    7.0,
                                     TextFormat {
                                         color: Color32::RED,
                                         ..default()
@@ -178,7 +200,7 @@ fn topbar(
                             RobotStatus::Armed => {
                                 layout_job.append(
                                     "Armed",
-                                    1.0,
+                                    7.0,
                                     TextFormat {
                                         color: Color32::GREEN,
                                         ..default()
@@ -188,20 +210,20 @@ fn topbar(
                                 if let Some(&OrientationTarget(_)) = orientation_target {
                                     layout_job.append(
                                         "Orientation Hold",
-                                        1.0,
+                                        7.0,
                                         TextFormat {
-                                            color: Color32::LIGHT_BLUE,
+                                            color: Color32::from_rgb(66, 145, 247),
                                             ..default()
                                         },
                                     );
                                 }
 
-                                if let Some(&OrientationTarget(_)) = orientation_target {
+                                if let Some(&DepthTarget(_)) = depth_target {
                                     layout_job.append(
                                         "Depth Hold",
-                                        1.0,
+                                        7.0,
                                         TextFormat {
-                                            color: Color32::LIGHT_YELLOW,
+                                            color: Color32::from_rgb(216, 123, 2),
                                             ..default()
                                         },
                                     );
@@ -212,7 +234,11 @@ fn topbar(
 
                     ui.label(layout_job);
                 } else {
-                    ui.label(RichText::new(format!("No Robot")).color(Color32::WHITE));
+                    ui.label(RichText::new(format!("No Robot")).color(if DARK_MODE {
+                        Color32::WHITE
+                    } else {
+                        Color32::BLACK
+                    }));
                 }
             })
         });

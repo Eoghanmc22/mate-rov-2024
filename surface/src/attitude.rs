@@ -14,6 +14,8 @@ use common::components::{Motors, Orientation, OrientationTarget, Robot};
 use egui::TextureId;
 use motor_math::{x3d::X3dMotorId, Direction, ErasedMotorId, Motor, MotorConfig};
 
+use crate::DARK_MODE;
+
 const RENDER_LAYERS: RenderLayers = RenderLayers::layer(1);
 
 pub struct AttitudePlugin;
@@ -46,6 +48,8 @@ fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     mut egui_context: EguiContexts,
+
+    mut ambient_light: ResMut<AmbientLight>,
 
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -83,6 +87,7 @@ fn setup(
         PointLightBundle {
             point_light: PointLight {
                 shadows_enabled: true,
+                intensity: if DARK_MODE { 1_000_000.0 } else { 4_000_000.0 },
                 ..default()
             },
             transform: Transform::from_xyz(4.0, 4.0, 8.0),
@@ -90,6 +95,9 @@ fn setup(
         },
         RENDER_LAYERS,
     ));
+    if !DARK_MODE {
+        ambient_light.brightness *= 7.0;
+    }
 
     // camera
     commands.spawn((
@@ -276,7 +284,7 @@ fn rotator_system(
         );
 
         if let Some(&OrientationTarget(up)) = target {
-            gizmos.line(vec3(0.0, 0.0, 0.0), up.into(), Color::YELLOW);
+            gizmos.line(vec3(0.0, 0.0, 0.0), (up * 5.0).into(), Color::YELLOW);
         }
     }
 }
