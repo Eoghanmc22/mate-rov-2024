@@ -10,7 +10,7 @@ use bevy::{
     },
 };
 use bevy_egui::EguiContexts;
-use common::components::{Motors, Orientation, Robot};
+use common::components::{Motors, Orientation, OrientationTarget, Robot};
 use egui::TextureId;
 use motor_math::{x3d::X3dMotorId, Direction, ErasedMotorId, Motor, MotorConfig};
 
@@ -225,11 +225,11 @@ fn update_motor_conf(
 }
 
 fn rotator_system(
-    robot: Query<&Orientation, With<Robot>>,
+    robot: Query<&Orientation, Option<&OrientationTarget>, With<Robot>>,
     mut query: Query<&mut Transform, With<OrientationDisplayMarker>>,
     mut gizmos: Gizmos<AttitudeGizmo>,
 ) {
-    if let Ok(orientation) = robot.get_single() {
+    if let Ok((orientation, target)) = robot.get_single() {
         for mut transform in &mut query {
             transform.rotation = orientation.0;
         }
@@ -274,5 +274,9 @@ fn rotator_system(
             orientation.0 * vec3(0.0, 0.0, 2.5),
             Color::BLUE,
         );
+
+        if let Some(&OrientationTarget(up)) = target {
+            gizmos.line(vec3(0.0, 0.0, 0.0), up.into(), Color::YELLOW);
+        }
     }
 }

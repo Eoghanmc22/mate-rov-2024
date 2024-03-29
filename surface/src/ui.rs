@@ -12,7 +12,9 @@ use common::{
     events::ResyncCameras,
     sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
 };
-use egui::{load::SizedTexture, widgets, Align, Color32, Layout, RichText};
+use egui::{
+    load::SizedTexture, text::LayoutJob, widgets, Align, Color32, Layout, RichText, TextFormat,
+};
 use tokio::net::lookup_host;
 
 use crate::attitude::OrientationDisplay;
@@ -47,7 +49,15 @@ fn topbar(
     mut cmds: Commands,
     mut contexts: EguiContexts,
 
-    robots: Query<(&Name, &RobotStatus), With<Robot>>,
+    robots: Query<
+        (
+            &Name,
+            &RobotStatus,
+            Option<&DepthTarget>,
+            Option<&OrientationTarget>,
+        ),
+        With<Robot>,
+    >,
 
     inspector: Option<Res<ShowInspector>>,
     pwm_control: Option<Res<PwmControl>>,
@@ -116,20 +126,85 @@ fn topbar(
             // RTL needs reverse order
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if !robots.is_empty() {
-                    for (robot, state) in &robots {
-                        let color = match state {
-                            RobotStatus::NoPeer => Color32::WHITE,
-                            RobotStatus::Disarmed => Color32::RED,
-                            RobotStatus::Armed => Color32::GREEN,
+                    let mut layout_job = LayoutJob::default();
+
+                    for (robot, state, depth_target, orientation_target) in &robots {
+                        layout_job.append(
+                            robot.as_str(),
+                            0.0,
+                            TextFormat {
+                                color: Color32::WHITE,
+                                ..default()
+                            },
+                        );
+                        layout_job.append(
+                            ":",
+                            0.0,
+                            TextFormat {
+                                color: Color32::WHITE,
+                                ..default()
+                            },
+                        );
+
+                        let state = match state {
+                            RobotStatus::NoPeer => {
+                                layout_job.append(
+                                    "Unknown",
+                                    1.0,
+                                    TextFormat {
+                                        color: Color32::WHITE,
+                                        ..default()
+                                    },
+                                );
+                            }
+                            RobotStatus::Disarmed => {
+                                layout_job.append(
+                                    "Disarmed",
+                                    1.0,
+                                    TextFormat {
+                                        color: Color32::RED,
+                                        ..default()
+                                    },
+                                );
+                            }
+                            RobotStatus::Armed => {
+                                layout_job.append(
+                                    "Armed",
+                                    1.0,
+                                    TextFormat {
+                                        color: Color32::GREEN,
+                                        ..default()
+                                    },
+                                );
+
+                                if let Some(&OrientationTarget(_)) = orientation_target {
+                                    layout_job.append(
+                                        "Orientation Hold",
+                                        1.0,
+                                        TextFormat {
+                                            color: Color32::LIGHT_BLUE,
+                                            ..default()
+                                        },
+                                    );
+                                }
+
+                                if let Some(&OrientationTarget(_)) = orientation_target {
+                                    layout_job.append(
+                                        "Depth Hold",
+                                        1.0,
+                                        TextFormat {
+                                            color: Color32::LIGHT_YELLOW,
+                                            ..default()
+                                        },
+                                    );
+                                }
+                            }
                         };
 
-                        ui.label(RichText::new(format!("{state:?}")).color(color));
-                        ui.label(format!("{}: ", robot.as_str()));
+                        ui.label(layout_job);
                     }
                 } else {
-                    ui.label(
-                        RichText::new(format!("{:?}", RobotStatus::NoPeer)).color(Color32::WHITE),
-                    );
+                    ui.label(RichText::new(format!("No Robot")).color(Color32::WHITE));
                 }
             })
         });
@@ -212,21 +287,21 @@ fn hud(
                 ui.add_space(10.0);
             }
 
-            // if let Some(armed) = armed {
-            //     ui.horizontal(|ui| {
-            //         ui.label(RichText::new("Status:").size(size));
-            //         match armed {
-            //             Armed::Armed => {
-            //                 ui.label(RichText::new("Armed").size(size).color(Color32::GREEN));
-            //             }
-            //             Armed::Disarmed => {
-            //                 ui.label(RichText::new("Disarmed").size(size).color(Color32::RED));
-            //             }
-            //         }
-            //     });
-            //
-            //     ui.add_space(10.0);
-            // }
+            if let Some(armed) = armed {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Status:").size(size));
+                    match armed {
+                        Armed::Armed => {
+                            ui.label(RichText::new("Armed").size(size).color(Color32::GREEN));
+                        }
+                        Armed::Disarmed => {
+                            ui.label(RichText::new("Disarmed").size(size).color(Color32::RED));
+                        }
+                    }
+                });
+
+                ui.add_space(10.0);
+            }
 
             if let (Some(voltage), Some(current)) = (voltage, current_draw) {
                 ui.horizontal(|ui| {
