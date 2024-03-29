@@ -51,7 +51,7 @@ impl Default for InputInterpolation {
     fn default() -> Self {
         Self {
             depth_mps: 0.3,
-            trim_dps: 15.0,
+            trim_dps: 90.0,
         }
     }
 }
@@ -367,12 +367,12 @@ fn trim_orientation(
 
             if pitch != 0.0 {
                 let input = pitch * interpolation.trim_dps * time.delta_seconds();
-                orientation_target = Quat::from_rotation_x(input) * orientation_target;
+                orientation_target = Quat::from_rotation_x(input.to_radians()) * orientation_target;
             }
 
             if roll != 0.0 {
                 let input = roll * interpolation.trim_dps * time.delta_seconds();
-                orientation_target = Quat::from_rotation_y(input) * orientation_target;
+                orientation_target = Quat::from_rotation_y(input.to_radians()) * orientation_target;
             }
 
             if pitch != 0.0 || roll != 0.0 {
