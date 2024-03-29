@@ -12,6 +12,7 @@ pub struct RobotConfig {
 
     pub motor_config: MotorConfigDefinition,
     pub motor_amperage_budget: f32,
+    pub jerk_limit: f32,
 
     pub cameras: HashMap<String, CameraDefinition>,
 }

@@ -66,6 +66,7 @@ components! {
     MovementAxisMaximums,
     MovementCurrentCap,
     CurrentDraw,
+    JerkLimit,
     PwmChannel,
     PwmSignal,
     PwmManualControl,
@@ -266,6 +267,10 @@ pub struct MovementCurrentCap(pub Amperes);
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct CurrentDraw(pub Amperes);
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct JerkLimit(pub f32);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, Copy, Eq, Hash, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]

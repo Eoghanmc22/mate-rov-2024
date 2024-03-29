@@ -4,18 +4,22 @@ use ahash::HashMap;
 use bevy::prelude::*;
 use common::{
     components::{
-        ActualForce, ActualMovement, CurrentDraw, MotorContribution, MotorDefinition, Motors,
-        MovementContribution, MovementCurrentCap, PwmManualControl, PwmSignal, RobotId,
+        ActualForce, ActualMovement, CurrentDraw, JerkLimit, MotorContribution, MotorDefinition,
+        Motors, MovementContribution, MovementCurrentCap, PwmManualControl, PwmSignal, RobotId,
         TargetForce, TargetMovement,
     },
     ecs_sync::NetId,
 };
 use motor_math::{
-    motor_preformance::{self, Interpolation, MotorData},
-    solve, Direction, Movement,
+    motor_preformance::{self, Interpolation, MotorData, MotorRecord},
+    solve, Direction, ErasedMotorId, Movement,
 };
+use nalgebra::ComplexField;
 
-use crate::plugins::core::robot::LocalRobotMarker;
+use crate::{
+    config::RobotConfig,
+    plugins::core::robot::{LocalRobot, LocalRobotMarker},
+};
 
 pub struct MotorMathPlugin;
 
@@ -25,6 +29,7 @@ impl Plugin for MotorMathPlugin {
         let motor_data =
             motor_preformance::read_motor_data("motor_data.csv").expect("Read motor data");
 
+        app.add_systems(Startup, setup_motor_math);
         app.add_systems(
             Update,
             (
@@ -38,6 +43,10 @@ impl Plugin for MotorMathPlugin {
 
 #[derive(Resource)]
 pub struct MotorDataRes(pub MotorData);
+
+fn setup_motor_math(mut cmds: Commands, config: Res<RobotConfig>, robot: Res<LocalRobot>) {
+    cmds.entity(robot.0).insert(JerkLimit(config.jerk_limit));
+}
 
 fn accumulate_movements(
     mut cmds: Commands,
@@ -72,17 +81,25 @@ fn accumulate_movements(
 // TODO(mid): Split into smaller systems
 fn accumulate_motor_forces(
     mut cmds: Commands,
+    mut last_movement: Local<HashMap<ErasedMotorId, MotorRecord>>,
+
     robot: Query<
-        (Entity, &NetId, &Motors, &MovementCurrentCap),
+        (Entity, &NetId, &Motors, &MovementCurrentCap, &JerkLimit),
         (With<LocalRobotMarker>, Without<PwmManualControl>),
     >,
     motor_forces: Query<(&RobotId, &MotorContribution)>,
     motors: Query<(Entity, &MotorDefinition, &RobotId)>,
 
+    time: Res<Time<Real>>,
     motor_data: Res<MotorDataRes>,
 ) {
-    let Ok((entity, net_id, Motors(motor_config), MovementCurrentCap(current_cap))) =
-        robot.get_single()
+    let Ok((
+        entity,
+        &net_id,
+        Motors(motor_config),
+        MovementCurrentCap(&current_cap),
+        JerkLimit(&jerk_limit),
+    )) = robot.get_single()
     else {
         return;
     };
@@ -104,7 +121,6 @@ fn accumulate_motor_forces(
     let motor_cmds = all_forces
         .iter()
         .map(|(motor, force)| {
-            // FIXME(low): Fails silently
             let direction = motor_config
                 .motor(motor)
                 .map(|it| it.direction)
@@ -126,6 +142,45 @@ fn accumulate_motor_forces(
         current_cap.0,
         0.05,
     );
+
+    let motor_cmds = {
+        let slew_motor_cmds = motor_cmds
+            .into_iter()
+            .map(|(motor, record)| {
+                if let Some(last) = last_movement.get(&motor) {
+                    let jerk_limit = jerk_limit * time.delta_seconds();
+                    let delta = record.force - last.force;
+
+                    if delta.abs() > jerk_limit {
+                        let direction = motor_config
+                            .motor(&motor)
+                            .map(|it| it.direction)
+                            .unwrap_or(Direction::Clockwise);
+
+                        let clamped = delta.clamp(-jerk_limit, jerk_limit);
+                        let new_record = motor_data.0.lookup_by_force(
+                            clamped + last.force,
+                            Interpolation::LerpDirection(direction),
+                        );
+
+                        return (motor, new_record);
+                    }
+                };
+
+                (motor, record)
+            })
+            .collect();
+
+        *last_movement = motor_cmds.clone();
+
+        solve::reverse::clamp_amperage(
+            slew_motor_cmds,
+            motor_config,
+            &motor_data.0,
+            current_cap.0,
+            0.05,
+        )
+    };
 
     let motor_forces = motor_cmds
         .iter()

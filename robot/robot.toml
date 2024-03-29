@@ -1,19 +1,12 @@
 name = "Dark Shark"
 port = 44445
-motor_amperage_budget = 20.0
+motor_amperage_budget = 15.0
+max_jerk = 30.0
 
 # This is dummy data
 [motor_config.X3d.seed_motor]
-position = [
-    0.325,
-    0.355,
-    0.241,
-]
-orientation = [
-    -0.254,
-    -0.571,
-    -0.781,
-]
+position = [0.325, 0.355, 0.241]
+orientation = [-0.254, -0.571, -0.781]
 direction = "CounterClockwise"
 
 [motor_config.X3d.motors]
@@ -28,8 +21,8 @@ BackLeftBottom = 4
 
 [cameras."/dev/video2"]
 name = "Front"
-transform = { position = { x = 0.0, y = 1.0, z = 0.0 }, rotation = { yaw = 0.0, pitch = 0.0, roll = 0.0 }}
+transform = { position = { x = 0.0, y = 1.0, z = 0.0 }, rotation = { yaw = 0.0, pitch = 0.0, roll = 0.0 } }
 
 [cameras."/dev/video6"]
 name = "Top"
-transform = { position = { x = 0.0, y = 0.0, z = 1.0 }, rotation = { yaw = 0.0, pitch = -90.0, roll = 0.0 }}
+transform = { position = { x = 0.0, y = 0.0, z = 1.0 }, rotation = { yaw = 0.0, pitch = -90.0, roll = 0.0 } }
