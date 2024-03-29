@@ -225,7 +225,7 @@ fn update_motor_conf(
 }
 
 fn rotator_system(
-    robot: Query<&Orientation, Option<&OrientationTarget>, With<Robot>>,
+    robot: Query<(&Orientation, Option<&OrientationTarget>), With<Robot>>,
     mut query: Query<&mut Transform, With<OrientationDisplayMarker>>,
     mut gizmos: Gizmos<AttitudeGizmo>,
 ) {

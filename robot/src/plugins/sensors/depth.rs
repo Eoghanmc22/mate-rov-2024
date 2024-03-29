@@ -55,7 +55,7 @@ fn start_depth_thread(
     errors: Res<Errors>,
 ) -> anyhow::Result<()> {
     let (tx_data, rx_data) = channel::bounded(5);
-    let (tx_exit, rx_exit) = channel::bounded(1);
+    let (tx_exit, rx_msg) = channel::bounded(1);
 
     let mut depth =
         Ms5837::new(Ms5837::I2C_BUS, Ms5837::I2C_ADDRESS).context("Depth sensor (Ms5837)")?;
@@ -65,7 +65,7 @@ fn start_depth_thread(
     let sea_level = depth.read_frame().context("Read Sea Level")?;
     depth.sea_level = sea_level.pressure;
 
-    cmds.entity(robot.0).insert(DepthSettings {
+    cmds.entity(robot.entity).insert(DepthSettings {
         sea_level: depth.sea_level,
         fluid_density: depth.fluid_density,
     });
@@ -98,8 +98,14 @@ fn start_depth_thread(
                     }
                 }
 
-                if let Ok(()) = rx_exit.try_recv() {
-                    return;
+                if let Ok(msg) = rx_msg.try_recv() {
+                    match msg {
+                        Message::Settings(settings) => {
+                            depth.fluid_density = settings.fluid_density;
+                            depth.sea_level = settings.sea_level;
+                        }
+                        Message::Shutdown => return,
+                    }
                 }
 
                 span.exit();
@@ -125,12 +131,12 @@ fn read_new_data(mut cmds: Commands, channels: Res<DepthChannels>, robot: Res<Lo
 fn calibrate_sea_level(
     mut cmds: Commands,
     mut events: EventReader<CalibrateSeaLevel>,
-    robot: Query<(&Depth, &mut DepthSettings), With<LocalRobotMarker>>,
+    mut robot: Query<(&Depth, &mut DepthSettings), With<LocalRobotMarker>>,
 ) {
     for _ in events.read() {
         info!("Calibrating Sea Level");
 
-        for (depth, settings) in &robot {
+        for (depth, mut settings) in &mut robot {
             settings.sea_level = depth.0.pressure;
         }
     }

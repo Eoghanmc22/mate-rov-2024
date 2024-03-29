@@ -45,7 +45,8 @@ impl Plugin for MotorMathPlugin {
 pub struct MotorDataRes(pub MotorData);
 
 fn setup_motor_math(mut cmds: Commands, config: Res<RobotConfig>, robot: Res<LocalRobot>) {
-    cmds.entity(robot.0).insert(JerkLimit(config.jerk_limit));
+    cmds.entity(robot.entity)
+        .insert(JerkLimit(config.jerk_limit));
 }
 
 fn accumulate_movements(
@@ -97,8 +98,8 @@ fn accumulate_motor_forces(
         entity,
         &net_id,
         Motors(motor_config),
-        MovementCurrentCap(&current_cap),
-        JerkLimit(&jerk_limit),
+        &MovementCurrentCap(current_cap),
+        &JerkLimit(jerk_limit),
     )) = robot.get_single()
     else {
         return;
@@ -107,7 +108,7 @@ fn accumulate_motor_forces(
 
     let mut all_forces = HashMap::default();
 
-    for (RobotId(robot_net_id), motor_force_contributions) in &motor_forces {
+    for (&RobotId(robot_net_id), motor_force_contributions) in &motor_forces {
         if robot_net_id == net_id {
             for (motor, force) in &motor_force_contributions.0 {
                 *all_forces.entry(*motor).or_default() += force.0;
@@ -146,7 +147,7 @@ fn accumulate_motor_forces(
     // Implement slew rate limiting
     let motor_cmds = {
         let slew_motor_cmds = motor_cmds
-            .into_iter()
+            .iter()
             .map(|(motor, record)| {
                 if let Some(last) = last_movement.get(&motor) {
                     let jerk_limit = jerk_limit * time.delta_seconds();
@@ -164,11 +165,11 @@ fn accumulate_motor_forces(
                             Interpolation::LerpDirection(direction),
                         );
 
-                        return (motor, new_record);
+                        return (*motor, new_record);
                     }
                 };
 
-                (motor, record)
+                (*motor, *record)
             })
             .collect();
 
@@ -191,7 +192,7 @@ fn accumulate_motor_forces(
     let actual_movement = solve::forward::forward_solve(motor_config, &motor_forces);
     robot.insert(ActualMovement(actual_movement));
 
-    for (motor_entity, MotorDefinition(id, _motor), RobotId(robot_net_id)) in &motors {
+    for (motor_entity, MotorDefinition(id, _motor), &RobotId(robot_net_id)) in &motors {
         if robot_net_id == net_id {
             let mut motor = cmds.entity(motor_entity);
 

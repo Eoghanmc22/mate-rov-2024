@@ -33,7 +33,7 @@ impl Ms5837 {
             i2c,
             calibration: [0; 8],
             fluid_density: 1000.0,
-            sea_level: 1013.25,
+            sea_level: Mbar(1013.25),
         };
 
         this.initialize().context("Init MS5837")?;

@@ -265,7 +265,8 @@ fn write_state(leds: Res<LedChannels>) {
 fn neopixels() -> impl Iterator<Item = LedType> {
     iter::from_coroutine(|| {
         for board in 0..2 {
-            yield LedType::Status;
+            yield LedType::Side(0);
+            // yield LedType::Status;
 
             for led in 0..11 {
                 yield LedType::Circle(led);

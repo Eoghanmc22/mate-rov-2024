@@ -9,7 +9,7 @@ use common::{
         Memory, OrientationTarget, PwmChannel, PwmManualControl, PwmSignal, Robot, RobotId,
         RobotStatus, Temperatures,
     },
-    events::ResyncCameras,
+    events::{CalibrateSeaLevel, ResyncCameras},
     sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
 };
 use egui::{
@@ -139,7 +139,7 @@ fn topbar(
                     for (robot, state, depth_target, orientation_target) in &robots {
                         layout_job.append(
                             robot.as_str(),
-                            0.0,
+                            2.0,
                             TextFormat {
                                 color: Color32::WHITE,
                                 ..default()
@@ -208,9 +208,9 @@ fn topbar(
                                 }
                             }
                         };
-
-                        ui.label(layout_job);
                     }
+
+                    ui.label(layout_job);
                 } else {
                     ui.label(RichText::new(format!("No Robot")).color(Color32::WHITE));
                 }

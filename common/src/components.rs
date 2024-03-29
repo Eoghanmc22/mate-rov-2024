@@ -111,7 +111,7 @@ pub struct DepthTarget(pub Meters);
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DepthSettings {
     pub sea_level: Mbar,
-    pub water_density: f32,
+    pub fluid_density: f32,
 }
 
 /// Desired up vector
