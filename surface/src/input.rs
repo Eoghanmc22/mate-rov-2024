@@ -238,8 +238,8 @@ fn movement(
             - action_state.value(&Action::PitchInverted) * maximums[&Axis::XRot].0;
         let y_rot = action_state.value(&Action::Roll) * maximums[&Axis::YRot].0
             - action_state.value(&Action::RollInverted) * maximums[&Axis::YRot].0;
-        let z_rot = action_state.value(&Action::Yaw) * maximums[&Axis::ZRot].0
-            - action_state.value(&Action::YawInverted) * maximums[&Axis::ZRot].0;
+        let z_rot = -(action_state.value(&Action::Yaw) * maximums[&Axis::ZRot].0
+            - action_state.value(&Action::YawInverted) * maximums[&Axis::ZRot].0);
 
         let z = if depth_target.is_none() { z } else { 0.0 };
 
