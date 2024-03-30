@@ -6,8 +6,8 @@ use bevy::{
 use common::{
     bundles::MovementContributionBundle,
     components::{
-        Armed, Depth, DepthTarget, MovementAxisMaximums, MovementContribution, OrientationTarget,
-        Robot, RobotId,
+        Armed, Depth, DepthTarget, MovementAxisMaximums, MovementContribution, Orientation,
+        OrientationTarget, Robot, RobotId,
     },
     ecs_sync::{NetId, Replicate},
     types::units::Meters,
@@ -138,20 +138,35 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
         );
 
-        // input_map.insert(
-        //     Action::Pitch,
-        //     SingleAxis::symmetric(GamepadAxisType::RightZ, 0.05),
-        // );
-        // input_map.insert(
-        //     Action::PitchInverted,
-        //     SingleAxis::symmetric(GamepadAxisType::LeftZ, 0.05),
-        // );
-
         input_map.insert(Action::Pitch, GamepadButtonType::RightTrigger);
         input_map.insert(Action::PitchInverted, GamepadButtonType::LeftTrigger);
 
         input_map.insert(Action::Roll, GamepadButtonType::RightTrigger2);
         input_map.insert(Action::RollInverted, GamepadButtonType::LeftTrigger2);
+        //
+        // input_map.insert(
+        //     Action::Yaw,
+        //     SingleAxis::symmetric(GamepadAxisType::LeftStickX, 0.05),
+        // );
+        // input_map.insert(
+        //     Action::Pitch,
+        //     SingleAxis::symmetric(GamepadAxisType::LeftStickY, 0.05),
+        // );
+        //
+        // input_map.insert(
+        //     Action::Sway,
+        //     SingleAxis::symmetric(GamepadAxisType::RightStickX, 0.05),
+        // );
+        // input_map.insert(
+        //     Action::Heave,
+        //     SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
+        // );
+        //
+        // input_map.insert(Action::Roll, GamepadButtonType::RightTrigger);
+        // input_map.insert(Action::RollInverted, GamepadButtonType::LeftTrigger);
+        //
+        // input_map.insert(Action::Surge, GamepadButtonType::RightTrigger2);
+        // input_map.insert(Action::SurgeInverted, GamepadButtonType::LeftTrigger2);
 
         cmds.spawn((
             InputManagerBundle::<Action> {
