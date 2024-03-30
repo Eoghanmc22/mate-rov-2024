@@ -149,13 +149,13 @@ fn accumulate_motor_forces(
         let slew_motor_cmds = motor_cmds
             .iter()
             .map(|(motor, record)| {
-                if let Some(last) = last_movement.get(&motor) {
+                if let Some(last) = last_movement.get(motor) {
                     let jerk_limit = jerk_limit * time.delta_seconds();
                     let delta = record.force - last.force;
 
                     if delta.abs() > jerk_limit {
                         let direction = motor_config
-                            .motor(&motor)
+                            .motor(motor)
                             .map(|it| it.direction)
                             .unwrap_or(Direction::Clockwise);
 
@@ -172,8 +172,6 @@ fn accumulate_motor_forces(
                 (*motor, *record)
             })
             .collect();
-
-        *last_movement = motor_cmds.clone();
 
         solve::reverse::clamp_amperage(
             slew_motor_cmds,
@@ -219,4 +217,6 @@ fn accumulate_motor_forces(
             }
         }
     }
+
+    *last_movement = motor_cmds;
 }
