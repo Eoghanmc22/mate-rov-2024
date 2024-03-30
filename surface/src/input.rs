@@ -346,10 +346,18 @@ fn leveling(
     }
 }
 
+#[derive(Default)]
+struct TrimOrientationState {
+    roll_quat: Option<Quat>,
+    pitch_quat: Option<Quat>,
+}
+
 fn trim_orientation(
+    mut state: Local<TrimOrientationState>,
+
     mut cmds: Commands,
     inputs: Query<(&RobotId, &ActionState<Action>, &InputInterpolation), With<InputMarker>>,
-    robots: Query<(Entity, Option<&OrientationTarget>, &RobotId), With<Robot>>,
+    robots: Query<(Entity, &Orientation, Option<&OrientationTarget>, &RobotId), With<Robot>>,
     time: Res<Time<Real>>,
 ) {
     for (robot, action_state, interpolation) in &inputs {
@@ -358,21 +366,47 @@ fn trim_orientation(
 
         let robot = robots
             .iter()
-            .find(|&(_, _, other_robot)| robot == other_robot);
+            .find(|&(_, _, _, other_robot)| robot == other_robot);
 
-        if let Some((robot, orientation_target, _)) = robot {
+        if let Some((robot, orientation, orientation_target, _)) = robot {
             let Some(&OrientationTarget(mut orientation_target)) = orientation_target else {
                 continue;
             };
 
-            if pitch != 0.0 {
+            if pitch.abs() >= 0.05 {
                 let input = pitch * interpolation.trim_dps * time.delta_seconds();
-                orientation_target = Quat::from_rotation_x(input.to_radians()) * orientation_target;
+
+                let pitch_quat = if let Some(pitch_quat) = state.pitch_quat {
+                    pitch_quat
+                } else {
+                    orientation.0
+                        * Quat::from_rotation_x(input.to_radians())
+                        * orientation.0.inverse()
+                };
+
+                orientation_target = pitch_quat * orientation_target;
+
+                state.pitch_quat = Some(pitch_quat);
+            } else {
+                state.pitch_quat = None;
             }
 
-            if roll != 0.0 {
+            if roll.abs() >= 0.05 {
                 let input = roll * interpolation.trim_dps * time.delta_seconds();
-                orientation_target = Quat::from_rotation_y(input.to_radians()) * orientation_target;
+
+                let roll_quat = if let Some(roll_quat) = state.roll_quat {
+                    roll_quat
+                } else {
+                    orientation.0
+                        * Quat::from_rotation_y(input.to_radians())
+                        * orientation.0.inverse()
+                };
+
+                orientation_target = roll_quat * orientation_target;
+
+                state.roll_quat = Some(roll_quat);
+            } else {
+                state.roll_quat = None;
             }
 
             if pitch != 0.0 || roll != 0.0 {
