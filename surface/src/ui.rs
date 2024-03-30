@@ -10,7 +10,7 @@ use common::{
         Memory, MovementAxisMaximums, MovementContribution, OrientationTarget, PwmChannel,
         PwmManualControl, PwmSignal, Robot, RobotId, RobotStatus, Temperatures,
     },
-    ecs_sync::NetId,
+    ecs_sync::{NetId, Replicate},
     events::{CalibrateSeaLevel, ResyncCameras},
     sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
 };
@@ -144,6 +144,7 @@ fn topbar(
                             contribution: Default::default(),
                             robot: RobotId(NetId::invalid()),
                         },
+                        Replicate,
                     ));
                 }
 
