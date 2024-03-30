@@ -117,11 +117,14 @@ fn setup(
     // Makes bevy allocate the gpu resources needed, preveinting a >300ms freeze
     // on first connection to robot
     add_motor_conf(
-        &MotorConfig::<X3dMotorId>::new(Motor {
-            position: Vec3A::default(),
-            orientation: Vec3A::default(),
-            direction: Direction::Clockwise,
-        })
+        &MotorConfig::<X3dMotorId>::new(
+            Motor {
+                position: Vec3A::default(),
+                orientation: Vec3A::default(),
+                direction: Direction::Clockwise,
+            },
+            Vec3A::ZERO,
+        )
         .erase(),
         &mut commands,
         &mut meshes,

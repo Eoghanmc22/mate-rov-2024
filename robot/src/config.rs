@@ -1,7 +1,7 @@
 use ahash::HashMap;
 use bevy::{ecs::system::Resource, transform::components::Transform};
 use common::types::hw::PwmChannelId;
-use glam::{vec3, EulerRot, Quat};
+use glam::{vec3, EulerRot, Quat, Vec3A};
 use motor_math::{blue_rov::HeavyMotorId, x3d::X3dMotorId, ErasedMotorId, Motor, MotorConfig};
 use serde::{Deserialize, Serialize};
 
@@ -11,8 +11,10 @@ pub struct RobotConfig {
     pub port: u16,
 
     pub motor_config: MotorConfigDefinition,
+
     pub motor_amperage_budget: f32,
     pub jerk_limit: f32,
+    pub center_of_mass: Vec3A,
 
     pub cameras: HashMap<String, CameraDefinition>,
 }
@@ -50,25 +52,29 @@ pub struct CustomMotor {
     pub motor: Motor,
 }
 
-impl From<&X3dDefinition> for MotorConfig<X3dMotorId> {
-    fn from(value: &X3dDefinition) -> Self {
-        Self::new(value.seed_motor)
+impl X3dDefinition {
+    fn to_motor_config(&self, center_mass: Vec3A) -> MotorConfig<X3dMotorId> {
+        MotorConfig::<X3dMotorId>::new(self.seed_motor, center_mass)
     }
 }
 
-impl From<&BlueRovDefinition> for MotorConfig<HeavyMotorId> {
-    fn from(value: &BlueRovDefinition) -> Self {
-        Self::new(value.lateral_seed_motor, value.vertical_seed_motor)
+impl BlueRovDefinition {
+    fn to_motor_config(&self, center_mass: Vec3A) -> MotorConfig<HeavyMotorId> {
+        MotorConfig::<HeavyMotorId>::new(
+            self.lateral_seed_motor,
+            self.vertical_seed_motor,
+            center_mass,
+        )
     }
 }
 
-impl From<&CustomDefinition> for MotorConfig<String> {
-    fn from(value: &CustomDefinition) -> Self {
-        Self::new_raw(
-            value
-                .motors
+impl CustomDefinition {
+    fn to_motor_config(&self, center_mass: Vec3A) -> MotorConfig<String> {
+        MotorConfig::<String>::new_raw(
+            self.motors
                 .iter()
                 .map(|(id, motor)| (id.to_owned(), motor.motor)),
+            center_mass,
         )
     }
 }
@@ -77,6 +83,7 @@ impl MotorConfigDefinition {
     // TODO(low): Rename and make less bad
     pub fn flatten(
         &self,
+        center_mass: Vec3A,
     ) -> (
         impl Iterator<Item = (ErasedMotorId, Motor, PwmChannelId)>,
         MotorConfig<ErasedMotorId>,
@@ -85,7 +92,7 @@ impl MotorConfigDefinition {
 
         let config = match self {
             MotorConfigDefinition::X3d(x3d) => {
-                let config: MotorConfig<_> = x3d.into();
+                let config: MotorConfig<_> = x3d.to_motor_config(center_mass);
 
                 motors = config
                     .motors()
@@ -104,7 +111,7 @@ impl MotorConfigDefinition {
                 config.erase()
             }
             MotorConfigDefinition::BlueRov(blue_rov) => {
-                let config: MotorConfig<_> = blue_rov.into();
+                let config: MotorConfig<_> = blue_rov.to_motor_config(center_mass);
 
                 motors = config
                     .motors()
@@ -124,7 +131,7 @@ impl MotorConfigDefinition {
                 config.erase()
             }
             MotorConfigDefinition::Custom(custom) => {
-                let config: MotorConfig<_> = custom.into();
+                let config: MotorConfig<_> = custom.to_motor_config(center_mass);
 
                 motors = config
                     .motors()
@@ -147,6 +154,7 @@ impl MotorConfigDefinition {
                         .motors()
                         .enumerate()
                         .map(|(idx, (_, motor))| (idx as _, *motor)),
+                    center_mass,
                 )
             }
         };

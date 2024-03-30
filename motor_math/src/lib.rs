@@ -32,7 +32,7 @@ pub struct MotorConfig<MotorId: Ord> {
 
 impl<MotorId: Ord + Debug> MotorConfig<MotorId> {
     #[instrument(level = "trace", skip_all, ret)]
-    pub fn new_raw(motors: impl IntoIterator<Item = (MotorId, Motor)>) -> Self {
+    pub fn new_raw(motors: impl IntoIterator<Item = (MotorId, Motor)>, center_mass: Vec3A) -> Self {
         let motors: BTreeMap<_, _> = motors.into_iter().collect();
 
         let matrix = Matrix6xX::from_iterator(
@@ -40,7 +40,11 @@ impl<MotorId: Ord + Debug> MotorConfig<MotorId> {
             motors
                 .iter()
                 .flat_map(|it| {
-                    [it.1.orientation, it.1.position.cross(it.1.orientation)].into_iter()
+                    [
+                        it.1.orientation,
+                        (it.1.position - center_mass).cross(it.1.orientation),
+                    ]
+                    .into_iter()
                 })
                 .flat_map(|it| it.to_array().into_iter()),
         );

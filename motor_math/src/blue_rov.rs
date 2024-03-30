@@ -1,4 +1,5 @@
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use glam::Vec3A;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +35,11 @@ pub enum HeavyMotorId {
 }
 
 impl MotorConfig<HeavyMotorId> {
-    pub fn new(lateral_front_right: Motor, vertical_front_right: Motor) -> Self {
+    pub fn new(
+        lateral_front_right: Motor,
+        vertical_front_right: Motor,
+        center_mass: Vec3A,
+    ) -> Self {
         #[rustfmt::skip]
         let motors = [
             (HeavyMotorId::LateralFrontRight, lateral_front_right, &[].as_slice()),
@@ -69,6 +74,6 @@ impl MotorConfig<HeavyMotorId> {
             )
         });
 
-        Self::new_raw(motors)
+        Self::new_raw(motors, center_mass)
     }
 }

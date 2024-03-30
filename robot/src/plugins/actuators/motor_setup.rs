@@ -31,7 +31,7 @@ impl Plugin for MotorSetupPlugin {
 }
 
 fn create_motors(mut cmds: Commands, robot: Res<LocalRobot>, config: Res<RobotConfig>) {
-    let (motors, motor_config) = config.motor_config.flatten();
+    let (motors, motor_config) = config.motor_config.flatten(config.center_of_mass);
 
     info!("Generating motor config");
 

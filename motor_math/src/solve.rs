@@ -8,7 +8,7 @@ mod tests {
     use std::time::Instant;
     use test::Bencher;
 
-    use glam::vec3a;
+    use glam::{vec3a, Vec3A};
 
     use crate::{
         blue_rov::HeavyMotorId,
@@ -31,7 +31,7 @@ mod tests {
 
         let motor_data =
             motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
-        let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor);
+        let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor, Vec3A::ZERO);
 
         let movement = Movement {
             force: vec3a(-0.6, 0.5, 0.3),
@@ -73,7 +73,7 @@ mod tests {
 
         let motor_data =
             motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
-        let motor_config = MotorConfig::<HeavyMotorId>::new(lateral, vertical);
+        let motor_config = MotorConfig::<HeavyMotorId>::new(lateral, vertical, Vec3A::ZERO);
 
         let movement = Movement {
             force: vec3a(0.5, 0.1, 0.4),
@@ -171,7 +171,7 @@ mod tests {
             },
         );
 
-        let motor_config = MotorConfig::new_raw(motors);
+        let motor_config = MotorConfig::new_raw(motors, Vec3A::ZERO);
 
         let movement = Movement {
             force: vec3a(0.9, -0.5, 0.3),
@@ -208,7 +208,7 @@ mod tests {
 
         let motor_data =
             motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
-        let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor);
+        let motor_config = MotorConfig::<X3dMotorId>::new(seed_motor, Vec3A::ZERO);
 
         let movement = Movement {
             force: vec3a(0.6, 0.0, 0.3),
@@ -237,7 +237,7 @@ mod tests {
 
         let motor_data =
             motor_preformance::read_motor_data("../robot/motor_data.csv").expect("Read motor data");
-        let motor_config = MotorConfig::<HeavyMotorId>::new(lateral, vertical);
+        let motor_config = MotorConfig::<HeavyMotorId>::new(lateral, vertical, Vec3A::ZERO);
 
         let movement = Movement {
             force: vec3a(0.6, 0.0, 0.3),

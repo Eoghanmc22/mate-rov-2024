@@ -1,5 +1,7 @@
 name = "Dark Shark"
 port = 44445
+
+center_of_mass = { x = 0.0, y = 0.0, z = 0.0 }
 motor_amperage_budget = 25.0
 jerk_limit = 70.0
 
