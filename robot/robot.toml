@@ -1,7 +1,7 @@
 name = "Dark Shark"
 port = 44445
-motor_amperage_budget = 15.0
-jerk_limit = 30.0
+motor_amperage_budget = 25.0
+jerk_limit = 70.0
 
 # This is dummy data
 [motor_config.X3d.seed_motor]

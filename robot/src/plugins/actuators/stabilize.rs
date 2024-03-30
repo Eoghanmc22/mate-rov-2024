@@ -105,6 +105,12 @@ fn stabalize_system(
         let pitch_error_colinear =
             instant_twist(error_colinear, orientation.0 * Vec3A::X).to_degrees();
         let roll_error_adjusted = roll_error + (pitch_error - pitch_error_colinear);
+        //
+        // let pitch_error = instant_twist(error, Vec3A::X).to_degrees();
+        // let roll_error = instant_twist(error, Vec3A::Y).to_degrees();
+        //
+        // let pitch_error_colinear = pitch_error;
+        // let roll_error_adjusted = roll_error;
 
         let res_pitch =
             state
@@ -117,12 +123,12 @@ fn stabalize_system(
 
         let pitch_movement = Movement {
             force: Vec3A::ZERO,
-            torque: Vec3A::X * res_pitch.correction,
+            torque: /*orientation.0.inverse() **/ Vec3A::X * res_pitch.correction,
         };
 
         let roll_movement = Movement {
             force: Vec3A::ZERO,
-            torque: Vec3A::Y * res_roll.correction,
+            torque: /*orientation.0.inverse() **/ Vec3A::Y * res_roll.correction,
         };
 
         cmds.entity(state.pitch)
