@@ -287,7 +287,13 @@ fn rotator_system(
         );
 
         if let Some(&OrientationTarget(up)) = target {
-            gizmos.line(vec3(0.0, 0.0, 0.0), (up * 5.0).into(), Color::YELLOW);
+            gizmos.line(vec3(0.0, 0.0, -5.0), vec3(0.0, 0.0, 5.0), Color::BLUE);
+
+            gizmos.line(
+                vec3(0.0, 0.0, 0.0),
+                orientation.0 * (Vec3::from(up) * 5.0),
+                Color::YELLOW,
+            );
         }
     }
 }

@@ -49,6 +49,10 @@ impl PidController {
             correction,
         }
     }
+
+    pub fn reset_i(&mut self) {
+        self.integral = 0.0;
+    }
 }
 
 pub fn register_types(app: &mut App) {

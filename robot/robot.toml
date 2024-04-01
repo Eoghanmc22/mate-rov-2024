@@ -1,14 +1,16 @@
 name = "Dark Shark"
 port = 44445
 
-center_of_mass = { x = 0.0, y = 0.0, z = 0.0 }
+center_of_mass = [0.0, -0.035, 0.0]
 motor_amperage_budget = 25.0
-jerk_limit = 70.0
+jerk_limit = 60.0
 
 # This is dummy data
 [motor_config.X3d.seed_motor]
-position = [0.325, 0.355, 0.241]
-orientation = [-0.254, -0.571, -0.781]
+# position = [0.325, 0.355, 0.241]
+# FIXME: This is wrong i think
+position = [0.19, 0.21, 0.09]
+orientation = [-0.254, 0.571, -0.781]
 direction = "CounterClockwise"
 
 [motor_config.X3d.motors]

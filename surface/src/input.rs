@@ -34,7 +34,7 @@ impl Plugin for InputPlugin {
                     arm,
                     depth_hold,
                     leveling,
-                    trim_orientation,
+                    // trim_orientation,
                     trim_depth,
                 ),
             );
@@ -211,6 +211,7 @@ fn movement(
         (
             &MovementAxisMaximums,
             Option<&DepthTarget>,
+            Option<&Orientation>,
             Option<&OrientationTarget>,
             &RobotId,
         ),
@@ -218,9 +219,15 @@ fn movement(
     >,
 ) {
     for (entity, robot, action_state) in &inputs {
-        let Some((MovementAxisMaximums(maximums), depth_target, orientation_target, _)) = robots
+        let Some((
+            MovementAxisMaximums(maximums),
+            depth_target,
+            orientation,
+            orientation_target,
+            _,
+        )) = robots
             .iter()
-            .find(|(_, _, _, robot_id)| robot_id.0 == robot.0)
+            .find(|(_, _, _, _, robot_id)| robot_id.0 == robot.0)
         else {
             error!("Could not find robot for input");
 
@@ -243,15 +250,18 @@ fn movement(
 
         let z = if depth_target.is_none() { z } else { 0.0 };
 
-        let (x_rot, y_rot) = if orientation_target.is_none() {
-            (x_rot, y_rot)
-        } else {
-            (0.0, 0.0)
-        };
+        let torque = //if orientation_target.is_none() {
+        vec3a(x_rot, y_rot, z_rot)
+        // } else if let Some(orientation) = orientation {
+        //     orientation.0.inverse() * vec3a(0.0, 0.0, z_rot)
+        // } else {
+        //     vec3a(0.0, 0.0, z_rot)
+        // };
+        ;
 
         let movement = Movement {
             force: vec3a(x, y, z),
-            torque: vec3a(x_rot, y_rot, z_rot),
+            torque,
         };
 
         cmds.entity(entity).insert(MovementContribution(movement));
@@ -361,15 +371,7 @@ fn leveling(
     }
 }
 
-#[derive(Default)]
-struct TrimOrientationState {
-    roll_quat: Option<Quat>,
-    pitch_quat: Option<Quat>,
-}
-
 fn trim_orientation(
-    mut state: Local<TrimOrientationState>,
-
     mut cmds: Commands,
     inputs: Query<(&RobotId, &ActionState<Action>, &InputInterpolation), With<InputMarker>>,
     robots: Query<(Entity, &Orientation, Option<&OrientationTarget>, &RobotId), With<Robot>>,
@@ -390,38 +392,12 @@ fn trim_orientation(
 
             if pitch.abs() >= 0.05 {
                 let input = pitch * interpolation.trim_dps * time.delta_seconds();
-
-                let pitch_quat = if let Some(pitch_quat) = state.pitch_quat {
-                    pitch_quat
-                } else {
-                    orientation.0
-                        * Quat::from_rotation_x(input.to_radians())
-                        * orientation.0.inverse()
-                };
-
-                orientation_target = pitch_quat * orientation_target;
-
-                state.pitch_quat = Some(pitch_quat);
-            } else {
-                state.pitch_quat = None;
+                orientation_target = Quat::from_rotation_x(input.to_radians()) * orientation_target;
             }
 
             if roll.abs() >= 0.05 {
                 let input = roll * interpolation.trim_dps * time.delta_seconds();
-
-                let roll_quat = if let Some(roll_quat) = state.roll_quat {
-                    roll_quat
-                } else {
-                    orientation.0
-                        * Quat::from_rotation_y(input.to_radians())
-                        * orientation.0.inverse()
-                };
-
-                orientation_target = roll_quat * orientation_target;
-
-                state.roll_quat = Some(roll_quat);
-            } else {
-                state.roll_quat = None;
+                orientation_target = Quat::from_rotation_y(input.to_radians()) * orientation_target;
             }
 
             if pitch != 0.0 || roll != 0.0 {

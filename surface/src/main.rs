@@ -29,7 +29,7 @@ use video_display_2d::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
 use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
 
-pub const DARK_MODE: bool = true;
+pub const DARK_MODE: bool = false;
 
 fn main() -> anyhow::Result<()> {
     info!("---------- Starting Control Station ----------");
