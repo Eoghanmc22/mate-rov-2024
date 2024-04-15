@@ -34,7 +34,7 @@ impl Plugin for InputPlugin {
                     arm,
                     depth_hold,
                     leveling,
-                    // trim_orientation,
+                    trim_orientation,
                     trim_depth,
                 ),
             );
@@ -248,16 +248,14 @@ fn movement(
         let z_rot = -(action_state.value(&Action::Yaw) * maximums[&Axis::ZRot].0
             - action_state.value(&Action::YawInverted) * maximums[&Axis::ZRot].0);
 
+        // TODO: Transform translational inputs
         let z = if depth_target.is_none() { z } else { 0.0 };
 
-        let torque = //if orientation_target.is_none() {
-        vec3a(x_rot, y_rot, z_rot)
-        // } else if let Some(orientation) = orientation {
-        //     orientation.0.inverse() * vec3a(0.0, 0.0, z_rot)
-        // } else {
-        //     vec3a(0.0, 0.0, z_rot)
-        // };
-        ;
+        let torque = if orientation_target.is_none() {
+            vec3a(x_rot, y_rot, z_rot)
+        } else {
+            Vec3A::ZERO
+        };
 
         let movement = Movement {
             force: vec3a(x, y, z),
@@ -329,7 +327,7 @@ fn depth_hold(
 fn leveling(
     mut cmds: Commands,
     inputs: Query<(&RobotId, &ActionState<Action>), With<InputMarker>>,
-    robots: Query<(Entity, Option<&OrientationTarget>, &RobotId), With<Robot>>,
+    robots: Query<(Entity, &Orientation, Option<&OrientationTarget>, &RobotId), With<Robot>>,
 ) {
     for (robot, action_state) in &inputs {
         let toggle_upright =
@@ -339,19 +337,29 @@ fn leveling(
 
         let robot = robots
             .iter()
-            .find(|&(_, _, other_robot)| robot == other_robot);
+            .find(|&(_, _, _, other_robot)| robot == other_robot);
 
-        if let Some((robot, orientation_target, _)) = robot {
+        if let Some((robot, orientation, orientation_target, _)) = robot {
             if toggle_upright || toggle_inverted {
+                let mut new_target = orientation.0;
+
+                // Only keep yaw component
+                new_target.x = 0.0;
+                new_target.y = 0.0;
+                let new_target = new_target.normalize();
+
+                // Flip if inverted is selected
                 let new_target = if toggle_upright {
-                    Vec3A::Z
+                    new_target
                 } else {
-                    Vec3A::NEG_Z
+                    new_target * Quat::from_rotation_y(180f32.to_radians())
                 };
 
                 match orientation_target {
-                    Some(old_target) if old_target.0 == new_target => {
-                        info!("Clear Depth Hold");
+                    // FIXME: Make switching from upright to inverted easier
+                    Some(_old_target) => {
+                        //if old_target.0 == new_target => {
+                        info!("Clear Leveling");
                         cmds.entity(robot).remove::<OrientationTarget>();
                     }
                     _ => {
@@ -380,6 +388,7 @@ fn trim_orientation(
     for (robot, action_state, interpolation) in &inputs {
         let pitch = action_state.value(&Action::Pitch) - action_state.value(&Action::PitchInverted);
         let roll = action_state.value(&Action::Roll) - action_state.value(&Action::RollInverted);
+        let yaw = action_state.value(&Action::Yaw) - action_state.value(&Action::YawInverted);
 
         let robot = robots
             .iter()
@@ -392,19 +401,24 @@ fn trim_orientation(
 
             if pitch.abs() >= 0.05 {
                 let input = pitch * interpolation.trim_dps * time.delta_seconds();
-                orientation_target = Quat::from_rotation_x(input.to_radians()) * orientation_target;
+                orientation_target = orientation_target * Quat::from_rotation_x(input.to_radians());
             }
 
             if roll.abs() >= 0.05 {
                 let input = roll * interpolation.trim_dps * time.delta_seconds();
-                orientation_target = Quat::from_rotation_y(input.to_radians()) * orientation_target;
+                orientation_target = orientation_target * Quat::from_rotation_y(input.to_radians());
             }
 
-            if pitch != 0.0 || roll != 0.0 {
+            if yaw.abs() >= 0.05 {
+                let input = yaw * interpolation.trim_dps * time.delta_seconds();
+                orientation_target = Quat::from_rotation_z(input.to_radians()) * orientation_target;
+            }
+
+            if pitch != 0.0 || roll != 0.0 || yaw != 0.0 {
                 cmds.entity(robot)
                     .insert(OrientationTarget(orientation_target));
             }
-        } else if pitch != 0.0 || roll != 0.0 {
+        } else if pitch != 0.0 || roll != 0.0 || yaw != 0.0 {
             warn!("No ROV attached");
         }
     }

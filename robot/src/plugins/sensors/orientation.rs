@@ -9,6 +9,7 @@ use bevy::{app::AppExit, prelude::*};
 use common::{
     components::{Inertial, Magnetic, Orientation},
     error::{self, ErrorEvent, Errors},
+    events::ResetYaw,
     types::hw::{InertialFrame, MagneticFrame},
 };
 use crossbeam::channel::{self, Receiver, Sender};
@@ -17,7 +18,7 @@ use tracing::{span, Level};
 
 use crate::{
     peripheral::{icm20602::Icm20602, mmc5983::Mcc5983},
-    plugins::core::robot::LocalRobot,
+    plugins::core::robot::{LocalRobot, LocalRobotMarker},
 };
 
 pub struct OrientationPlugin;
@@ -29,7 +30,10 @@ impl Plugin for OrientationPlugin {
         app.add_systems(Startup, start_inertial_thread.pipe(error::handle_errors));
         app.add_systems(
             PreUpdate,
-            read_new_data.run_if(resource_exists::<InertialChannels>),
+            (
+                reset_yaw_handler.before(read_new_data),
+                read_new_data.run_if(resource_exists::<InertialChannels>),
+            ),
         );
         app.add_systems(Last, shutdown.run_if(resource_exists::<InertialChannels>));
     }
@@ -165,6 +169,18 @@ fn read_new_data(
 
         cmds.entity(robot.entity)
             .insert((orientation, inertial, magnetic));
+    }
+}
+
+fn reset_yaw_handler(
+    mut events: EventReader<ResetYaw>,
+    mut madgwick_filter: ResMut<MadgwickFilter>,
+) {
+    for _ in events.read() {
+        info!("Resetting Yaw");
+
+        madgwick_filter.0.quat.as_mut_unchecked().vector_mut()[2] = 0.0;
+        madgwick_filter.0.quat.renormalize();
     }
 }
 

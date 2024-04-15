@@ -55,8 +55,10 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let size = Extent3d {
-        width: 512,
-        height: 512,
+        // width: 512,
+        // height: 512,
+        width: 1024,
+        height: 1024,
         ..default()
     };
 
@@ -152,9 +154,9 @@ fn add_motor_conf(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Cuboid::new(
-                    frt.position.x * 2.0,
-                    frt.position.y * 2.0,
-                    frt.position.z * 2.0,
+                    frt.position.x * 2.0 * 1.5,
+                    frt.position.y * 2.0 * 1.5,
+                    frt.position.z * 2.0 * 1.5,
                 )),
                 material: materials_pbr.add(Color::rgb(0.8, 0.7, 0.6)),
                 transform: Transform::from_scale(Vec3::splat(3.5)),
@@ -186,7 +188,7 @@ fn add_motor(
             }),
             material: materials_pbr.add(Color::GREEN),
             transform: Transform::from_translation(Vec3::from(
-                motor.position + motor.orientation / 2.0,
+                motor.position * 1.5 + motor.orientation / 2.0,
             ))
             .looking_to(motor.orientation.into(), (-motor.position).into())
                 * Transform::from_rotation(Quat::from_rotation_x(90f32.to_radians())),
@@ -199,11 +201,11 @@ fn add_motor(
     builder.spawn((
         PbrBundle {
             mesh: meshes.add(Cylinder {
-                radius: 0.1,
-                half_height: 0.05,
+                radius: 0.125,
+                half_height: 0.0625,
             }),
             material: materials_pbr.add(Color::DARK_GRAY),
-            transform: Transform::from_translation(Vec3::from(motor.position))
+            transform: Transform::from_translation(Vec3::from(motor.position * 1.5))
                 .looking_to(motor.orientation.into(), (-motor.position).into())
                 * Transform::from_rotation(Quat::from_rotation_x(90f32.to_radians())),
             ..default()
@@ -287,13 +289,17 @@ fn rotator_system(
         );
 
         if let Some(&OrientationTarget(up)) = target {
-            gizmos.line(vec3(0.0, 0.0, -5.0), vec3(0.0, 0.0, 5.0), Color::BLUE);
+            // gizmos.line(vec3(0.0, 0.0, -5.0), vec3(0.0, 0.0, 5.0), Color::BLUE);
+            //
+            // gizmos.line(
+            //     vec3(0.0, 0.0, 0.0),
+            //     orientation.0 * (Vec3::from(up) * 5.0),
+            //     Color::YELLOW,
+            // );
 
-            gizmos.line(
-                vec3(0.0, 0.0, 0.0),
-                orientation.0 * (Vec3::from(up) * 5.0),
-                Color::YELLOW,
-            );
+            gizmos.circle(Vec3::ZERO, up * Direction3d::X, 2.0, Color::RED);
+            gizmos.circle(Vec3::ZERO, up * Direction3d::Y, 2.0, Color::GREEN);
+            gizmos.circle(Vec3::ZERO, up * Direction3d::Z, 2.0, Color::BLUE);
         }
     }
 }

@@ -39,6 +39,10 @@ gpio=11,24,25=op,pu,dh
 # PWM Output enable, Disarm by default
 gpio=37=op,pu,dh
 
+# Optional:
+# Support communication over usbc for testing
+dtoverlay=dwc2
+
 [pi4]
 
 dtoverlay=i2c1,pins_2_3
@@ -54,6 +58,11 @@ dtoverlay=i2c-gpio,i2c_gpio_sda=22,i2c_gpio_scl=23,bus=6
 [all]
 
 # END MATE
+```
+
+Append this to cmdline.txt if using Ethernet over usbc
+```
+modules-load=dwc2,g_ether
 ```
 
 add `i2c-dev` to `/etc/modules`

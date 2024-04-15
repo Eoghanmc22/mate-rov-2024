@@ -31,9 +31,10 @@ impl Plugin for DepthPlugin {
         app.add_systems(
             Update,
             (
-                calibrate_sea_level,
+                calibrate_sea_level.run_if(resource_exists::<DepthChannels>),
                 listen_for_settings
                     .pipe(error::handle_errors)
+                    .run_if(resource_exists::<DepthChannels>)
                     .after(calibrate_sea_level),
             ),
         );

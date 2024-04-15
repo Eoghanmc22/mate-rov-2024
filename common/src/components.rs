@@ -117,7 +117,7 @@ pub struct DepthSettings {
 /// Desired up vector
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
-pub struct OrientationTarget(pub Vec3A);
+pub struct OrientationTarget(pub Quat);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Copy, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq, Default)]

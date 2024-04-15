@@ -11,7 +11,7 @@ use common::{
         PwmManualControl, PwmSignal, Robot, RobotId, RobotStatus, Temperatures,
     },
     ecs_sync::{NetId, Replicate},
-    events::{CalibrateSeaLevel, ResyncCameras},
+    events::{CalibrateSeaLevel, ResetYaw, ResyncCameras},
     sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
 };
 use egui::{
@@ -120,6 +120,12 @@ fn topbar(
                 if ui.button("Calibrate Sea Level").clicked() {
                     cmds.add(|world: &mut World| {
                         world.send_event(CalibrateSeaLevel);
+                    })
+                }
+
+                if ui.button("Reset Yaw").clicked() {
+                    cmds.add(|world: &mut World| {
+                        world.send_event(ResetYaw);
                     })
                 }
             });
@@ -320,9 +326,9 @@ fn hud(
 
         let window = egui::Window::new(robot_name.as_str())
             .id("HUD".into())
-            .current_pos(context.screen_rect().right_top())
-            .constrain_to(context.available_rect().shrink(20.0))
-            .movable(false);
+            .default_pos(context.screen_rect().right_top())
+            .constrain_to(context.available_rect().shrink(20.0));
+        // .movable(false);
 
         let window = if let Some(_peer) = peer {
             window.open(&mut open)
@@ -458,16 +464,8 @@ fn hud(
                 ui.add_space(10.0);
             }
 
-            if let Some(orientation_target) = orientation_target {
-                let target = if orientation_target.0 == Vec3A::Z {
-                    "Upright"
-                } else if orientation_target.0 == Vec3A::NEG_Z {
-                    "Inverted"
-                } else {
-                    "Custom"
-                };
-
-                RichText::new(format!("Orientation Target: {target}")).size(size);
+            if let Some(_orientation_target) = orientation_target {
+                ui.label(RichText::new("Orientation Control").size(size));
             }
         });
 
@@ -479,9 +477,9 @@ fn hud(
     } else {
         egui::Window::new("Not Connected")
             .id("HUD".into())
-            .current_pos(context.screen_rect().right_top())
+            .default_pos(context.screen_rect().right_top())
             .constrain_to(context.available_rect().shrink(20.0))
-            .movable(false)
+            // .movable(false)
             .show(contexts.ctx_mut(), |ui| {
                 ui.horizontal(|ui| {
                     ui.label("Connect To:");

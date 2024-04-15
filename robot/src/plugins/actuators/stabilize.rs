@@ -84,9 +84,9 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 0.3,
-                ki: 0.15,
-                kd: 0.2,
+                kp: 0.2,
+                ki: 0.1,
+                kd: 0.15,
                 max_integral: 30.0,
             },
             Replicate,
@@ -117,47 +117,19 @@ fn stabalize_system(
     let yaw_pid_config = entity_query.get(state.yaw).unwrap();
 
     if let Ok((&Armed::Armed, orientation, orientation_target)) = robot {
-        let robot_up = orientation.0 * orientation_target.0;
-        let global_up = Vec3A::Z;
+        let error = orientation_target.0 * orientation.0.inverse();
 
-        let error = Quat::from_rotation_arc(robot_up.into(), global_up.into());
-        // let error_colinear = Quat::from_rotation_arc(robot_up.into(), global_up.into());
-
+        //FIXME: Prefer roll over pitch
         let pitch_error = instant_twist(error, orientation.0 * Vec3A::X).to_degrees();
         let roll_error = instant_twist(error, orientation.0 * Vec3A::Y).to_degrees();
         let yaw_error = instant_twist(error, orientation.0 * Vec3A::Z).to_degrees();
 
-        let pitch_error_colinear = pitch_error;
-        let roll_error_adjusted = roll_error;
-
-        // let observed_up = orientation.0 * Vec3A::Z;
-        // let target_up = orientation_target.0;
-
-        // TODO(mid): Is this any good?
-        // let error = Quat::from_rotation_arc(observed_up.into(), target_up.into());
-        // let error_colinear = Quat::from_rotation_arc_colinear(observed_up.into(), target_up.into());
-
-        // let pitch_error = instant_twist(error, orientation.0 * Vec3A::X).to_degrees();
-        // let roll_error = instant_twist(error, orientation.0 * Vec3A::Y).to_degrees();
-        //
-        // let pitch_error_colinear =
-        //     instant_twist(error_colinear, orientation.0 * Vec3A::X).to_degrees();
-        // let roll_error_adjusted = roll_error + (pitch_error - pitch_error_colinear);
-        //
-        // let pitch_error = instant_twist(error, Vec3A::X).to_degrees();
-        // let roll_error = instant_twist(error, Vec3A::Y).to_degrees();
-        //
-        // let pitch_error_colinear = pitch_error;
-        // let roll_error_adjusted = roll_error;
-
-        let res_pitch =
-            state
-                .pitch_controller
-                .update(pitch_error_colinear, pitch_pid_config, time.delta());
-        let res_roll =
-            state
-                .roll_controller
-                .update(roll_error_adjusted, roll_pid_config, time.delta());
+        let res_pitch = state
+            .pitch_controller
+            .update(pitch_error, pitch_pid_config, time.delta());
+        let res_roll = state
+            .roll_controller
+            .update(roll_error, roll_pid_config, time.delta());
         let res_yaw = state
             .yaw_controller
             .update(yaw_error, yaw_pid_config, time.delta());
@@ -182,7 +154,7 @@ fn stabalize_system(
         cmds.entity(state.roll)
             .insert((MovementContribution(roll_movement), res_roll));
         cmds.entity(state.yaw)
-            .insert((MovementContribution(yaw_movement * 0.0), res_yaw));
+            .insert((MovementContribution(yaw_movement), res_yaw));
     } else {
         cmds.entity(state.pitch)
             .remove::<(MovementContribution, PidResult)>();

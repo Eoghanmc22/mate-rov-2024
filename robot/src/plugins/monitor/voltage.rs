@@ -18,7 +18,8 @@ impl Plugin for VoltagePlugin {
 
 fn check_voltage(robot: Query<(&MeasuredVoltage, &CurrentDraw), With<LocalRobotMarker>>) {
     for (voltage, current) in &robot {
-        if voltage.0 .0 < 10.0 {
+        let raw_voltage = voltage.0 .0;
+        if raw_voltage < 10.0 && raw_voltage > 1.0 {
             warn!("Low Voltage: {}, {}", voltage.0, current.0);
         }
     }
