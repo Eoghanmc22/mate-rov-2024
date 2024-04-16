@@ -67,7 +67,7 @@ pub fn clamp_amperage_fast<MotorId: Hash + Ord + Clone + Debug>(
         return motor_cmds;
     } else {
         // TODO remove?
-        println!("CURRENT LIMIT HIT");
+        // println!("CURRENT LIMIT HIT");
     }
 
     let amperage_ratio = amperage_cap / amperage_total;

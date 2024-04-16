@@ -172,8 +172,6 @@ fn create_display(
     }
 
     if tree_changed {
-        println!("tree changed");
-
         cmds.entity(parent)
             .despawn_descendants()
             .with_children(|builder| {
