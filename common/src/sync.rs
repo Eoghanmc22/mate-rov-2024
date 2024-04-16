@@ -1,6 +1,6 @@
 use std::{
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
-    thread, usize,
+    thread,
 };
 
 use crate::{
@@ -293,12 +293,12 @@ fn net_read(
                     }
                 }
                 Protocol::Pong { payload } => {
-                    let latency = peers
+                    let peer = peers
                         .by_token
                         .get(&token)
-                        .and_then(|it| peer_query.get_component_mut::<Latency>(*it).ok());
+                        .and_then(|it| peer_query.get_mut(*it).ok());
 
-                    let Some(mut latency) = latency else {
+                    let Some((_, mut latency)) = peer else {
                         errors.send(anyhow!("Got pong from unknown peer").into());
                         continue;
                     };
@@ -324,7 +324,7 @@ fn net_read(
                     errors.send(anyhow!("Unknown peer disconnected").into());
                     continue;
                 };
-                let Ok(peer) = peer_query.get_component::<Peer>(entity) else {
+                let Ok((peer, _)) = peer_query.get(entity) else {
                     errors.send(anyhow!("Unknown peer disconnected").into());
                     continue;
                 };

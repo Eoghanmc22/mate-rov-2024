@@ -5,7 +5,7 @@ use bevy::{
     ecs::component::Component,
     reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize},
 };
-use glam::{Quat, Vec3A};
+use glam::Quat;
 use motor_math::{solve::reverse::Axis, ErasedMotorId, Motor, MotorConfig, Movement};
 use serde::{Deserialize, Serialize};
 

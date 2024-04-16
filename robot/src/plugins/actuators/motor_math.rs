@@ -14,7 +14,6 @@ use motor_math::{
     motor_preformance::{self, Interpolation, MotorData, MotorRecord},
     solve, Direction, ErasedMotorId, Movement,
 };
-use nalgebra::ComplexField;
 
 use crate::{
     config::RobotConfig,

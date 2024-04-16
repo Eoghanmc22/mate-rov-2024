@@ -12,12 +12,9 @@ use std::time::Duration;
 
 use attitude::AttitudePlugin;
 use bevy::{
-    core::TaskPoolThreadAssignmentPolicy,
     diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    tasks::available_parallelism,
 };
-use bevy_egui::EguiSettings;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use bevy_tokio_tasks::TokioTasksPlugin;
@@ -28,6 +25,8 @@ use ui::{EguiUiPlugin, ShowInspector};
 use video_display_2d::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
 use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
+
+use crate::video_pipelines::VideoPipelinePlugins;
 
 pub const DARK_MODE: bool = false;
 
@@ -81,6 +80,7 @@ fn main() -> anyhow::Result<()> {
                 VideoStreamPlugin,
                 // VideoDisplay3DPlugin,
                 VideoDisplay2DPlugin,
+                VideoPipelinePlugins,
             ),
             // 3rd Party
             (

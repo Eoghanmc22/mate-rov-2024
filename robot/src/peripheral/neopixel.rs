@@ -1,5 +1,5 @@
 use core::slice;
-use std::{fmt::Debug, iter, ops::DerefMut, slice::SliceIndex, usize};
+use std::{fmt::Debug, iter, ops::DerefMut, slice::SliceIndex};
 
 use anyhow::Context;
 use rgb::{ComponentMap, RGB8};

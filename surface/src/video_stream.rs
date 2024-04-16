@@ -1,4 +1,4 @@
-use std::{ffi::c_void, mem, sync::Arc, thread};
+use std::{borrow::Cow, ffi::c_void, mem, sync::Arc, thread};
 
 use anyhow::{anyhow, Context};
 use bevy::{
@@ -37,19 +37,26 @@ impl Plugin for VideoStreamPlugin {
     }
 }
 
-pub trait VideoProcessor: Send + Sync + 'static {
+/// An interface to plug into the video streaming pipeline
+pub trait VideoProcessor: Send + 'static {
     fn begin(&mut self);
-    fn process<'a>(&'a mut self, img: &Mat) -> &'a Mat;
+    fn process<'b, 'a: 'b>(&'a mut self, img: &'b mut Mat) -> anyhow::Result<&'b Mat>;
+    fn should_end(&self) -> bool {
+        false
+    }
     fn end(&mut self);
 }
 type BoxedVideoProcessor = Box<dyn VideoProcessor>;
 
-#[derive(Component)]
-pub struct VideoProcessorFactory(pub fn(&mut World) -> BoxedVideoProcessor);
+#[derive(Component, Clone)]
+pub struct VideoProcessorFactory(
+    pub Cow<'static, str>,
+    pub fn(&mut World) -> BoxedVideoProcessor,
+);
 
 #[derive(Component)]
-struct VideoThread(
-    // Used so the video thread can detect when its handle is droped from the ecs
+pub struct VideoThread(
+    // Used by the video thread to detect when its handle is droped from the ECS
     Arc<()>,
     // Channels for displaying and reusing bevy images
     Sender<Image>,
@@ -100,7 +107,8 @@ fn handle_added_camera(
 
                 while handle.strong_count() > 0 {
                     let res = src.read(&mut mat).context("Read video frame");
-                    let ret = match res {
+
+                    let new_frame = match res {
                         Ok(ret) => ret,
                         Err(err) => {
                             let _ = errors.send(err);
@@ -120,23 +128,38 @@ fn handle_added_camera(
                         proc = new_proc;
                     }
 
-                    let mat = if let Some(proc) = &mut proc {
-                        proc.process(&mat)
-                    } else {
-                        &mat
-                    };
+                    if new_frame {
+                        let mat = if let Some(proc_local) = &mut proc {
+                            if !proc_local.should_end() {
+                                let res = proc_local.process(&mut mat);
 
-                    images.extend(rx_bevy.try_iter());
-                    images.truncate(15);
-                    let mut image = images.pop().unwrap_or_default();
+                                match res {
+                                    Ok(mat) => mat,
+                                    Err(err) => {
+                                        let _ = errors.send(err);
+                                        &mat
+                                    }
+                                }
+                            } else {
+                                proc_local.end();
+                                proc = None;
 
-                    let res = mat_to_image(mat, &mut image).context("Mat to image");
-                    if let Err(err) = res {
-                        let _ = errors.send(err);
-                        continue;
-                    }
+                                &mat
+                            }
+                        } else {
+                            &mat
+                        };
 
-                    if ret {
+                        images.extend(rx_bevy.try_iter());
+                        images.truncate(15);
+                        let mut image = images.pop().unwrap_or_default();
+
+                        let res = mat_to_image(mat, &mut image).context("Mat to image");
+                        if let Err(err) = res {
+                            let _ = errors.send(err);
+                            continue;
+                        }
+
                         let _ = tx_cv.send(image);
                     }
                 }
@@ -212,7 +235,7 @@ fn handle_video_processors(
     for (thread, processor) in &cameras_with_processor {
         if processor.is_changed() {
             let proc_tx = thread.3.clone();
-            let processor = processor.0;
+            let processor = processor.1;
 
             cmds.add(move |world: &mut World| {
                 let processor = (processor)(world);

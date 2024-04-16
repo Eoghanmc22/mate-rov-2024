@@ -16,9 +16,10 @@ use bevy::{
 };
 use common::{sync::SyncRole, CommonPlugins};
 use config::RobotConfig;
-use plugins::{
-    actuators::MovementPlugins, core::CorePlugins, monitor::MonitorPlugins, sensors::SensorPlugins,
-};
+use plugins::{actuators::MovementPlugins, core::CorePlugins, monitor::MonitorPlugins};
+
+#[cfg(rpi)]
+use crate::plugins::sensors::SensorPlugins;
 
 // TODO: LogPlugin now exposes a way to play with the tracing subscriber
 fn main() -> anyhow::Result<()> {

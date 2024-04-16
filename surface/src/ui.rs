@@ -1,14 +1,14 @@
 use std::time::Duration;
 
-use bevy::{app::AppExit, math::Vec3A, prelude::*};
+use bevy::{app::AppExit, prelude::*};
 use bevy_egui::{EguiContexts, EguiPlugin};
 use bevy_tokio_tasks::TokioTasksRuntime;
 use common::{
     bundles::MovementContributionBundle,
     components::{
-        Armed, CpuTotal, CurrentDraw, Depth, DepthTarget, Inertial, LoadAverage, MeasuredVoltage,
-        Memory, MovementAxisMaximums, MovementContribution, OrientationTarget, PwmChannel,
-        PwmManualControl, PwmSignal, Robot, RobotId, RobotStatus, Temperatures,
+        Armed, Camera, CpuTotal, CurrentDraw, Depth, DepthTarget, Inertial, LoadAverage,
+        MeasuredVoltage, Memory, MovementAxisMaximums, MovementContribution, OrientationTarget,
+        PwmChannel, PwmManualControl, PwmSignal, Robot, RobotId, RobotStatus, Temperatures,
     },
     ecs_sync::{NetId, Replicate},
     events::{CalibrateSeaLevel, ResetYaw, ResyncCameras},
@@ -16,12 +16,17 @@ use common::{
 };
 use egui::{
     load::SizedTexture, text::LayoutJob, widgets, Align, Color32, Id, Label, Layout, RichText,
-    Style, TextFormat, Visuals,
+    TextBuffer, TextFormat, Visuals,
 };
 use motor_math::{solve::reverse::Axis, Movement};
 use tokio::net::lookup_host;
 
-use crate::{attitude::OrientationDisplay, DARK_MODE};
+use crate::{
+    attitude::OrientationDisplay,
+    video_pipelines::VideoPipelines,
+    video_stream::{VideoProcessorFactory, VideoThread},
+    DARK_MODE,
+};
 
 pub struct EguiUiPlugin;
 
@@ -76,6 +81,12 @@ fn topbar(
         With<Robot>,
     >,
 
+    cameras: Query<
+        (Entity, &Name, Option<&VideoProcessorFactory>),
+        (With<Camera>, With<VideoThread>),
+    >,
+    pipelines: Res<VideoPipelines>,
+
     inspector: Option<Res<ShowInspector>>,
     pwm_control: Option<Res<PwmControl>>,
 
@@ -111,12 +122,6 @@ fn topbar(
             });
 
             ui.menu_button("Sensors", |ui| {
-                if ui.button("Resync Cameras").clicked() {
-                    cmds.add(|world: &mut World| {
-                        world.send_event(ResyncCameras);
-                    })
-                }
-
                 if ui.button("Calibrate Sea Level").clicked() {
                     cmds.add(|world: &mut World| {
                         world.send_event(CalibrateSeaLevel);
@@ -127,6 +132,38 @@ fn topbar(
                     cmds.add(|world: &mut World| {
                         world.send_event(ResetYaw);
                     })
+                }
+            });
+
+            ui.menu_button("Cameras", |ui| {
+                if ui.button("Resync Cameras").clicked() {
+                    cmds.add(|world: &mut World| {
+                        world.send_event(ResyncCameras);
+                    })
+                }
+
+                // TODO: Hide/Show All
+
+                for (entity, name, processor) in &cameras {
+                    ui.menu_button(name.as_str(), |ui| {
+                        // TODO: Hide/Show
+
+                        let processor = processor.map(|it| &it.0);
+
+                        for pipeline in &pipelines.0 {
+                            let selected = processor == Some(&pipeline.name);
+                            if ui
+                                .selectable_label(selected, pipeline.name.as_str())
+                                .clicked()
+                            {
+                                if !selected {
+                                    cmds.entity(entity).insert(pipeline.factory.clone());
+                                } else {
+                                    cmds.entity(entity).remove::<VideoProcessorFactory>();
+                                }
+                            }
+                        }
+                    });
                 }
             });
 
@@ -197,7 +234,7 @@ fn topbar(
                             },
                         );
 
-                        let state = match state {
+                        match state {
                             RobotStatus::NoPeer => {
                                 layout_job.append(
                                     "Unknown",

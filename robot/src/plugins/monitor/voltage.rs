@@ -1,10 +1,5 @@
 use bevy::prelude::*;
-use common::{
-    bundles::RobotCoreBundle,
-    components::{CurrentDraw, MeasuredVoltage, Robot, RobotId, RobotStatus, Singleton},
-    ecs_sync::{NetId, Replicate},
-    InstanceName,
-};
+use common::components::{CurrentDraw, MeasuredVoltage};
 
 use crate::plugins::core::robot::LocalRobotMarker;
 
