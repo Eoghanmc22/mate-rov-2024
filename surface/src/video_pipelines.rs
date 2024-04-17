@@ -1,5 +1,6 @@
 pub mod edges;
 pub mod marker;
+pub mod serial;
 pub mod undistort;
 
 use std::{
@@ -8,10 +9,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use bevy::{
     app::{App, PluginGroup, PluginGroupBuilder, Update},
     ecs::{
+        all_tuples,
         bundle::Bundle,
         component::Component,
         entity::Entity,
@@ -50,16 +52,18 @@ impl PluginGroup for VideoPipelinePlugins {
 }
 
 pub trait AppPipelineExt {
-    fn register_video_pipeline<P>(&mut self) -> &mut Self
+    fn register_video_pipeline<P>(&mut self, name: impl Into<Cow<'static, str>>) -> &mut Self
     where
         P: Pipeline + FromWorldEntity;
 }
 
 impl AppPipelineExt for App {
-    fn register_video_pipeline<P>(&mut self) -> &mut Self
+    fn register_video_pipeline<P>(&mut self, name: impl Into<Cow<'static, str>>) -> &mut Self
     where
         P: Pipeline + FromWorldEntity,
     {
+        let name = name.into();
+
         self.add_systems(Update, forward_pipeline_inputs::<P>);
 
         self.init_resource::<VideoPipelines>();
@@ -67,8 +71,8 @@ impl AppPipelineExt for App {
             .resource_mut::<VideoPipelines>()
             .0
             .push(VideoPipeline {
-                name: P::NAME.into(),
-                factory: factory::<P>(),
+                name: name.clone(),
+                factory: VideoProcessorFactory::new::<PipelineHandler<P>>(name),
             });
 
         self
@@ -91,19 +95,19 @@ pub struct VideoPipeline {
 pub type WorldCallback = Box<dyn FnOnce(&mut World) + Send + Sync + 'static>;
 pub type EntityWorldCallback = Box<dyn FnOnce(EntityWorldMut) + Send + Sync + 'static>;
 
-pub trait Pipeline: FromWorldEntity + Send + 'static {
-    const NAME: &'static str;
+pub struct SerialPipeline<T>(T);
 
+pub trait Pipeline: FromWorldEntity + Send + 'static {
     type Input: Default + Send + Sync + 'static;
 
     fn collect_inputs(world: &World, entity: &EntityRef) -> Self::Input;
 
     fn process<'b, 'a: 'b>(
         &'a mut self,
-        cmds: PipelineCallbacks<'a>,
+        cmds: &mut PipelineCallbacks,
         data: &Self::Input,
         img: &'b mut Mat,
-    ) -> anyhow::Result<&'b Mat>;
+    ) -> anyhow::Result<&'b mut Mat>;
 
     /// Entity is implicitly despawned after this function returns
     fn cleanup(entity_world: &mut EntityWorldMut);
@@ -122,10 +126,6 @@ impl<T: Default> FromWorldEntity for T {
     {
         Ok(Self::default())
     }
-}
-
-pub fn factory<P: Pipeline>() -> VideoProcessorFactory {
-    VideoProcessorFactory::new::<PipelineHandler<P>>(P::NAME)
 }
 
 type ArcMutArc<T> = Arc<Mutex<Arc<T>>>;
@@ -218,7 +218,7 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
             bail!("PipelineHandler has no entity id");
         };
 
-        let callbacks = PipelineCallbacks {
+        let mut callbacks = PipelineCallbacks {
             cmds_tx: &self.cmds_tx,
 
             pipeline_entity: entity,
@@ -227,7 +227,9 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
             should_end: &mut self.should_end,
         };
 
-        self.pipeline.process(callbacks, &*input, img)
+        self.pipeline
+            .process(&mut callbacks, &*input, img)
+            .map(|it| &*it)
     }
 
     fn should_end(&self) -> bool {
@@ -364,3 +366,46 @@ fn forward_pipeline_inputs<P: Pipeline>(
         }
     }
 }
+
+macro_rules! impl_pipeline_tuples {
+     ($(($T:ident, $p:ident, $d:ident)),*) => {
+         impl<$($T: Pipeline),*> Pipeline for SerialPipeline<($($T,)*)> {
+            type Input = ($($T::Input,)*);
+
+            fn collect_inputs(world: &World, entity: &EntityRef) -> Self::Input {
+                ($($T::collect_inputs(world, entity),)*)
+            }
+
+            fn process<'b, 'a: 'b>(
+                &'a mut self,
+                cmds: &mut PipelineCallbacks,
+                data: &Self::Input,
+                img: &'b mut Mat,
+            ) -> anyhow::Result<&'b mut Mat> {
+                let ($($p,)*) = &mut self.0;
+                let ($($d,)*) = data;
+
+                $(
+                    let img = $p.process(cmds, $d, img).context("Process")?;
+                )*
+
+                Ok(img)
+            }
+
+            fn cleanup(entity_world: &mut EntityWorldMut) {
+                $($T::cleanup(entity_world);)*
+            }
+         }
+
+        impl<$($T: FromWorldEntity),*> FromWorldEntity for SerialPipeline<($($T,)*)> {
+            fn from(world: &mut World, camera: Entity) -> anyhow::Result<Self>
+            where
+                Self: Sized,
+            {
+                Ok(SerialPipeline(($($T::from(world, camera)?,)*)))
+            }
+        }
+     };
+}
+
+all_tuples!(impl_pipeline_tuples, 2, 12, T, p, d);

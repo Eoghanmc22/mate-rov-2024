@@ -15,16 +15,14 @@ pub struct MarkerPipelinePlugin;
 
 impl Plugin for MarkerPipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.register_video_pipeline::<MarkerPipeline>();
+        app.register_video_pipeline::<MarkerPipeline>("Marker Pipeline");
     }
 }
 
 #[derive(Default)]
-struct MarkerPipeline;
+pub struct MarkerPipeline;
 
 impl Pipeline for MarkerPipeline {
-    const NAME: &'static str = "Marker Pipeline";
-
     type Input = ();
 
     fn collect_inputs(_world: &World, _entity: &EntityRef) -> Self::Input {
@@ -33,10 +31,10 @@ impl Pipeline for MarkerPipeline {
 
     fn process<'b, 'a: 'b>(
         &'a mut self,
-        _cmds: PipelineCallbacks,
+        _cmds: &mut PipelineCallbacks,
         _data: &Self::Input,
         img: &'b mut Mat,
-    ) -> anyhow::Result<&'b Mat> {
+    ) -> anyhow::Result<&'b mut Mat> {
         opencv::imgproc::draw_marker(
             img,
             Point::new(720, 480),

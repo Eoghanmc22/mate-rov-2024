@@ -1,4 +1,5 @@
 #![feature(iter_intersperse)]
+
 pub mod attitude;
 pub mod input;
 pub mod surface;
@@ -23,7 +24,7 @@ use input::InputPlugin;
 use surface::SurfacePlugin;
 use ui::{EguiUiPlugin, ShowInspector};
 use video_display_2d::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
-use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
+// use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
 
 use crate::video_pipelines::VideoPipelinePlugins;

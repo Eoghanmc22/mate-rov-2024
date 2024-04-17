@@ -11,18 +11,16 @@ pub struct EdgesPipelinePlugin;
 
 impl Plugin for EdgesPipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.register_video_pipeline::<EdgesPipeline>();
+        app.register_video_pipeline::<EdgesPipeline>("Edge Detection Pipeline");
     }
 }
 
 #[derive(Default)]
-struct EdgesPipeline {
+pub struct EdgesPipeline {
     edges: Mat,
 }
 
 impl Pipeline for EdgesPipeline {
-    const NAME: &'static str = "Edge Detection Pipeline";
-
     type Input = ();
 
     fn collect_inputs(_world: &World, _entity: &EntityRef) -> Self::Input {
@@ -31,13 +29,13 @@ impl Pipeline for EdgesPipeline {
 
     fn process<'b, 'a: 'b>(
         &'a mut self,
-        _cmds: PipelineCallbacks,
+        _cmds: &mut PipelineCallbacks,
         _data: &Self::Input,
         img: &'b mut Mat,
-    ) -> anyhow::Result<&'b Mat> {
+    ) -> anyhow::Result<&'b mut Mat> {
         opencv::imgproc::canny(img, &mut self.edges, 150.0, 150.0, 3, false).context("Canny")?;
 
-        Ok(&self.edges)
+        Ok(&mut self.edges)
     }
 
     fn cleanup(_entity_world: &mut EntityWorldMut) {

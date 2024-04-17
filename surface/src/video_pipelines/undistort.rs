@@ -16,11 +16,11 @@ pub struct UndistortPipelinePlugin;
 
 impl Plugin for UndistortPipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.register_video_pipeline::<UndistortPipeline>();
+        app.register_video_pipeline::<UndistortPipeline>("Undistort Pipeline");
     }
 }
 
-struct UndistortPipeline {
+pub struct UndistortPipeline {
     undistorted: Mat,
     cropped: Mat,
 
@@ -41,8 +41,6 @@ struct RemapData {
 }
 
 impl Pipeline for UndistortPipeline {
-    const NAME: &'static str = "Undistort Pipeline";
-
     type Input = ();
 
     fn collect_inputs(_world: &World, _entity: &EntityRef) -> Self::Input {
@@ -51,10 +49,10 @@ impl Pipeline for UndistortPipeline {
 
     fn process<'b, 'a: 'b>(
         &'a mut self,
-        _cmds: PipelineCallbacks,
+        _cmds: &mut PipelineCallbacks,
         _data: &Self::Input,
         img: &'b mut Mat,
-    ) -> anyhow::Result<&'b Mat> {
+    ) -> anyhow::Result<&'b mut Mat> {
         let size = img.size().context("Get image size")?;
 
         if let Some(ref mut remap) = self.remap {
