@@ -1,7 +1,7 @@
 use anyhow::Context;
 use bevy::{
     app::{App, Plugin},
-    prelude::{EntityRef, EntityWorldMut, World},
+    prelude::{Entity, EntityRef, EntityWorldMut, World},
 };
 use opencv::{
     calib3d,
@@ -138,7 +138,7 @@ impl Pipeline for UndistortPipeline {
 }
 
 impl FromWorldEntity for UndistortPipeline {
-    fn from(world: &mut World, camera: bevy::prelude::Entity) -> anyhow::Result<Self>
+    fn from(world: &mut World, camera: Entity) -> anyhow::Result<Self>
     where
         Self: Sized,
     {

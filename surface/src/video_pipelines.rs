@@ -32,7 +32,9 @@ use opencv::core::Mat;
 use tracing::{debug, error};
 
 use crate::{
-    video_pipelines::{edges::EdgesPipelinePlugin, marker::MarkerPipelinePlugin},
+    video_pipelines::{
+        edges::EdgesPipelinePlugin, marker::MarkerPipelinePlugin, serial::SerialPipelinePlugin,
+    },
     video_stream::{VideoProcessor, VideoProcessorFactory},
 };
 
@@ -46,6 +48,7 @@ impl PluginGroup for VideoPipelinePlugins {
                 app.insert_resource(VideoCallbackChannels { cmd_tx, cmd_rx });
                 app.add_systems(Update, schedule_pipeline_callbacks);
             })
+            .add(SerialPipelinePlugin)
             .add(EdgesPipelinePlugin)
             .add(MarkerPipelinePlugin)
     }
@@ -100,6 +103,7 @@ pub struct SerialPipeline<T>(T);
 pub trait Pipeline: FromWorldEntity + Send + 'static {
     type Input: Default + Send + Sync + 'static;
 
+    // TODO: Expose camera entity as well
     fn collect_inputs(world: &World, entity: &EntityRef) -> Self::Input;
 
     fn process<'b, 'a: 'b>(
@@ -110,6 +114,7 @@ pub trait Pipeline: FromWorldEntity + Send + 'static {
     ) -> anyhow::Result<&'b mut Mat>;
 
     /// Entity is implicitly despawned after this function returns
+    // TODO: Expose camera entity as well
     fn cleanup(entity_world: &mut EntityWorldMut);
 }
 
