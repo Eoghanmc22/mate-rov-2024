@@ -39,6 +39,10 @@ impl Plugin for VideoStreamPlugin {
 
 /// An interface to plug into the video streaming pipeline
 pub trait VideoProcessor: Send + 'static {
+    fn new(world: &mut World, camera: Entity) -> anyhow::Result<Self>
+    where
+        Self: Sized;
+
     fn begin(&mut self);
     fn process<'b, 'a: 'b>(&'a mut self, img: &'b mut Mat) -> anyhow::Result<&'b Mat>;
     fn should_end(&self) -> bool {
@@ -49,10 +53,19 @@ pub trait VideoProcessor: Send + 'static {
 type BoxedVideoProcessor = Box<dyn VideoProcessor>;
 
 #[derive(Component, Clone)]
-pub struct VideoProcessorFactory(
-    pub Cow<'static, str>,
-    pub fn(&mut World) -> BoxedVideoProcessor,
-);
+pub struct VideoProcessorFactory {
+    pub name: Cow<'static, str>,
+    pub factory: fn(&mut World, Entity) -> anyhow::Result<BoxedVideoProcessor>,
+}
+
+impl VideoProcessorFactory {
+    pub fn new<P: VideoProcessor>(name: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            name: name.into(),
+            factory: |world, camera| P::new(world, camera).map(|it| Box::new(it) as _),
+        }
+    }
+}
 
 #[derive(Component)]
 pub struct VideoThread(
@@ -217,7 +230,7 @@ fn handle_video_processors(
     mut cmds: Commands,
 
     cameras: Query<&VideoThread, With<Camera>>,
-    cameras_with_processor: Query<(&VideoThread, Ref<VideoProcessorFactory>), With<Camera>>,
+    cameras_with_processor: Query<(Entity, &VideoThread, Ref<VideoProcessorFactory>), With<Camera>>,
     mut removed: RemovedComponents<VideoProcessorFactory>,
     mut errors: EventWriter<ErrorEvent>,
 ) {
@@ -232,20 +245,28 @@ fn handle_video_processors(
         }
     }
 
-    for (thread, processor) in &cameras_with_processor {
+    for (entity, thread, processor) in &cameras_with_processor {
         if processor.is_changed() {
             let proc_tx = thread.3.clone();
-            let processor = processor.1;
+            let factory = processor.factory;
 
             cmds.add(move |world: &mut World| {
-                let processor = (processor)(world);
+                let processor = (factory)(world, entity);
+                let processor = match processor {
+                    Ok(processor) => processor,
+                    Err(err) => {
+                        let _ = world
+                            .send_event::<ErrorEvent>(err.context("Run processor factory").into());
+
+                        return;
+                    }
+                };
 
                 let rst = proc_tx.send(Some(processor));
                 if rst.is_err() {
-                    let _ = world
-                        .resource::<Errors>()
-                        .0
-                        .send(anyhow!("Could not send new video processor"));
+                    let _ = world.send_event::<ErrorEvent>(
+                        anyhow!("Could not send new video processor").into(),
+                    );
                 }
             });
         }
@@ -258,6 +279,7 @@ fn gen_src(camera: &Camera) -> String {
     let port = camera.location.port();
 
     format!("udpsrc address={ip} port={port} caps=application/x-rtp,media=video,clock-rate=90000,encoding-name=H264,a-framerate=30,payload=96 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! appsink drop=1")
+    // format!("udpsrc address={ip} port={port} caps=application/x-rtp,media=video,clock-rate=90000,encoding-name=H264,a-framerate=30,payload=96 ! rtph264depay ! h264parse ! vaapih264dec ! videoconvert ! video/x-raw,format=BGR ! appsink drop=1")
 }
 
 /// Efficiently converts opencv `Mat`s to bevy `Image`s

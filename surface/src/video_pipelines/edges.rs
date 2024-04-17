@@ -1,14 +1,9 @@
 use anyhow::Context;
 use bevy::{
     app::{App, Plugin},
-    core,
     prelude::{EntityRef, EntityWorldMut, World},
 };
-use opencv::{
-    core::{Point, Scalar},
-    imgproc,
-    prelude::*,
-};
+use opencv::prelude::*;
 
 use crate::video_pipelines::{AppPipelineExt, Pipeline, PipelineCallbacks};
 
@@ -30,21 +25,22 @@ impl Pipeline for EdgesPipeline {
 
     type Input = ();
 
-    fn collect_inputs(world: &World, entity: &EntityRef) -> Self::Input {
+    fn collect_inputs(_world: &World, _entity: &EntityRef) -> Self::Input {
         // No-op
     }
 
     fn process<'b, 'a: 'b>(
         &'a mut self,
-        cmds: PipelineCallbacks,
-        data: &Self::Input,
+        _cmds: PipelineCallbacks,
+        _data: &Self::Input,
         img: &'b mut Mat,
     ) -> anyhow::Result<&'b Mat> {
         opencv::imgproc::canny(img, &mut self.edges, 150.0, 150.0, 3, false).context("Canny")?;
+
         Ok(&self.edges)
     }
 
-    fn cleanup(entity_world: &mut EntityWorldMut) {
+    fn cleanup(_entity_world: &mut EntityWorldMut) {
         // No-op
     }
 }

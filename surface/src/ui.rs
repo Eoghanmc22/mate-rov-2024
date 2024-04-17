@@ -148,10 +148,10 @@ fn topbar(
                     ui.menu_button(name.as_str(), |ui| {
                         // TODO: Hide/Show
 
-                        let processor = processor.map(|it| &it.0);
+                        let processor_name = processor.map(|it| &it.name);
 
                         for pipeline in &pipelines.0 {
-                            let selected = processor == Some(&pipeline.name);
+                            let selected = processor_name == Some(&pipeline.name);
                             if ui
                                 .selectable_label(selected, pipeline.name.as_str())
                                 .clicked()

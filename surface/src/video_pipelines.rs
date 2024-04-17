@@ -1,5 +1,6 @@
 pub mod edges;
 pub mod marker;
+pub mod undistort;
 
 use std::{
     borrow::Cow,
@@ -51,13 +52,13 @@ impl PluginGroup for VideoPipelinePlugins {
 pub trait AppPipelineExt {
     fn register_video_pipeline<P>(&mut self) -> &mut Self
     where
-        P: Pipeline + Default;
+        P: Pipeline + FromWorldEntity;
 }
 
 impl AppPipelineExt for App {
     fn register_video_pipeline<P>(&mut self) -> &mut Self
     where
-        P: Pipeline + Default,
+        P: Pipeline + FromWorldEntity,
     {
         self.add_systems(Update, forward_pipeline_inputs::<P>);
 
@@ -90,7 +91,7 @@ pub struct VideoPipeline {
 pub type WorldCallback = Box<dyn FnOnce(&mut World) + Send + Sync + 'static>;
 pub type EntityWorldCallback = Box<dyn FnOnce(EntityWorldMut) + Send + Sync + 'static>;
 
-pub trait Pipeline: Send + 'static {
+pub trait Pipeline: FromWorldEntity + Send + 'static {
     const NAME: &'static str;
 
     type Input: Default + Send + Sync + 'static;
@@ -108,13 +109,23 @@ pub trait Pipeline: Send + 'static {
     fn cleanup(entity_world: &mut EntityWorldMut);
 }
 
-pub fn factory<P: Pipeline + Default>() -> VideoProcessorFactory {
-    VideoProcessorFactory(P::NAME.into(), |world| {
-        let channels = world.resource::<VideoCallbackChannels>();
-        let cmds_tx = channels.cmd_tx.clone();
+pub trait FromWorldEntity {
+    fn from(world: &mut World, camera: Entity) -> anyhow::Result<Self>
+    where
+        Self: Sized;
+}
 
-        Box::new(PipelineHandler::new(P::default(), cmds_tx))
-    })
+impl<T: Default> FromWorldEntity for T {
+    fn from(_world: &mut World, _camera: Entity) -> anyhow::Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self::default())
+    }
+}
+
+pub fn factory<P: Pipeline>() -> VideoProcessorFactory {
+    VideoProcessorFactory::new::<PipelineHandler<P>>(P::NAME)
 }
 
 type ArcMutArc<T> = Arc<Mutex<Arc<T>>>;
@@ -122,29 +133,50 @@ type ArcMutArc<T> = Arc<Mutex<Arc<T>>>;
 pub struct PipelineHandler<P: Pipeline> {
     pipeline: P,
 
-    entity: Arc<AtomicCell<Option<Entity>>>,
+    pipeline_entity: Arc<AtomicCell<Option<Entity>>>,
+    camera_entity: Entity,
+
     bevy_handle: Arc<()>,
     input: ArcMutArc<P::Input>,
     cmds_tx: Sender<WorldCallback>,
+
     should_end: bool,
 }
 
 impl<P: Pipeline> PipelineHandler<P> {
-    fn new(pipeline: P, cmds_tx: Sender<WorldCallback>) -> Self {
+    fn new(pipeline: P, cmds_tx: Sender<WorldCallback>, camera: Entity) -> Self {
         let input: ArcMutArc<P::Input> = Default::default();
 
         Self {
             pipeline,
-            entity: Arc::new(AtomicCell::new(None)),
+
+            pipeline_entity: Arc::new(AtomicCell::new(None)),
+            camera_entity: camera,
+
             bevy_handle: Arc::new(()),
             input: input.clone(),
             cmds_tx,
+
             should_end: false,
         }
     }
 }
 
 impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
+    fn new(world: &mut World, camera: Entity) -> anyhow::Result<Self>
+    where
+        Self: Sized,
+    {
+        let channels = world.resource::<VideoCallbackChannels>();
+        let cmds_tx = channels.cmd_tx.clone();
+
+        Ok(PipelineHandler::new(
+            P::from(world, camera)?,
+            cmds_tx,
+            camera,
+        ))
+    }
+
     fn begin(&mut self) {
         let refs = Arc::strong_count(&self.input);
         assert_eq!(
@@ -154,14 +186,18 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
             refs - 1
         );
 
-        let entity = self.entity.clone();
+        let entity = self.pipeline_entity.clone();
+        let camera = self.camera_entity;
+
         let input = self.input.clone();
         let bevy_handle = self.bevy_handle.clone();
+
         let res = self.cmds_tx.send(Box::new(move |world: &mut World| {
             let id = world
                 .spawn(PipelineBundle::<P> {
                     channels: PipelineChannels { input },
                     marker: PipelineDataMarker(bevy_handle, PhantomData),
+                    camera: PipelineCamera(camera),
                 })
                 .id();
 
@@ -176,7 +212,7 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
 
     fn process<'b, 'a: 'b>(&'a mut self, img: &'b mut Mat) -> anyhow::Result<&'b Mat> {
         let input = self.input.lock().expect("Lock input mutex").clone();
-        let Some(entity) = self.entity.load() else {
+        let Some(entity) = self.pipeline_entity.load() else {
             // self.should_end = true;
 
             bail!("PipelineHandler has no entity id");
@@ -184,8 +220,11 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
 
         let callbacks = PipelineCallbacks {
             cmds_tx: &self.cmds_tx,
+
+            pipeline_entity: entity,
+            camera_entity: self.camera_entity,
+
             should_end: &mut self.should_end,
-            entity,
         };
 
         self.pipeline.process(callbacks, &*input, img)
@@ -196,7 +235,7 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
     }
 
     fn end(&mut self) {
-        let Some(entity) = self.entity.load() else {
+        let Some(entity) = self.pipeline_entity.load() else {
             return;
         };
 
@@ -218,8 +257,11 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
 
 pub struct PipelineCallbacks<'a> {
     cmds_tx: &'a Sender<WorldCallback>,
+
+    pipeline_entity: Entity,
+    camera_entity: Entity,
+
     should_end: &'a mut bool,
-    entity: Entity,
 }
 
 impl PipelineCallbacks<'_> {
@@ -232,11 +274,33 @@ impl PipelineCallbacks<'_> {
         }
     }
 
-    pub fn entity<F: FnOnce(EntityWorldMut) + Send + Sync + 'static>(&mut self, f: F) {
-        let entity = self.entity;
+    pub fn pipeline<F: FnOnce(EntityWorldMut) + Send + Sync + 'static>(&mut self, f: F) {
+        let entity = self.pipeline_entity;
         let res = self.cmds_tx.send(Box::new(move |world: &mut World| {
             let Some(entity) = world.get_entity_mut(entity) else {
-                world.send_event(ErrorEvent(anyhow!("No entity for video entity callback")));
+                world.send_event(ErrorEvent(anyhow!(
+                    "No entity for video pipeline entity callback"
+                )));
+
+                return;
+            };
+
+            (f)(entity);
+        }));
+
+        if res.is_err() {
+            error!("Could not send entity callback to bevy");
+            *self.should_end = true;
+        }
+    }
+
+    pub fn camera<F: FnOnce(EntityWorldMut) + Send + Sync + 'static>(&mut self, f: F) {
+        let entity = self.camera_entity;
+        let res = self.cmds_tx.send(Box::new(move |world: &mut World| {
+            let Some(entity) = world.get_entity_mut(entity) else {
+                world.send_event(ErrorEvent(anyhow!(
+                    "No entity for video camera entity callback"
+                )));
 
                 return;
             };
@@ -260,15 +324,26 @@ impl PipelineCallbacks<'_> {
 pub struct PipelineBundle<P: Pipeline> {
     channels: PipelineChannels<P>,
     marker: PipelineDataMarker<P>,
+    camera: PipelineCamera,
 }
 
 #[derive(Component)]
-struct PipelineDataMarker<P: Pipeline>(Arc<()>, PhantomData<fn(P) -> P>);
+pub struct PipelineCamera(Entity);
+
+impl PipelineCamera {
+    pub fn camera(&self) -> Entity {
+        self.0
+    }
+}
 
 #[derive(Component)]
 struct PipelineChannels<P: Pipeline> {
     input: ArcMutArc<P::Input>,
 }
+
+// TODO: Do we even need this
+#[derive(Component)]
+struct PipelineDataMarker<P: Pipeline>(Arc<()>, PhantomData<fn(P) -> P>);
 
 fn schedule_pipeline_callbacks(mut cmds: Commands, channels: Res<VideoCallbackChannels>) {
     // Schedule ECS write callbacks

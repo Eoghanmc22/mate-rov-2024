@@ -1,7 +1,6 @@
 use anyhow::Context;
 use bevy::{
     app::{App, Plugin},
-    core,
     prelude::{EntityRef, EntityWorldMut, World},
 };
 use opencv::{
@@ -21,23 +20,21 @@ impl Plugin for MarkerPipelinePlugin {
 }
 
 #[derive(Default)]
-struct MarkerPipeline {
-    edges: Mat,
-}
+struct MarkerPipeline;
 
 impl Pipeline for MarkerPipeline {
     const NAME: &'static str = "Marker Pipeline";
 
     type Input = ();
 
-    fn collect_inputs(world: &World, entity: &EntityRef) -> Self::Input {
+    fn collect_inputs(_world: &World, _entity: &EntityRef) -> Self::Input {
         // No-op
     }
 
     fn process<'b, 'a: 'b>(
         &'a mut self,
-        cmds: PipelineCallbacks,
-        data: &Self::Input,
+        _cmds: PipelineCallbacks,
+        _data: &Self::Input,
         img: &'b mut Mat,
     ) -> anyhow::Result<&'b Mat> {
         opencv::imgproc::draw_marker(
@@ -50,10 +47,11 @@ impl Pipeline for MarkerPipeline {
             imgproc::LINE_8,
         )
         .context("Draw marker")?;
+
         Ok(img)
     }
 
-    fn cleanup(entity_world: &mut EntityWorldMut) {
+    fn cleanup(_entity_world: &mut EntityWorldMut) {
         // No-op
     }
 }
