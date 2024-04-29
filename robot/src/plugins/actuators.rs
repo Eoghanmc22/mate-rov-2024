@@ -1,9 +1,9 @@
 pub mod depth_hold;
 pub mod leds;
-pub mod motor_math;
-pub mod motor_setup;
 pub mod pwm;
+pub mod servo;
 pub mod stabilize;
+pub mod thruster;
 
 use bevy::{app::PluginGroupBuilder, prelude::PluginGroup};
 
@@ -12,8 +12,8 @@ pub struct MovementPlugins;
 impl PluginGroup for MovementPlugins {
     fn build(self) -> PluginGroupBuilder {
         let plugins = PluginGroupBuilder::start::<Self>()
-            .add(motor_setup::MotorSetupPlugin)
-            .add(motor_math::MotorMathPlugin)
+            .add(servo::ServoPlugin)
+            .add(thruster::ThrusterPlugin)
             .add(stabilize::StabilizePlugin)
             .add(depth_hold::DepthHoldPlugin);
 

@@ -3,49 +3,129 @@ use std::time::Duration;
 use ahash::HashMap;
 use bevy::prelude::*;
 use common::{
+    bundles::{MotorBundle, PwmActuatorBundle, RobotActuatorBundle},
     components::{
-        ActualForce, ActualMovement, CurrentDraw, JerkLimit, MotorContribution, MotorDefinition,
-        Motors, MovementContribution, MovementCurrentCap, PwmManualControl, PwmSignal, RobotId,
-        TargetForce, TargetMovement,
+        ActualForce, ActualMovement, Armed, CurrentDraw, JerkLimit, MotorContribution,
+        MotorDefinition, Motors, MovementAxisMaximums, MovementContribution, MovementCurrentCap,
+        PwmChannel, PwmManualControl, PwmSignal, RobotId, TargetForce, TargetMovement,
     },
-    ecs_sync::NetId,
+    ecs_sync::{NetId, Replicate},
+    types::units::Newtons,
 };
 use motor_math::{
+    blue_rov::HeavyMotorId,
     motor_preformance::{self, Interpolation, MotorData, MotorRecord},
-    solve, Direction, ErasedMotorId, Movement,
+    solve::{self, reverse},
+    x3d::X3dMotorId,
+    Direction, ErasedMotorId, Movement,
 };
 
 use crate::{
-    config::RobotConfig,
+    config::{MotorConfigDefinition, RobotConfig},
     plugins::core::robot::{LocalRobot, LocalRobotMarker},
 };
 
-pub struct MotorMathPlugin;
+pub struct ThrusterPlugin;
 
-impl Plugin for MotorMathPlugin {
+impl Plugin for ThrusterPlugin {
     fn build(&self, app: &mut App) {
         // FIXME(low): This is kinda bad
         let motor_data =
             motor_preformance::read_motor_data("motor_data.csv").expect("Read motor data");
 
-        app.add_systems(Startup, setup_motor_math);
-        app.add_systems(
-            Update,
-            (
-                accumulate_movements,
-                accumulate_motor_forces.after(accumulate_movements),
-            ),
-        );
-        app.insert_resource(MotorDataRes(motor_data));
+        // TODO(mid): Update motor config when motor definitions change
+        app.add_systems(Startup, (create_motors, setup_motor_math))
+            .add_systems(
+                Update,
+                (
+                    update_axis_maximums,
+                    accumulate_movements,
+                    accumulate_motor_forces.after(accumulate_movements),
+                ),
+            )
+            .insert_resource(MotorDataRes(motor_data));
     }
 }
 
 #[derive(Resource)]
 pub struct MotorDataRes(pub MotorData);
 
+fn create_motors(mut cmds: Commands, robot: Res<LocalRobot>, config: Res<RobotConfig>) {
+    let (motors, motor_config) = config.motor_config.flatten(config.center_of_mass);
+
+    info!("Generating motor config");
+
+    cmds.entity(robot.entity).insert(RobotActuatorBundle {
+        movement_target: TargetMovement(Default::default()),
+        movement_actual: ActualMovement(Default::default()),
+        motor_config: Motors(motor_config),
+        axis_maximums: MovementAxisMaximums(Default::default()),
+        current_cap: MovementCurrentCap(config.motor_amperage_budget.into()),
+        armed: Armed::Disarmed,
+    });
+
+    for (motor_id, motor, pwm_channel) in motors {
+        let name = match config.motor_config {
+            MotorConfigDefinition::X3d(_) => {
+                format!(
+                    "{:?} ({motor_id})",
+                    X3dMotorId::try_from(motor_id).expect("Bad motor id for config")
+                )
+            }
+            MotorConfigDefinition::BlueRov(_) => {
+                format!(
+                    "{:?} ({motor_id})",
+                    HeavyMotorId::try_from(motor_id).expect("Bad motor id for config")
+                )
+            }
+            MotorConfigDefinition::Custom(_) => format!("Motor {motor_id}"),
+        };
+
+        cmds.spawn((
+            MotorBundle {
+                actuator: PwmActuatorBundle {
+                    name: Name::new(name),
+                    pwm_channel: PwmChannel(pwm_channel),
+                    pwm_signal: PwmSignal(Duration::from_micros(1500)),
+                    robot: RobotId(robot.net_id),
+                },
+                motor: MotorDefinition(motor_id, motor),
+                target_force: TargetForce(0.0f32.into()),
+                actual_force: ActualForce(0.0f32.into()),
+                current_draw: CurrentDraw(0.0f32.into()),
+            },
+            Replicate,
+        ));
+    }
+}
+
 fn setup_motor_math(mut cmds: Commands, config: Res<RobotConfig>, robot: Res<LocalRobot>) {
     cmds.entity(robot.entity)
         .insert(JerkLimit(config.jerk_limit));
+}
+
+fn update_axis_maximums(
+    mut cmds: Commands,
+    robot: Query<
+        (Entity, &MovementCurrentCap, &Motors),
+        (With<LocalRobotMarker>, Changed<MovementCurrentCap>),
+    >,
+    motor_data: Res<MotorDataRes>,
+) {
+    for (entity, current_cap, motor_config) in &robot {
+        let motor_config = &motor_config.0;
+        let motor_data = &motor_data.0;
+        let current_cap = current_cap.0 .0;
+
+        let maximums = reverse::axis_maximums(motor_config, motor_data, current_cap, 0.01)
+            .into_iter()
+            .map(|(key, value)| (key, Newtons(value)))
+            .collect();
+
+        info!("Updated motor axis maximums to {maximums:?} at {current_cap:.2}A");
+
+        cmds.entity(entity).insert(MovementAxisMaximums(maximums));
+    }
 }
 
 fn accumulate_movements(

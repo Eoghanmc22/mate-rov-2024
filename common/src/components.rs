@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, net::SocketAddr, time::Duration};
+use std::{borrow::Cow, collections::BTreeMap, net::SocketAddr, time::Duration};
 
 use bevy::{
     app::App,
@@ -57,12 +57,16 @@ components! {
     OperatingSystem,
     TargetForce,
     ActualForce,
+    ServoTargets,
     MotorDefinition,
+    ServoDefinition,
+    ServoMode,
     Motors,
     TargetMovement,
     ActualMovement,
     MeasuredVoltage,
     MovementContribution,
+    ServoContribution,
     MotorContribution,
     MovementAxisMaximums,
     MovementCurrentCap,
@@ -230,6 +234,20 @@ pub struct ActualForce(pub Newtons);
 pub struct MotorDefinition(pub ErasedMotorId, pub Motor);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct ServoDefinition {
+    pub id: ErasedMotorId,
+    pub camera: Cow<'static, str>,
+}
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub enum ServoMode {
+    Position,
+    Velocity,
+}
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(SerdeAdapter, /*Serialize, Deserialize,*/ Debug, PartialEq)]
 #[reflect(from_reflect = false)]
 pub struct Motors(
@@ -240,6 +258,14 @@ pub struct Motors(
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct TargetMovement(pub Movement);
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
+#[reflect(SerdeAdapter, /*Serialize, Deserialize,*/ Debug, PartialEq, Default)]
+#[reflect(from_reflect = false)]
+pub struct ServoTargets(
+    // TODO(low): This bad
+    #[reflect(ignore)] pub BTreeMap<ErasedMotorId, f32>,
+);
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
@@ -259,6 +285,14 @@ pub struct MovementContribution(pub Movement);
 pub struct MotorContribution(
     // TODO(low): This bad
     #[reflect(ignore)] pub BTreeMap<ErasedMotorId, Newtons>,
+);
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
+#[reflect(SerdeAdapter, /*Serialize, Deserialize,*/ Debug, PartialEq, Default)]
+#[reflect(from_reflect = false)]
+pub struct ServoContribution(
+    // TODO(low): This bad
+    #[reflect(ignore)] pub BTreeMap<ErasedMotorId, f32>,
 );
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
