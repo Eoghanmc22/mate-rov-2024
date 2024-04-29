@@ -137,7 +137,7 @@ fn setup_networking(
     let networking = Networking::new().context("Start networking")?;
     let handle = networking.messenger();
 
-    let (tx, rx) = channel::bounded(200);
+    let (tx, rx) = channel::bounded(1000);
 
     cmds.insert_resource(Net(handle.clone(), rx));
 
@@ -154,7 +154,7 @@ fn setup_networking(
                     let _ = errors.send(anyhow!("Net channel full"));
                 }
 
-                // Panicking here isnt terable because it will bring down the net threads if the main
+                // Panicking here isnt terrible because it will bring down the net threads if the main
                 // app exits uncleanly
                 tx.send(event).expect("Channel disconnected");
             })

@@ -32,7 +32,7 @@ impl<P: Packet> Networking<P> {
         let waker = Waker::new(poll.registry(), WAKER_TOKEN)?;
         let waker = Arc::new(waker);
 
-        let queue = channel::bounded(200);
+        let queue = channel::bounded(1000);
 
         Ok(Networking { poll, waker, queue })
     }
