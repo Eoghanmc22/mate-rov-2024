@@ -3,7 +3,7 @@ use bevy::{
     app::{App, Plugin},
     prelude::{EntityRef, EntityWorldMut, World},
 };
-use opencv::prelude::*;
+use opencv::{imgproc, prelude::*};
 
 use crate::video_pipelines::{AppPipelineExt, Pipeline, PipelineCallbacks};
 
@@ -33,7 +33,7 @@ impl Pipeline for EdgesPipeline {
         _data: &Self::Input,
         img: &'b mut Mat,
     ) -> anyhow::Result<&'b mut Mat> {
-        opencv::imgproc::canny(img, &mut self.edges, 150.0, 150.0, 3, false).context("Canny")?;
+        imgproc::canny_def(img, &mut self.edges, 150.0, 150.0).context("Canny")?;
 
         Ok(&mut self.edges)
     }

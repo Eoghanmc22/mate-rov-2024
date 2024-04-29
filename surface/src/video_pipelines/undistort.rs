@@ -115,16 +115,8 @@ impl Pipeline for UndistortPipeline {
             }
         };
 
-        opencv::imgproc::remap(
-            img,
-            undistorted,
-            map_x,
-            map_y,
-            imgproc::INTER_LINEAR,
-            core::BORDER_CONSTANT,
-            Scalar::default(),
-        )
-        .context("Remap")?;
+        imgproc::remap_def(img, undistorted, map_x, map_y, imgproc::INTER_LINEAR)
+            .context("Remap")?;
 
         *cropped = undistorted.row_range(rows).context("Crop Rows")?;
         *cropped = cropped.col_range(cols).context("Crop Cols")?;

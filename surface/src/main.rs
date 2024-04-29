@@ -11,6 +11,7 @@ pub mod video_stream;
 
 use std::time::Duration;
 
+use anyhow::Context;
 use attitude::AttitudePlugin;
 use bevy::{
     diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -20,14 +21,21 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use bevy_tokio_tasks::TokioTasksPlugin;
 use common::{over_run::OverRunSettings, sync::SyncRole, CommonPlugins};
+use crossbeam::channel::unbounded;
 use input::InputPlugin;
+use opencv::{highgui, imgcodecs};
 use surface::SurfacePlugin;
 use ui::{EguiUiPlugin, ShowInspector};
 use video_display_2d::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
 // use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
 
-use crate::video_pipelines::VideoPipelinePlugins;
+use crate::video_pipelines::{
+    edges::EdgesPipeline,
+    marker::MarkerPipeline,
+    measure::{MeasurePipeline, MeasurementTarget},
+    Pipeline, PipelineCallbacks, SerialPipeline, VideoPipelinePlugins,
+};
 
 pub const DARK_MODE: bool = false;
 
@@ -94,6 +102,38 @@ fn main() -> anyhow::Result<()> {
         .run();
 
     info!("---------- Control Station Exited Cleanly ----------");
+
+    Ok(())
+}
+
+fn opencv() -> anyhow::Result<()> {
+    let mut img = imgcodecs::imread_def("test.jpg").context("Read image")?;
+
+    let (cmds_tx, cmds_rx) = unbounded();
+    let mut should_end = false;
+    let mut cmds = PipelineCallbacks {
+        cmds_tx: &cmds_tx,
+        pipeline_entity: Entity::PLACEHOLDER,
+        camera_entity: Entity::PLACEHOLDER,
+        should_end: &mut should_end,
+    };
+
+    // let mut pipeline: FullMeasurePipeline = SerialPipeline(Default::default());
+    let mut pipeline: MeasurePipeline = Default::default();
+    let out = pipeline
+        .process(
+            &mut cmds,
+            &Some(MeasurementTarget {
+                poi: Vec2::new(643.0 / 1920.0, 913.0 / 1080.0),
+                left: Vec2::default(),
+                right: Vec2::default(),
+            }),
+            &mut img,
+        )
+        .context("Process")?;
+
+    highgui::imshow("Image", out).context("Gui")?;
+    highgui::wait_key_def().context("Wait key")?;
 
     Ok(())
 }

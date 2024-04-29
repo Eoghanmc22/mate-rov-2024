@@ -1,6 +1,7 @@
 pub mod edges;
 pub mod marker;
-pub mod serial;
+pub mod measure;
+pub mod scale;
 pub mod undistort;
 
 use std::{
@@ -32,9 +33,7 @@ use opencv::core::Mat;
 use tracing::{debug, error};
 
 use crate::{
-    video_pipelines::{
-        edges::EdgesPipelinePlugin, marker::MarkerPipelinePlugin, serial::SerialPipelinePlugin,
-    },
+    video_pipelines::{edges::EdgesPipelinePlugin, marker::MarkerPipelinePlugin},
     video_stream::{VideoProcessor, VideoProcessorFactory},
 };
 
@@ -48,7 +47,6 @@ impl PluginGroup for VideoPipelinePlugins {
                 app.insert_resource(VideoCallbackChannels { cmd_tx, cmd_rx });
                 app.add_systems(Update, schedule_pipeline_callbacks);
             })
-            .add(SerialPipelinePlugin)
             .add(EdgesPipelinePlugin)
             .add(MarkerPipelinePlugin)
     }
@@ -98,8 +96,10 @@ pub struct VideoPipeline {
 pub type WorldCallback = Box<dyn FnOnce(&mut World) + Send + Sync + 'static>;
 pub type EntityWorldCallback = Box<dyn FnOnce(EntityWorldMut) + Send + Sync + 'static>;
 
-pub struct SerialPipeline<T>(T);
+pub struct SerialPipeline<T>(pub(crate) T);
 
+// TODO: Make input and output of process into assoiciated types
+// TODO: Make camera image avaible to all stages
 pub trait Pipeline: FromWorldEntity + Send + 'static {
     type Input: Default + Send + Sync + 'static;
 
@@ -263,12 +263,12 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
 }
 
 pub struct PipelineCallbacks<'a> {
-    cmds_tx: &'a Sender<WorldCallback>,
+    pub(crate) cmds_tx: &'a Sender<WorldCallback>,
 
-    pipeline_entity: Entity,
-    camera_entity: Entity,
+    pub(crate) pipeline_entity: Entity,
+    pub(crate) camera_entity: Entity,
 
-    should_end: &'a mut bool,
+    pub(crate) should_end: &'a mut bool,
 }
 
 impl PipelineCallbacks<'_> {

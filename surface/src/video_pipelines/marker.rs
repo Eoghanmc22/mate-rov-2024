@@ -35,16 +35,8 @@ impl Pipeline for MarkerPipeline {
         _data: &Self::Input,
         img: &'b mut Mat,
     ) -> anyhow::Result<&'b mut Mat> {
-        opencv::imgproc::draw_marker(
-            img,
-            Point::new(720, 480),
-            Scalar::new(0.5, 1.0, 0.75, 1.0),
-            imgproc::MARKER_CROSS,
-            4,
-            1,
-            imgproc::LINE_8,
-        )
-        .context("Draw marker")?;
+        imgproc::draw_marker_def(img, Point::new(720, 480), Scalar::new(0.5, 1.0, 0.75, 1.0))
+            .context("Draw marker")?;
 
         Ok(img)
     }
