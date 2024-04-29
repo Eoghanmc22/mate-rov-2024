@@ -82,6 +82,8 @@ fn start_camera_thread(
                 match event {
                     // Respawns all instances of gstreamer and points the new ones towards the new peer
                     CameraEvent::NewPeer(addrs) => {
+                        info!("Camera thread new peer");
+
                         target_ip = Some(addrs.ip());
 
                         for (camera, (mut child, _)) in cameras.drain() {
@@ -90,6 +92,14 @@ fn start_camera_thread(
                             if let Err(err) = rst {
                                 let _ = errors.send(
                                     anyhow!(err).context(format!("Kill gstreamer for {camera}")),
+                                );
+                            }
+
+                            let rst = child.wait();
+
+                            if let Err(err) = rst {
+                                let _ = errors.send(
+                                    anyhow!(err).context(format!("Wait gstreamer for {camera}")),
                                 );
                             }
                         }
@@ -115,6 +125,8 @@ fn start_camera_thread(
                         }
                     }
                     CameraEvent::LostPeer => {
+                        info!("Camera thread lost peer");
+
                         target_ip = None;
 
                         for (camera, (mut child, _)) in cameras.drain() {
@@ -123,6 +135,14 @@ fn start_camera_thread(
                             if let Err(err) = rst {
                                 let _ = errors.send(
                                     anyhow!(err).context(format!("Kill gstreamer for {camera}")),
+                                );
+                            }
+
+                            let rst = child.wait();
+
+                            if let Err(err) = rst {
+                                let _ = errors.send(
+                                    anyhow!(err).context(format!("Wait gstreamer for {camera}")),
                                 );
                             }
                         }
@@ -160,6 +180,14 @@ fn start_camera_thread(
                                                 if let Err(err) = rst {
                                                     let _ = errors.send(anyhow!(err).context(
                                                         format!("Kill gstreamer for {old_camera}"),
+                                                    ));
+                                                }
+
+                                                let rst = child.0.wait();
+
+                                                if let Err(err) = rst {
+                                                    let _ = errors.send(anyhow!(err).context(
+                                                        format!("Wait gstreamer for {old_camera}"),
                                                     ));
                                                 }
                                             } else {
@@ -213,6 +241,14 @@ fn start_camera_thread(
                             if let Err(err) = rst {
                                 let _ = errors.send(
                                     anyhow!(err).context(format!("Kill gstreamer for {camera}")),
+                                );
+                            }
+
+                            let rst = child.wait();
+
+                            if let Err(err) = rst {
+                                let _ = errors.send(
+                                    anyhow!(err).context(format!("Wait gstreamer for {camera}")),
                                 );
                             }
                         }
