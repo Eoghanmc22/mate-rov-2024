@@ -4,7 +4,8 @@ pub mod attitude;
 pub mod input;
 pub mod surface;
 pub mod ui;
-pub mod video_display_2d;
+pub mod video_display_2d_master;
+pub mod video_display_2d_tile;
 pub mod video_display_3d;
 pub mod video_pipelines;
 pub mod video_stream;
@@ -18,6 +19,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_mod_picking::{highlight::DefaultHighlightingPlugin, DefaultPickingPlugins};
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use bevy_tokio_tasks::TokioTasksPlugin;
 use common::{over_run::OverRunSettings, sync::SyncRole, CommonPlugins};
@@ -26,7 +28,8 @@ use input::InputPlugin;
 use opencv::{highgui, imgcodecs};
 use surface::SurfacePlugin;
 use ui::{EguiUiPlugin, ShowInspector};
-use video_display_2d::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
+// use video_display_2d_tile::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
+use video_display_2d_master::{VideoDisplay2DPlugin, VideoDisplay2DSettings};
 // use video_display_3d::{VideoDisplay3DPlugin, VideoDisplay3DSettings};
 use video_stream::VideoStreamPlugin;
 
@@ -49,6 +52,7 @@ fn main() -> anyhow::Result<()> {
             tracy_frame_mark: false,
         })
         .insert_resource(VideoDisplay2DSettings { enabled: true })
+        // .insert_resource(VideoDisplay3DSettings { enabled: true })
         .insert_resource(if DARK_MODE {
             ClearColor(Color::rgb_u8(33, 34, 37))
         } else {
@@ -87,12 +91,15 @@ fn main() -> anyhow::Result<()> {
                 EguiUiPlugin,
                 AttitudePlugin,
                 VideoStreamPlugin,
-                // VideoDisplay3DPlugin,
                 VideoDisplay2DPlugin,
+                // VideoDisplay3DPlugin,
                 VideoPipelinePlugins,
             ),
             // 3rd Party
             (
+                DefaultPickingPlugins
+                    .build()
+                    .disable::<DefaultHighlightingPlugin>(),
                 TokioTasksPlugin::default(),
                 // TODO(high): Way to close and re open
                 WorldInspectorPlugin::default().run_if(resource_exists::<ShowInspector>),

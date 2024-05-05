@@ -95,6 +95,15 @@ impl VideoNode {
             VideoNode::Leaf(_) => 1,
         }
     }
+
+    fn max_depth(&self) -> u32 {
+        match self {
+            VideoNode::Branch(children) => {
+                1 + children.iter().map(|it| it.max_depth()).max().unwrap_or(0)
+            }
+            VideoNode::Leaf(_) => 1,
+        }
+    }
 }
 
 impl VideoLayout {
@@ -118,6 +127,8 @@ struct DisplayCamera;
 struct DisplayParent;
 #[derive(Component)]
 struct DisplayMarker;
+#[derive(Component)]
+struct VideoFeedDisplay;
 
 #[derive(Resource, Default)]
 pub struct VideoDisplay2DSettings {
@@ -172,13 +183,25 @@ fn create_display(
     }
 
     if tree_changed {
+        let layout = VideoLayout::default();
+        let depth = tree.0.max_depth() as i32 - 1;
+
+        let size_hint = match layout {
+            VideoLayout::Horizontal => (
+                0.5f32.powi(depth / 2 + depth % 2) * 100.0,
+                0.5f32.powi(depth / 2) * 100.0,
+            ),
+            VideoLayout::Vertical => (
+                0.5f32.powi(depth / 2) * 100.0,
+                0.5f32.powi(depth / 2 + depth % 2) * 100.0,
+            ),
+        };
+
         cmds.entity(parent)
             .despawn_descendants()
-            .with_children(|builder| {
-                let layout = VideoLayout::default();
-
+            .with_children(move |builder| {
                 builder.spawn(root(layout)).with_children(|builder| {
-                    build_tree(builder, &tree.0, &cameras, layout);
+                    build_tree(builder, &tree.0, &cameras, layout, size_hint);
                 });
             });
     }
@@ -186,7 +209,7 @@ fn create_display(
 
 // FIXME: Approch in display_3d is a bit cleaner and perhaps more efficient
 fn update_aspect_ratio(
-    mut displays: Query<(&mut Style, &UiImage), With<DisplayMarker>>,
+    mut displays: Query<(&mut Style, &UiImage), With<VideoFeedDisplay>>,
     mut image_events: EventReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
 ) {
@@ -216,6 +239,7 @@ fn build_tree(
     tree: &VideoNode,
     cameras: &Query<&Handle<Image>>,
     layout: VideoLayout,
+    size_hint: (f32, f32),
 ) {
     match tree {
         VideoNode::Branch(children) => {
@@ -237,7 +261,7 @@ fn build_tree(
                         builder
                             .spawn(subroot(child_layout))
                             .with_children(|builder| {
-                                build_tree(builder, node, cameras, child_layout)
+                                build_tree(builder, node, cameras, child_layout, size_hint)
                             });
                     }
                     ChildType::Seprator => {
@@ -256,7 +280,7 @@ fn build_tree(
                 .spawn(container(layout))
                 // TODO: video feed image
                 .with_children(|builder| {
-                    builder.spawn(feed(layout, weak_texture));
+                    builder.spawn(feed(layout, weak_texture, size_hint));
                 });
         }
     }
@@ -281,12 +305,13 @@ fn root(layout: VideoLayout) -> impl Bundle {
         VideoLayout::Horizontal => (
             NodeBundle {
                 style: Style {
-                    width: Val::Percent(100.0),
+                    width: Val::Vw(100.0),
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
+                background_color: BackgroundColor(Color::BLUE),
                 ..default()
             },
             RENDER_LAYERS,
@@ -301,6 +326,7 @@ fn root(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Column,
                     ..default()
                 },
+                background_color: BackgroundColor(Color::BLUE),
                 ..default()
             },
             RENDER_LAYERS,
@@ -315,12 +341,15 @@ fn subroot(layout: VideoLayout) -> impl Bundle {
             NodeBundle {
                 style: Style {
                     flex_grow: 1.0,
+                    // display: Display::Grid,
                     min_height: Val::Px(0.0),
+                    height: Val::Percent(100.0),
                     width: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
+                background_color: BackgroundColor(Color::ORANGE),
                 ..default()
             },
             RENDER_LAYERS,
@@ -330,12 +359,15 @@ fn subroot(layout: VideoLayout) -> impl Bundle {
             NodeBundle {
                 style: Style {
                     flex_grow: 1.0,
+                    // display: Display::Grid,
                     min_width: Val::Px(0.0),
+                    width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
                     ..default()
                 },
+                background_color: BackgroundColor(Color::ORANGE),
                 ..default()
             },
             RENDER_LAYERS,
@@ -356,6 +388,7 @@ fn container(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
+                background_color: BackgroundColor(Color::GREEN),
                 ..default()
             },
             RENDER_LAYERS,
@@ -371,6 +404,7 @@ fn container(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
+                background_color: BackgroundColor(Color::GREEN),
                 ..default()
             },
             RENDER_LAYERS,
@@ -379,35 +413,47 @@ fn container(layout: VideoLayout) -> impl Bundle {
     }
 }
 
-fn feed(layout: VideoLayout, texture: Handle<Image>) -> impl Bundle {
+fn feed(layout: VideoLayout, texture: Handle<Image>, size_hint: (f32, f32)) -> impl Bundle {
     match layout {
         VideoLayout::Horizontal => (
             ImageBundle {
                 style: Style {
-                    width: Val::Percent(100.0),
-                    max_height: Val::Percent(100.0),
+                    // height: Val::Percent(100.0),
+                    // width: Val::Vw(size_hint.0),
+                    // height: Val::Vh(size_hint.1),
+                    max_width: Val::Vw(size_hint.0),
+                    max_height: Val::Vw(size_hint.1),
                     flex_direction: FlexDirection::Row,
+                    aspect_ratio: Some(16.0 / 9.0),
                     ..default()
                 },
+                // background_color: BackgroundColor(Color::PINK),
                 image: UiImage::new(texture),
                 ..default()
             },
             RENDER_LAYERS,
             DisplayMarker,
+            VideoFeedDisplay,
         ),
         VideoLayout::Vertical => (
             ImageBundle {
                 style: Style {
-                    height: Val::Percent(100.0),
-                    max_width: Val::Percent(100.0),
+                    // width: Val::Percent(100.0),
+                    // width: Val::Vw(size_hint.0),
+                    // height: Val::Vh(size_hint.1),
+                    max_width: Val::Vw(size_hint.0),
+                    max_height: Val::Vh(size_hint.1),
                     flex_direction: FlexDirection::Row,
+                    aspect_ratio: Some(16.0 / 9.0),
                     ..default()
                 },
+                // background_color: BackgroundColor(Color::PINK),
                 image: UiImage::new(texture),
                 ..default()
             },
             RENDER_LAYERS,
             DisplayMarker,
+            VideoFeedDisplay,
         ),
     }
 }
@@ -422,6 +468,7 @@ fn separator(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
+                background_color: BackgroundColor(Color::PURPLE),
                 ..default()
             },
             RENDER_LAYERS,
@@ -435,6 +482,7 @@ fn separator(layout: VideoLayout) -> impl Bundle {
                     flex_direction: FlexDirection::Row,
                     ..default()
                 },
+                background_color: BackgroundColor(Color::PURPLE),
                 ..default()
             },
             RENDER_LAYERS,

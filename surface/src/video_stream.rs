@@ -193,13 +193,15 @@ fn handle_frames(
             &VideoThread,
             &Handle<Image>,
             Option<&Handle<StandardMaterial>>,
+            Option<&Handle<ColorMaterial>>,
         ),
         With<Camera>,
     >,
     mut images: ResMut<Assets<Image>>,
-    mut image_events: EventWriter<AssetEvent<StandardMaterial>>,
+    mut image_events1: EventWriter<AssetEvent<StandardMaterial>>,
+    mut image_events2: EventWriter<AssetEvent<ColorMaterial>>,
 ) {
-    for (thread, handle, material) in &cameras {
+    for (thread, handle, material, color) in &cameras {
         let latest = thread.2.try_iter().fold(None, |last, next| {
             if let Some(last) = last {
                 let _ = thread.1.send(last);
@@ -218,7 +220,12 @@ fn handle_frames(
 
             // This shouldnt be the responsibility of this system but oh well
             if let Some(material) = material {
-                image_events.send(AssetEvent::Modified {
+                image_events1.send(AssetEvent::Modified {
+                    id: material.into(),
+                });
+            }
+            if let Some(material) = color {
+                image_events2.send(AssetEvent::Modified {
                     id: material.into(),
                 });
             }
