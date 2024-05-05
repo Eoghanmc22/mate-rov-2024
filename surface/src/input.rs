@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use ahash::HashSet;
 use bevy::{
     math::{vec3a, Vec3A},
@@ -7,11 +9,13 @@ use common::{
     bundles::MovementContributionBundle,
     components::{
         Armed, Depth, DepthTarget, MovementAxisMaximums, MovementContribution, Orientation,
-        OrientationTarget, Robot, RobotId,
+        OrientationTarget, Robot, RobotId, ServoContribution, Servos,
     },
     ecs_sync::{NetId, Replicate},
+    events::ResetServo,
     types::units::Meters,
 };
+use egui::TextBuffer;
 use leafwing_input_manager::{
     action_state::ActionState, axislike::SingleAxis, input_map::InputMap,
     plugin::InputManagerPlugin, Actionlike, InputManagerBundle,
@@ -36,15 +40,22 @@ impl Plugin for InputPlugin {
                     leveling,
                     trim_orientation,
                     trim_depth,
+                    servos,
                 ),
             );
     }
+}
+
+#[derive(Component, Debug, Clone, Default, Reflect)]
+pub struct SelectedServo {
+    pub servo: Option<Cow<'static, str>>,
 }
 
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 pub struct InputInterpolation {
     depth_mps: f32,
     trim_dps: f32,
+    servo_rate: f32,
 }
 
 impl Default for InputInterpolation {
@@ -52,6 +63,7 @@ impl Default for InputInterpolation {
         Self {
             depth_mps: 0.3,
             trim_dps: 90.0,
+            servo_rate: 2.0,
         }
     }
 }
@@ -61,18 +73,11 @@ pub enum Action {
     Arm,
     Disarm,
 
-    // SetControlMapping(&'static str),
-    // CenterServo,
-    // SelectServoIncrement,
-    // SelectServoDecrement,
-    // RotateServoForward,
-    // RotateServoBackward,
     // IncreaseGain,
     // DecreaseGain,
     // ResetGain,
     ToggleDepthHold,
     ToggleLeveling(LevelingType),
-
     // SetRobotMode(),
     Surge,
     SurgeInverted,
@@ -88,6 +93,10 @@ pub enum Action {
     Yaw,
     YawInverted,
     // HoldAxis,
+    Servo,
+    ServoCenter,
+    ServoInverted,
+    SwitchServo,
 }
 
 #[derive(Actionlike, PartialEq, Eq, Hash, Clone, Copy, Debug, Reflect, Default)]
@@ -98,7 +107,7 @@ pub enum LevelingType {
 }
 
 #[derive(Component)]
-struct InputMarker;
+pub struct InputMarker;
 
 fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), Added<Robot>>) {
     for (robot, name) in &new_robots {
@@ -143,7 +152,12 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
 
         input_map.insert(Action::Roll, GamepadButtonType::RightTrigger2);
         input_map.insert(Action::RollInverted, GamepadButtonType::LeftTrigger2);
-        //
+
+        input_map.insert(Action::ServoCenter, GamepadButtonType::DPadUp);
+        input_map.insert(Action::Servo, GamepadButtonType::DPadRight);
+        input_map.insert(Action::ServoInverted, GamepadButtonType::DPadLeft);
+        input_map.insert(Action::SwitchServo, GamepadButtonType::DPadDown);
+
         // input_map.insert(
         //     Action::Yaw,
         //     SingleAxis::symmetric(GamepadAxisType::LeftStickX, 0.05),
@@ -169,6 +183,7 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
         // input_map.insert(Action::SurgeInverted, GamepadButtonType::LeftTrigger2);
 
         cmds.spawn((
+            SelectedServo::default(),
             InputManagerBundle::<Action> {
                 // Stores "which actions are currently pressed"
                 action_state: ActionState::default(),
@@ -180,6 +195,7 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
                 contribution: MovementContribution(Movement::default()),
                 robot: RobotId(*robot),
             },
+            ServoContribution(Default::default()),
             InputInterpolation::default(),
             InputMarker,
             Replicate,
@@ -452,6 +468,60 @@ fn trim_depth(
             }
         } else if z != 0.0 {
             warn!("No ROV attached");
+        }
+    }
+}
+
+fn servos(
+    mut cmds: Commands,
+    mut inputs: Query<
+        (
+            Entity,
+            &RobotId,
+            &ActionState<Action>,
+            &InputInterpolation,
+            // TODO: Make this not mut?
+            &mut SelectedServo,
+        ),
+        With<InputMarker>,
+    >,
+    mut writer: EventWriter<ResetServo>,
+    robots: Query<(Entity, &Servos, &RobotId), With<Robot>>,
+) {
+    for (entity, robot, action_state, interpolation, mut selected_servo) in &mut inputs {
+        let center = action_state.just_pressed(&Action::ServoCenter);
+        let switch = action_state.just_pressed(&Action::SwitchServo);
+        let input = action_state.value(&Action::Servo) - action_state.value(&Action::ServoInverted);
+
+        let robot = robots
+            .iter()
+            .find(|&(_, _, other_robot)| robot == other_robot);
+
+        if let Some((robot, servos, _)) = robot {
+            if (switch || selected_servo.servo.is_none()) && !servos.servos.is_empty() {
+                let idx = servos
+                    .servos
+                    .iter()
+                    .position(|it| {
+                        Some(it.as_str()) == selected_servo.servo.as_ref().map(|it| it.as_str())
+                    })
+                    .map(|it| (it + 1) % servos.servos.len())
+                    .unwrap_or(0);
+
+                selected_servo.servo = Some(servos.servos[idx].clone());
+            }
+
+            if let Some(servo) = &selected_servo.servo {
+                if center {
+                    writer.send(ResetServo(servo.clone()));
+                }
+
+                let movement = input * interpolation.servo_rate;
+
+                cmds.entity(entity).insert(ServoContribution(
+                    vec![(servo.clone(), movement)].into_iter().collect(),
+                ));
+            }
         }
     }
 }

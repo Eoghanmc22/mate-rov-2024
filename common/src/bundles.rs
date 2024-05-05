@@ -4,8 +4,8 @@ use crate::components::{
     ActualForce, ActualMovement, Armed, Camera, Cores, CpuTotal, CurrentDraw, Depth, Disks,
     Inertial, Leak, LoadAverage, Magnetic, MeasuredVoltage, Memory, MotorDefinition, Motors,
     MovementAxisMaximums, MovementContribution, MovementCurrentCap, Networks, OperatingSystem,
-    Orientation, Processes, PwmChannel, PwmSignal, Robot, RobotId, RobotStatus, TargetForce,
-    TargetMovement, Temperatures, Uptime,
+    Orientation, Processes, PwmChannel, PwmSignal, Robot, RobotId, RobotStatus, ServoDefinition,
+    ServoMode, ServoTargets, TargetForce, TargetMovement, Temperatures, Uptime,
 };
 
 #[derive(Bundle, PartialEq)]
@@ -87,6 +87,14 @@ pub struct MotorBundle {
     pub target_force: TargetForce,
     pub actual_force: ActualForce,
     pub current_draw: CurrentDraw,
+}
+
+#[derive(Bundle, PartialEq)]
+pub struct ServoBundle {
+    pub actuator: PwmActuatorBundle,
+
+    pub servo: ServoDefinition,
+    pub servo_mode: ServoMode,
 }
 
 #[derive(Bundle, PartialEq)]

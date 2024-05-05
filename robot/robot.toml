@@ -23,6 +23,13 @@ BackRightBottom = 7
 BackLeftTop = 5
 BackLeftBottom = 4
 
+[servo_config.servos]
+FrontCameraRotate = { pwm_channel = 15, cameras = ["Front"] }
+Claw1 = { pwm_channel = 14, cameras = ["Front"] }
+Claw2 = { pwm_channel = 13, cameras = ["Front"] }
+Claw3 = { pwm_channel = 12, cameras = ["Front"] }
+
+
 [cameras."/dev/video2"]
 name = "Front"
 transform = { position = { x = 0.0, y = 1.0, z = 0.0 }, rotation = { yaw = 0.0, pitch = 0.0, roll = 0.0 } }
@@ -30,3 +37,15 @@ transform = { position = { x = 0.0, y = 1.0, z = 0.0 }, rotation = { yaw = 0.0, 
 [cameras."/dev/video6"]
 name = "Top"
 transform = { position = { x = 0.0, y = 0.0, z = 1.0 }, rotation = { yaw = 0.0, pitch = -90.0, roll = 0.0 } }
+
+[cameras."/dev/video10"]
+name = "A"
+transform = { position = { x = 0.0, y = 0.0, z = -1.0 }, rotation = { yaw = 0.0, pitch = 90.0, roll = 0.0 } }
+
+[cameras."/dev/video14"]
+name = "B"
+transform = { position = { x = 0.0, y = -1.0, z = 0.0 }, rotation = { yaw = -180.0, pitch = 0.0, roll = 0.0 } }
+
+[cameras."/dev/video18"]
+name = "C"
+transform = { position = { x = 1.0, y = 0.0, z = 0.0 }, rotation = { yaw = -90.0, pitch = 0.0, roll = 0.0 } }

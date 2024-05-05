@@ -1,4 +1,4 @@
-use ahash::HashMap;
+use ahash::{HashMap, HashSet};
 use bevy::{ecs::system::Resource, transform::components::Transform};
 use common::types::hw::PwmChannelId;
 use glam::{vec3, EulerRot, Quat, Vec3A};
@@ -11,6 +11,7 @@ pub struct RobotConfig {
     pub port: u16,
 
     pub motor_config: MotorConfigDefinition,
+    pub servo_config: ServoConfigDefinition,
 
     pub motor_amperage_budget: f32,
     pub jerk_limit: f32,
@@ -161,6 +162,17 @@ impl MotorConfigDefinition {
 
         (motors.into_iter(), config)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServoConfigDefinition {
+    pub servos: HashMap<String, Servo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Servo {
+    pub pwm_channel: PwmChannelId,
+    pub cameras: HashSet<String>,
 }
 
 #[derive(Resource, Debug, Clone, Serialize, Deserialize)]

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use bevy::{
     app::App,
     ecs::event::Event,
@@ -20,7 +22,9 @@ macro_rules! events {
 events! {
     ResyncCameras,
     CalibrateSeaLevel,
-    ResetYaw
+    ResetYaw,
+    ResetServos,
+    ResetServo
 }
 
 #[derive(Event, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
@@ -34,3 +38,11 @@ pub struct CalibrateSeaLevel;
 #[derive(Event, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ResetYaw;
+
+#[derive(Event, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct ResetServos;
+
+#[derive(Event, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq, Default)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct ResetServo(pub Cow<'static, str>);

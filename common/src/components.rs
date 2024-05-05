@@ -62,6 +62,7 @@ components! {
     ServoDefinition,
     ServoMode,
     Motors,
+    Servos,
     TargetMovement,
     ActualMovement,
     MeasuredVoltage,
@@ -236,8 +237,17 @@ pub struct MotorDefinition(pub ErasedMotorId, pub Motor);
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
 #[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ServoDefinition {
-    pub id: ErasedMotorId,
-    pub camera: Cow<'static, str>,
+    // TODO: Make CameraId type
+    // TODO: Reevaluate if using Cow makes sense
+    pub cameras: Vec<Cow<'static, str>>,
+}
+
+#[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
+#[reflect(SerdeAdapter, Serialize, Deserialize, Debug, PartialEq)]
+pub struct Servos {
+    // TODO: Make ServoId type
+    // TODO: Reevaluate if using Cow makes sense
+    pub servos: Vec<Cow<'static, str>>,
 }
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
@@ -264,7 +274,7 @@ pub struct TargetMovement(pub Movement);
 #[reflect(from_reflect = false)]
 pub struct ServoTargets(
     // TODO(low): This bad
-    #[reflect(ignore)] pub BTreeMap<ErasedMotorId, f32>,
+    #[reflect(ignore)] pub BTreeMap<Cow<'static, str>, f32>,
 );
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]
@@ -292,7 +302,7 @@ pub struct MotorContribution(
 #[reflect(from_reflect = false)]
 pub struct ServoContribution(
     // TODO(low): This bad
-    #[reflect(ignore)] pub BTreeMap<ErasedMotorId, f32>,
+    #[reflect(ignore)] pub BTreeMap<Cow<'static, str>, f32>,
 );
 
 #[derive(Component, Serialize, Deserialize, Reflect, Debug, Clone, PartialEq)]

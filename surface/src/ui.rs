@@ -11,7 +11,7 @@ use common::{
         PwmChannel, PwmManualControl, PwmSignal, Robot, RobotId, RobotStatus, Temperatures,
     },
     ecs_sync::{NetId, Replicate},
-    events::{CalibrateSeaLevel, ResetYaw, ResyncCameras},
+    events::{CalibrateSeaLevel, ResetServos, ResetYaw, ResyncCameras},
     sync::{ConnectToPeer, DisconnectPeer, Latency, MdnsPeers, Peer},
 };
 use egui::{
@@ -23,6 +23,7 @@ use tokio::net::lookup_host;
 
 use crate::{
     attitude::OrientationDisplay,
+    input::{InputMarker, SelectedServo},
     video_pipelines::VideoPipelines,
     video_stream::{VideoProcessorFactory, VideoThread},
     DARK_MODE,
@@ -125,6 +126,12 @@ fn topbar(
                 if ui.button("Calibrate Sea Level").clicked() {
                     cmds.add(|world: &mut World| {
                         world.send_event(CalibrateSeaLevel);
+                    })
+                }
+
+                if ui.button("Reset Servos").clicked() {
+                    cmds.add(|world: &mut World| {
+                        world.send_event(ResetServos);
                     })
                 }
 
@@ -331,9 +338,12 @@ fn hud(
             Option<&OrientationTarget>,
             Option<&Peer>,
             Option<&Latency>,
+            &RobotId,
         ),
         With<Robot>,
     >,
+
+    inputs: Query<(&SelectedServo, &RobotId), With<InputMarker>>,
 
     peers: Option<Res<MdnsPeers>>,
 
@@ -357,6 +367,7 @@ fn hud(
         orientation_target,
         peer,
         latency,
+        robot_id,
     )) = robots.get_single()
     {
         let mut open = true;
@@ -393,6 +404,24 @@ fn hud(
                         Armed::Disarmed => {
                             ui.label(RichText::new("Disarmed").size(size).color(Color32::RED));
                         }
+                    }
+                });
+
+                ui.add_space(10.0);
+            }
+
+            if let Some((selected_servo, _)) = inputs.iter().find(|(_, robot)| **robot == *robot_id)
+            {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Servo:").size(size));
+                    if let Some(selected_servo) = &selected_servo.servo {
+                        ui.label(
+                            RichText::new(selected_servo.clone())
+                                .size(size)
+                                .color(Color32::GREEN),
+                        );
+                    } else {
+                        ui.label(RichText::new("None").size(size).color(Color32::RED));
                     }
                 });
 

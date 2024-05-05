@@ -1,20 +1,20 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::time::Duration;
 
-use ahash::HashMap;
+use ahash::{HashMap, HashSet};
 use bevy::prelude::*;
 use common::{
-    bundles::{MotorBundle, PwmActuatorBundle, RobotActuatorBundle},
+    bundles::{PwmActuatorBundle, ServoBundle},
     components::{
-        ActualForce, ActualMovement, Armed, CurrentDraw, MotorDefinition, Motors,
-        MovementAxisMaximums, MovementCurrentCap, PwmChannel, PwmManualControl, PwmSignal, RobotId,
-        ServoContribution, ServoDefinition, ServoMode, ServoTargets, TargetForce, TargetMovement,
+        PwmChannel, PwmManualControl, PwmSignal, RobotId, ServoContribution, ServoDefinition,
+        ServoMode, ServoTargets, Servos,
     },
     ecs_sync::{NetId, Replicate},
+    events::{ResetServo, ResetServos},
 };
-use motor_math::{blue_rov::HeavyMotorId, motor_preformance::MotorData, x3d::X3dMotorId};
+use motor_math::motor_preformance::MotorData;
 
 use crate::{
-    config::{MotorConfigDefinition, RobotConfig},
+    config::{RobotConfig, Servo},
     plugins::core::robot::{LocalRobot, LocalRobotMarker},
 };
 
@@ -32,48 +32,36 @@ impl Plugin for ServoPlugin {
 pub struct MotorDataRes(pub MotorData);
 
 fn create_servos(mut cmds: Commands, robot: Res<LocalRobot>, config: Res<RobotConfig>) {
-    let (motors, motor_config) = config.motor_config.flatten(config.center_of_mass);
+    let servos = &config.servo_config.servos;
 
-    info!("Generating motor config");
+    // TODO: Make this a bundle
+    cmds.entity(robot.entity).insert((
+        Servos {
+            servos: servos.iter().map(|(name, _)| name.clone().into()).collect(),
+        },
+        ServoTargets::default(),
+    ));
 
-    cmds.entity(robot.entity).insert(RobotActuatorBundle {
-        movement_target: TargetMovement(Default::default()),
-        movement_actual: ActualMovement(Default::default()),
-        motor_config: Motors(motor_config),
-        axis_maximums: MovementAxisMaximums(Default::default()),
-        current_cap: MovementCurrentCap(config.motor_amperage_budget.into()),
-        armed: Armed::Disarmed,
-    });
-
-    for (motor_id, motor, pwm_channel) in motors {
-        let name = match config.motor_config {
-            MotorConfigDefinition::X3d(_) => {
-                format!(
-                    "{:?} ({motor_id})",
-                    X3dMotorId::try_from(motor_id).expect("Bad motor id for config")
-                )
-            }
-            MotorConfigDefinition::BlueRov(_) => {
-                format!(
-                    "{:?} ({motor_id})",
-                    HeavyMotorId::try_from(motor_id).expect("Bad motor id for config")
-                )
-            }
-            MotorConfigDefinition::Custom(_) => format!("Motor {motor_id}"),
-        };
-
+    for (
+        name,
+        Servo {
+            pwm_channel,
+            cameras,
+        },
+    ) in servos
+    {
         cmds.spawn((
-            MotorBundle {
+            ServoBundle {
                 actuator: PwmActuatorBundle {
-                    name: Name::new(name),
-                    pwm_channel: PwmChannel(pwm_channel),
+                    name: Name::new(name.clone()),
+                    pwm_channel: PwmChannel(*pwm_channel),
                     pwm_signal: PwmSignal(Duration::from_micros(1500)),
                     robot: RobotId(robot.net_id),
                 },
-                motor: MotorDefinition(motor_id, motor),
-                target_force: TargetForce(0.0f32.into()),
-                actual_force: ActualForce(0.0f32.into()),
-                current_draw: CurrentDraw(0.0f32.into()),
+                servo: ServoDefinition {
+                    cameras: cameras.iter().map(|it| it.clone().into()).collect(),
+                },
+                servo_mode: ServoMode::Velocity,
             },
             Replicate,
         ));
@@ -89,7 +77,10 @@ fn handle_servo_input(
     >,
     servo_inputs: Query<(&RobotId, &ServoContribution)>,
     // TODO
-    servos: Query<(Entity, &ServoMode, &ServoDefinition, &RobotId)>,
+    servos: Query<(Entity, &Name, &ServoMode, &ServoDefinition, &RobotId)>,
+
+    mut reset: EventReader<ResetServos>,
+    mut reset_single: EventReader<ResetServo>,
 
     time: Res<Time<Real>>,
 ) {
@@ -100,41 +91,58 @@ fn handle_servo_input(
     let mut all_inputs = HashMap::<_, f32>::default();
 
     for (&RobotId(robot_net_id), servo_contribution) in &servo_inputs {
-        if robot_net_id == net_id {
+        if robot_net_id != net_id {
             continue;
         }
 
         for (motor, input) in &servo_contribution.0 {
-            *all_inputs.entry(*motor).or_default() += *input;
+            *all_inputs.entry(motor.clone()).or_default() += *input;
         }
     }
 
     let servos_by_id = servos
         .iter()
-        .map(|it| (it.2.id, it))
+        .map(|it| (it.1.as_str(), it))
         .collect::<HashMap<_, _>>();
 
-    let new_positions = all_inputs
-        .into_iter()
-        .flat_map(|(id, input)| {
-            let (_, mode, _, _) = servos_by_id.get(&id)?;
+    let mut full_reset = false;
 
-            match mode {
-                ServoMode::Position => Some((id, input)),
-                ServoMode::Velocity => {
-                    let last_position = last_positions.0.get(&id)?;
-                    Some((id, last_position + input * time.delta_seconds()))
-                }
+    if !reset.is_empty() {
+        full_reset = true;
+        reset.clear();
+    }
+
+    let mut new_positions = last_positions.0.clone();
+
+    for event in reset_single.read() {
+        new_positions.insert(event.0.clone(), 0.0);
+    }
+
+    new_positions.extend(all_inputs.into_iter().flat_map(|(id, input)| {
+        let (_, _, mode, _, _) = servos_by_id.get(&*id)?;
+
+        match mode {
+            ServoMode::Position => Some((id, input)),
+            ServoMode::Velocity => {
+                let last_position = if !full_reset {
+                    last_positions.0.get(&id).copied().unwrap_or(0.0)
+                } else {
+                    0.0
+                };
+                Some((
+                    id,
+                    (last_position + input * time.delta_seconds()).clamp(-1.0, 1.0),
+                ))
             }
-        })
-        .collect::<BTreeMap<_, _>>();
+        }
+    }));
 
     for (id, position) in &new_positions {
-        let Some((servo, ..)) = servos_by_id.get(id) else {
+        let Some((servo, ..)) = servos_by_id.get(&**id) else {
             continue;
         };
 
-        let micros = 1500.0 + 400.0 * position;
+        let micros = 1500.0 + 400.0 * position.clamp(-1.0, 1.0);
 
         cmds.entity(*servo)
             .insert(PwmSignal(Duration::from_micros(micros as u64)));
