@@ -15,7 +15,7 @@ Setup terminal
 Download device tree overlay https://github.com/bluerobotics/BlueOS/blob/71b0f683595361a178c78b4df6eb416868690c3e/install/overlays/spi0-led.dts
 Compile it https://github.com/bluerobotics/BlueOS/blob/71b0f683595361a178c78b4df6eb416868690c3e/install/boards/bcm_27xx.sh#L18C2-L18C2
 
-Install gstreamer: `sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-ugly gstreamer1.0-plugins-good gstreamer1.0-tools`
+Install gstreamer: `sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-plugins-good gstreamer1.0-tools`
 
 Setup Ethernet link as local-link in nmtui
 
