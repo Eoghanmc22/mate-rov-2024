@@ -1,7 +1,9 @@
 pub mod edges;
 pub mod marker;
 pub mod measure;
+pub mod save;
 pub mod scale;
+pub mod squares;
 pub mod undistort;
 
 use std::{
@@ -24,7 +26,7 @@ use bevy::{
     },
     hierarchy::DespawnRecursiveExt,
 };
-use common::error::ErrorEvent;
+use common::{components::RobotId, error::ErrorEvent};
 use crossbeam::{
     atomic::AtomicCell,
     channel::{bounded, Receiver, Sender},
@@ -33,7 +35,10 @@ use opencv::core::Mat;
 use tracing::{debug, error};
 
 use crate::{
-    video_pipelines::{edges::EdgesPipelinePlugin, marker::MarkerPipelinePlugin},
+    video_pipelines::{
+        edges::EdgesPipelinePlugin, marker::MarkerPipelinePlugin, save::SavePipelinePlugin,
+        squares::SquarePipelinePlugin,
+    },
     video_stream::{VideoProcessor, VideoProcessorFactory},
 };
 
@@ -49,6 +54,8 @@ impl PluginGroup for VideoPipelinePlugins {
             })
             .add(EdgesPipelinePlugin)
             .add(MarkerPipelinePlugin)
+            .add(SquarePipelinePlugin)
+            .add(SavePipelinePlugin)
     }
 }
 
@@ -198,11 +205,17 @@ impl<P: Pipeline> VideoProcessor for PipelineHandler<P> {
         let bevy_handle = self.bevy_handle.clone();
 
         let res = self.cmds_tx.send(Box::new(move |world: &mut World| {
+            let Some(&robot) = world.get::<RobotId>(camera) else {
+                // `bevy_handle` gets dropped
+                return;
+            };
+
             let id = world
                 .spawn(PipelineBundle::<P> {
                     channels: PipelineChannels { input },
                     marker: PipelineDataMarker(bevy_handle, PhantomData),
                     camera: PipelineCamera(camera),
+                    robot,
                 })
                 .id();
 
@@ -332,6 +345,7 @@ pub struct PipelineBundle<P: Pipeline> {
     channels: PipelineChannels<P>,
     marker: PipelineDataMarker<P>,
     camera: PipelineCamera,
+    robot: RobotId,
 }
 
 #[derive(Component)]

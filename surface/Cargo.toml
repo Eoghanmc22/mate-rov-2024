@@ -25,6 +25,7 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 crossbeam = "0.8"
 ahash = "0.8"
+time = { version = "0.3", features = ["local-offset", "formatting"] }
 
 # Wouldnt compile with dnn, need to make an issue
 opencv = { version = "0.88", default-features = false, features = [
