@@ -113,9 +113,11 @@ fn handle_servo_input(
     }
 
     let mut new_positions = last_positions.0.clone();
+    let mut should_reset = HashSet::default();
 
     for event in reset_single.read() {
         new_positions.insert(event.0.clone(), 0.0);
+        should_reset.insert(event.0.clone());
     }
 
     new_positions.extend(all_inputs.into_iter().flat_map(|(id, input)| {
@@ -124,7 +126,7 @@ fn handle_servo_input(
         match mode {
             ServoMode::Position => Some((id, input)),
             ServoMode::Velocity => {
-                let last_position = if !full_reset {
+                let last_position = if !full_reset && !should_reset.contains(&id) {
                     last_positions.0.get(&id).copied().unwrap_or(0.0)
                 } else {
                     0.0
