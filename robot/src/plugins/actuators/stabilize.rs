@@ -46,10 +46,11 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 0.3,
-                ki: 0.15,
-                kd: 0.1,
-                max_integral: 40.0,
+                kp: 0.5,
+                ki: 0.25,
+                kd: 0.15,
+                kt: 5.0,
+                max_integral: 60.0,
             },
             Replicate,
         ))
@@ -65,9 +66,10 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 0.2,
-                ki: 0.1,
+                kp: 0.3,
+                ki: 0.15,
                 kd: 0.1,
+                kt: 3.5,
                 max_integral: 30.0,
             },
             Replicate,
@@ -84,10 +86,11 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 0.2,
-                ki: 0.1,
-                kd: 0.15,
-                max_integral: 30.0,
+                kp: 0.15,
+                ki: 0.07,
+                kd: 0.12,
+                kt: 5.0,
+                max_integral: 20.0,
             },
             Replicate,
         ))
@@ -104,6 +107,7 @@ fn setup_stabalize(mut cmds: Commands, robot: Res<LocalRobot>) {
 }
 
 fn stabalize_system(
+    mut last_target: Local<Option<Quat>>,
     mut cmds: Commands,
     robot: Res<LocalRobot>,
     mut state: ResMut<StabilizeState>,
@@ -118,21 +122,28 @@ fn stabalize_system(
 
     if let Ok((&Armed::Armed, orientation, orientation_target)) = robot {
         let error = orientation_target.0 * orientation.0.inverse();
+        let delta_target =
+            orientation_target.0 * last_target.unwrap_or(orientation_target.0).inverse();
 
-        //FIXME: Prefer roll over pitch
+        // FIXME: Prefer roll over pitch
         let pitch_error = instant_twist(error, orientation.0 * Vec3A::X).to_degrees();
+        let pitch_td = instant_twist(delta_target, orientation.0 * Vec3A::X).to_degrees();
         let roll_error = instant_twist(error, orientation.0 * Vec3A::Y).to_degrees();
+        let roll_td = instant_twist(delta_target, orientation.0 * Vec3A::Y).to_degrees();
         let yaw_error = instant_twist(error, orientation.0 * Vec3A::Z).to_degrees();
+        let yaw_td = instant_twist(delta_target, orientation.0 * Vec3A::Z).to_degrees();
 
-        let res_pitch = state
-            .pitch_controller
-            .update(pitch_error, pitch_pid_config, time.delta());
-        let res_roll = state
-            .roll_controller
-            .update(roll_error, roll_pid_config, time.delta());
+        let res_pitch =
+            state
+                .pitch_controller
+                .update(pitch_error, pitch_td, pitch_pid_config, time.delta());
+        let res_roll =
+            state
+                .roll_controller
+                .update(roll_error, roll_td, roll_pid_config, time.delta());
         let res_yaw = state
             .yaw_controller
-            .update(yaw_error, yaw_pid_config, time.delta());
+            .update(yaw_error, yaw_td, yaw_pid_config, time.delta());
 
         let pitch_movement = Movement {
             force: Vec3A::ZERO,
@@ -155,6 +166,7 @@ fn stabalize_system(
             .insert((MovementContribution(roll_movement), res_roll));
         cmds.entity(state.yaw)
             .insert((MovementContribution(yaw_movement), res_yaw));
+        *last_target = Some(orientation_target.0);
     } else {
         cmds.entity(state.pitch)
             .remove::<(MovementContribution, PidResult)>();
@@ -166,9 +178,9 @@ fn stabalize_system(
         state.pitch_controller.reset_i();
         state.roll_controller.reset_i();
         state.yaw_controller.reset_i();
+        *last_target = None;
     }
 }
-
 fn instant_twist(q: Quat, twist_axis: Vec3A) -> f32 {
     let rotation_axis = vec3a(q.x, q.y, q.z);
 

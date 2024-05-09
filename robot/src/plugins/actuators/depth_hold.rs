@@ -35,10 +35,11 @@ fn setup_depth_hold(mut cmds: Commands, robot: Res<LocalRobot>) {
             // TODO(high): Tune
             // TODO(low): Load from disk?
             PidConfig {
-                kp: 150.0,
-                ki: 10.0,
-                kd: 0.0,
-                max_integral: 3.0,
+                kp: 100.0,
+                ki: 5.0,
+                kd: 1.5,
+                kt: 5000.0,
+                max_integral: 10.0,
             },
             Replicate,
         ))
@@ -48,6 +49,7 @@ fn setup_depth_hold(mut cmds: Commands, robot: Res<LocalRobot>) {
 }
 
 fn depth_hold_system(
+    mut last_target: Local<Option<Meters>>,
     mut cmds: Commands,
     robot: Res<LocalRobot>,
     mut state: ResMut<DepthHoldState>,
@@ -60,10 +62,11 @@ fn depth_hold_system(
 
     if let Ok((depth, depth_target, orientation)) = robot {
         let depth_error = depth_target.0 - depth.0.depth;
+        let depth_td = depth_target.0 - last_target.unwrap_or(depth_target.0);
 
         let pid = &mut state.1;
         // Depth increases as Z decreases, flip the sign
-        let res = pid.update(-depth_error.0, pid_config, time.delta());
+        let res = pid.update(-depth_error.0, -depth_td.0, pid_config, time.delta());
 
         let correction = orientation.0.inverse() * Vec3A::Z * res.correction;
         let movement = Movement {
@@ -73,8 +76,10 @@ fn depth_hold_system(
 
         cmds.entity(state.0)
             .insert((MovementContribution(movement), res));
+        *last_target = Some(depth_target.0);
     } else {
         cmds.entity(state.0)
             .remove::<(MovementContribution, PidResult)>();
+        *last_target = None;
     }
 }

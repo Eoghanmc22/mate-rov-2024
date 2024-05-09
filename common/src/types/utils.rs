@@ -13,6 +13,9 @@ use crate::components::{PidConfig, PidResult};
 pub struct PidController {
     last_error: Option<f32>,
     integral: f32,
+
+    last_deltas: [f32; 5],
+    delta_idx: usize,
 }
 
 impl PidController {
@@ -20,10 +23,18 @@ impl PidController {
         Self {
             last_error: None,
             integral: 0.0,
+            last_deltas: [0.0; 5],
+            delta_idx: 0,
         }
     }
 
-    pub fn update(&mut self, error: f32, config: &PidConfig, interval: Duration) -> PidResult {
+    pub fn update(
+        &mut self,
+        error: f32,
+        delta_target: f32,
+        config: &PidConfig,
+        interval: Duration,
+    ) -> PidResult {
         let cfg = config;
         let interval = interval.as_secs_f32();
 
@@ -34,18 +45,28 @@ impl PidController {
         let integral = self.integral;
         let derivative = (error - self.last_error.unwrap_or(error)) / interval;
 
+        self.last_deltas[self.delta_idx % self.last_deltas.len()] = delta_target;
+        let avg_delta_target = self.last_deltas.iter().sum::<f32>() / self.last_deltas.len() as f32;
+        self.delta_idx += 1;
+
         self.last_error = Some(error);
 
         let p = cfg.kp * proportional;
         let i = cfg.ki * integral;
         let d = cfg.kd * derivative;
+        let td = cfg.kt
+            * avg_delta_target
+                .abs()
+                .max(delta_target.abs())
+                .copysign(delta_target);
 
-        let correction = p + i + d;
+        let correction = p + i + d + td;
 
         PidResult {
             p,
             i,
             d,
+            td,
             correction,
         }
     }
