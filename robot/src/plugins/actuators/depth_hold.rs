@@ -2,10 +2,10 @@ use bevy::prelude::*;
 use common::{
     bundles::MovementContributionBundle,
     components::{
-        Depth, DepthTarget, MovementContribution, Orientation, PidConfig, PidResult, RobotId,
+        Armed, Depth, DepthTarget, MovementContribution, Orientation, PidConfig, PidResult, RobotId,
     },
     ecs_sync::Replicate,
-    types::utils::PidController,
+    types::{units::Meters, utils::PidController},
 };
 use glam::Vec3A;
 use motor_math::Movement;
@@ -53,14 +53,14 @@ fn depth_hold_system(
     mut cmds: Commands,
     robot: Res<LocalRobot>,
     mut state: ResMut<DepthHoldState>,
-    robot_query: Query<(&Depth, &DepthTarget, &Orientation)>,
+    robot_query: Query<(&Armed, &Depth, &DepthTarget, &Orientation)>,
     entity_query: Query<&PidConfig>,
     time: Res<Time<Real>>,
 ) {
     let robot = robot_query.get(robot.entity);
     let pid_config = entity_query.get(state.0).unwrap();
 
-    if let Ok((depth, depth_target, orientation)) = robot {
+    if let Ok((&Armed::Armed, depth, depth_target, orientation)) = robot {
         let depth_error = depth_target.0 - depth.0.depth;
         let depth_td = depth_target.0 - last_target.unwrap_or(depth_target.0);
 
