@@ -23,7 +23,7 @@ use tokio::net::lookup_host;
 
 use crate::{
     attitude::OrientationDisplay,
-    input::{InputMarker, SelectedServo},
+    input::{InputInterpolation, InputMarker, SelectedServo},
     video_pipelines::VideoPipelines,
     video_stream::{VideoProcessorFactory, VideoThread},
     DARK_MODE,
@@ -343,7 +343,7 @@ fn hud(
         With<Robot>,
     >,
 
-    inputs: Query<(&SelectedServo, &RobotId), With<InputMarker>>,
+    inputs: Query<(&SelectedServo, &InputInterpolation, &RobotId), With<InputMarker>>,
 
     peers: Option<Res<MdnsPeers>>,
 
@@ -387,152 +387,192 @@ fn hud(
         window.show(context, |ui| {
             let size = 20.0;
 
-            if let Some(attitude) = attitude {
-                let size = 250.0f32.max(ui.available_width());
-                ui.image(SizedTexture::new(attitude.1, (size, size)));
+            ui.horizontal(|ui| {
+                if let Some(attitude) = attitude {
+                    ui.image(SizedTexture::new(attitude.1, (230.0, 230.0)));
 
-                ui.add_space(10.0);
-            }
+                    ui.add_space(10.0);
+                }
 
-            if let Some(armed) = armed {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new("Status:").size(size));
-                    match armed {
-                        Armed::Armed => {
-                            ui.label(RichText::new("Armed").size(size).color(Color32::GREEN));
-                        }
-                        Armed::Disarmed => {
-                            ui.label(RichText::new("Disarmed").size(size).color(Color32::RED));
-                        }
+                ui.vertical(|ui| {
+                    ui.allocate_space((230.0, 0.0).into());
+
+                    if let Some(armed) = armed {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Status:").size(size));
+                            match armed {
+                                Armed::Armed => {
+                                    ui.label(
+                                        RichText::new("Armed").size(size).color(Color32::GREEN),
+                                    );
+                                }
+                                Armed::Disarmed => {
+                                    ui.label(
+                                        RichText::new("Disarmed").size(size).color(Color32::RED),
+                                    );
+                                }
+                            }
+                        });
                     }
-                });
 
-                ui.add_space(10.0);
-            }
+                    if let Some((selected_servo, input_interpolation, _)) =
+                        inputs.iter().find(|(_, _, robot)| **robot == *robot_id)
+                    {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Robot Mode:").size(size));
+                            if *input_interpolation == InputInterpolation::normal() {
+                                ui.label(RichText::new("Normal").size(size).color(Color32::GREEN));
+                            } else if *input_interpolation == InputInterpolation::precision() {
+                                ui.label(
+                                    RichText::new("Precision").size(size).color(Color32::BLUE),
+                                );
+                            } else {
+                                ui.label(RichText::new("Unknown").size(size).color(Color32::RED));
+                            }
+                        });
 
-            if let Some((selected_servo, _)) = inputs.iter().find(|(_, robot)| **robot == *robot_id)
-            {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new("Servo:").size(size));
-                    if let Some(selected_servo) = &selected_servo.servo {
+                        ui.add_space(10.0);
+
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Servo:").size(size));
+                            if let Some(selected_servo) = &selected_servo.servo {
+                                ui.label(
+                                    RichText::new(selected_servo.clone())
+                                        .size(size)
+                                        .color(Color32::GREEN),
+                                );
+                            } else {
+                                ui.label(RichText::new("None").size(size).color(Color32::RED));
+                            }
+                        });
+                    }
+
+                    ui.add_space(10.0);
+
+                    if let (Some(voltage), Some(current)) = (voltage, current_draw) {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Power:").size(size));
+
+                            let voltage_color;
+                            if voltage.0 .0 < 11.5 {
+                                voltage_color = Color32::RED;
+                            } else if voltage.0 .0 < 12.5 {
+                                voltage_color = Color32::YELLOW;
+                            } else {
+                                voltage_color = Color32::GREEN;
+                            }
+
+                            let current_color;
+                            if current.0 .0 < 15.0 {
+                                current_color = Color32::GREEN;
+                            } else if current.0 .0 < 20.0 {
+                                current_color = Color32::YELLOW;
+                            } else {
+                                current_color = Color32::RED;
+                            }
+
+                            ui.label(
+                                RichText::new(format!("{}", voltage.0))
+                                    .size(size)
+                                    .color(voltage_color),
+                            );
+                            ui.label(
+                                RichText::new(format!("{}", current.0))
+                                    .size(size)
+                                    .color(current_color),
+                            );
+                        });
+
+                        ui.add_space(10.0);
+                    }
+
+                    if let Some(cpu) = cpu {
+                        ui.label(RichText::new(format!("CPU: {:.2}%", cpu.0.usage)).size(size));
+                    }
+                    if let Some(load) = load {
                         ui.label(
-                            RichText::new(selected_servo.clone())
-                                .size(size)
-                                .color(Color32::GREEN),
+                            RichText::new(format!(
+                                "Load: {:.2}, {:.2}, {:.2}",
+                                load.one_min, load.five_min, load.fifteen_min
+                            ))
+                            .size(size),
                         );
-                    } else {
-                        ui.label(RichText::new("None").size(size).color(Color32::RED));
+                    }
+
+                    if let Some(memory) = memory {
+                        let ram_usage = memory.used_mem as f64 / memory.total_mem as f64 * 100.0;
+                        ui.label(RichText::new(format!("RAM: {:.2}%", ram_usage)).size(size));
+                    }
+
+                    if cpu.is_some() || load.is_some() || memory.is_some() {
+                        ui.add_space(10.0);
                     }
                 });
 
-                ui.add_space(10.0);
-            }
+                ui.vertical(|ui| {
+                    ui.allocate_space((230.0, 0.0).into());
 
-            if let (Some(voltage), Some(current)) = (voltage, current_draw) {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new("Power:").size(size));
+                    if let (Some(peer), Some(latency)) = (peer, latency) {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Address:").size(size));
+                            ui.label(RichText::new(format!("{:?}", peer.addrs)).size(size * 0.75));
+                        });
 
-                    let voltage_color;
-                    if voltage.0 .0 < 11.5 {
-                        voltage_color = Color32::RED;
-                    } else if voltage.0 .0 < 12.5 {
-                        voltage_color = Color32::YELLOW;
-                    } else {
-                        voltage_color = Color32::GREEN;
+                        if let Some(ping) = latency.ping {
+                            ui.label(
+                                RichText::new(format!("Ping: {:.2?} frames", ping)).size(size),
+                            );
+                        }
+
+                        ui.add_space(10.0);
                     }
 
-                    let current_color;
-                    if current.0 .0 < 15.0 {
-                        current_color = Color32::GREEN;
-                    } else if current.0 .0 < 20.0 {
-                        current_color = Color32::YELLOW;
-                    } else {
-                        current_color = Color32::RED;
+                    if let Some(inertial) = inertial {
+                        ui.label(
+                            RichText::new(format!("IMU Temp: {}", inertial.0.tempature)).size(size),
+                        );
                     }
 
-                    ui.label(
-                        RichText::new(format!("{}", voltage.0))
-                            .size(size)
-                            .color(voltage_color),
-                    );
-                    ui.label(
-                        RichText::new(format!("{}", current.0))
-                            .size(size)
-                            .color(current_color),
-                    );
+                    if let Some(temps) = temps {
+                        for temp in &temps.0 {
+                            ui.label(
+                                RichText::new(format!("{}: {}", temp.name, temp.tempature))
+                                    .size(size),
+                            );
+                        }
+                    }
+
+                    if let Some(depth) = depth {
+                        ui.label(
+                            RichText::new(format!("Water Temp: {}", depth.0.temperature))
+                                .size(size),
+                        );
+                    }
+
+                    if inertial.is_some() || temps.is_some() {
+                        ui.add_space(10.0);
+                    }
+
+                    if let Some(depth) = depth {
+                        ui.label(RichText::new(format!("Depth: {}", depth.0.depth)).size(size));
+
+                        if let Some(depth_target) = depth_target {
+                            ui.label(
+                                RichText::new(format!("Depth Target: {}", depth_target.0))
+                                    .size(size),
+                            );
+                        }
+
+                        ui.add_space(10.0);
+                    }
+
+                    if let Some(_orientation_target) = orientation_target {
+                        ui.label(RichText::new("Orientation Control").size(size));
+                    }
                 });
 
-                ui.add_space(10.0);
-            }
-
-            if let (Some(peer), Some(latency)) = (peer, latency) {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new("Address:").size(size));
-                    ui.label(RichText::new(format!("{:?}", peer.addrs)).size(size * 0.75));
-                });
-
-                if let Some(ping) = latency.ping {
-                    ui.label(RichText::new(format!("Ping: {:.2?} frames", ping)).size(size));
-                }
-
-                ui.add_space(10.0);
-            }
-
-            if let Some(cpu) = cpu {
-                ui.label(RichText::new(format!("CPU: {:.2}%", cpu.0.usage)).size(size));
-            }
-            if let Some(load) = load {
-                ui.label(
-                    RichText::new(format!(
-                        "Load: {:.2}, {:.2}, {:.2}",
-                        load.one_min, load.five_min, load.fifteen_min
-                    ))
-                    .size(size),
-                );
-            }
-
-            if let Some(memory) = memory {
-                let ram_usage = memory.used_mem as f64 / memory.total_mem as f64 * 100.0;
-                ui.label(RichText::new(format!("RAM: {:.2}%", ram_usage)).size(size));
-            }
-
-            if cpu.is_some() || load.is_some() || memory.is_some() {
-                ui.add_space(10.0);
-            }
-
-            if let Some(inertial) = inertial {
-                ui.label(RichText::new(format!("IMU Temp: {}", inertial.0.tempature)).size(size));
-            }
-
-            if let Some(temps) = temps {
-                for temp in &temps.0 {
-                    ui.label(
-                        RichText::new(format!("{}: {}", temp.name, temp.tempature)).size(size),
-                    );
-                }
-            }
-
-            if let Some(depth) = depth {
-                ui.label(RichText::new(format!("Water Temp: {}", depth.0.temperature)).size(size));
-            }
-
-            if inertial.is_some() || temps.is_some() {
-                ui.add_space(10.0);
-            }
-
-            if let Some(depth) = depth {
-                ui.label(RichText::new(format!("Depth: {}", depth.0.depth)).size(size));
-
-                if let Some(depth_target) = depth_target {
-                    ui.label(RichText::new(format!("Depth Target: {}", depth_target.0)).size(size));
-                }
-
-                ui.add_space(10.0);
-            }
-
-            if let Some(_orientation_target) = orientation_target {
-                ui.label(RichText::new("Orientation Control").size(size));
-            }
+                ui.allocate_space((0.0, 0.0).into());
+            });
         });
 
         if let Some(peer) = peer {

@@ -41,6 +41,7 @@ impl Plugin for InputPlugin {
                     trim_orientation,
                     trim_depth,
                     servos,
+                    robot_mode,
                 ),
             );
     }
@@ -51,19 +52,38 @@ pub struct SelectedServo {
     pub servo: Option<Cow<'static, str>>,
 }
 
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect, PartialEq)]
 pub struct InputInterpolation {
     depth_mps: f32,
     trim_dps: f32,
     servo_rate: f32,
+
+    power: f32,
+    scale: f32,
 }
 
-impl Default for InputInterpolation {
-    fn default() -> Self {
+impl InputInterpolation {
+    pub fn interpolate_input(&self, input: f32) -> f32 {
+        input.powf(self.power).copysign(input) * self.scale
+    }
+
+    pub const fn normal() -> Self {
         Self {
             depth_mps: 0.3,
-            trim_dps: 90.0,
-            servo_rate: 2.0,
+            trim_dps: 60.0,
+            servo_rate: 5.0,
+            power: 3.0,
+            scale: 0.8,
+        }
+    }
+
+    pub const fn precision() -> Self {
+        Self {
+            depth_mps: 0.1,
+            trim_dps: 60.0,
+            servo_rate: 4.0,
+            power: 3.0,
+            scale: 0.3,
         }
     }
 }
@@ -78,7 +98,9 @@ pub enum Action {
     // ResetGain,
     ToggleDepthHold,
     ToggleLeveling(LevelingType),
-    // SetRobotMode(),
+
+    ToggleRobotMode,
+
     Surge,
     SurgeInverted,
     Heave,
@@ -97,6 +119,8 @@ pub enum Action {
     ServoCenter,
     ServoInverted,
     SwitchServo,
+    SwitchServoInverted,
+    SelectImportantServo,
 }
 
 #[derive(Actionlike, PartialEq, Eq, Hash, Clone, Copy, Debug, Reflect, Default)]
@@ -128,6 +152,8 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             GamepadButtonType::South,
         );
         input_map.insert(Action::ToggleDepthHold, GamepadButtonType::East);
+        input_map.insert(Action::ToggleDepthHold, GamepadButtonType::North);
+        input_map.insert(Action::ToggleDepthHold, GamepadButtonType::South);
 
         input_map.insert(
             Action::Yaw,
@@ -147,16 +173,25 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
         );
 
-        input_map.insert(Action::Pitch, GamepadButtonType::RightTrigger);
-        input_map.insert(Action::PitchInverted, GamepadButtonType::LeftTrigger);
+        input_map.insert(Action::Servo, GamepadButtonType::RightTrigger);
+        input_map.insert(Action::ServoInverted, GamepadButtonType::LeftTrigger);
+        // input_map.insert(Action::Pitch, GamepadButtonType::RightTrigger);
+        // input_map.insert(Action::PitchInverted, GamepadButtonType::LeftTrigger);
 
-        input_map.insert(Action::Roll, GamepadButtonType::RightTrigger2);
-        input_map.insert(Action::RollInverted, GamepadButtonType::LeftTrigger2);
+        // input_map.insert(Action::Roll, GamepadButtonType::RightTrigger2);
+        // input_map.insert(Action::RollInverted, GamepadButtonType::LeftTrigger2);
+        input_map.insert(Action::Pitch, GamepadButtonType::RightTrigger2);
+        input_map.insert(Action::PitchInverted, GamepadButtonType::LeftTrigger2);
 
         input_map.insert(Action::ServoCenter, GamepadButtonType::DPadUp);
-        input_map.insert(Action::Servo, GamepadButtonType::DPadRight);
-        input_map.insert(Action::ServoInverted, GamepadButtonType::DPadLeft);
-        input_map.insert(Action::SwitchServo, GamepadButtonType::DPadDown);
+        // input_map.insert(Action::Servo, GamepadButtonType::DPadRight);
+        // input_map.insert(Action::ServoInverted, GamepadButtonType::DPadLeft);
+        input_map.insert(Action::SwitchServo, GamepadButtonType::DPadRight);
+        input_map.insert(Action::SwitchServoInverted, GamepadButtonType::DPadLeft);
+        input_map.insert(Action::SelectImportantServo, GamepadButtonType::DPadDown);
+
+        input_map.insert(Action::ToggleRobotMode, GamepadButtonType::Mode);
+        input_map.insert(Action::ToggleRobotMode, GamepadButtonType::West);
 
         // input_map.insert(
         //     Action::Yaw,
@@ -196,7 +231,7 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
                 robot: RobotId(*robot),
             },
             ServoContribution(Default::default()),
-            InputInterpolation::default(),
+            InputInterpolation::normal(),
             InputMarker,
             Replicate,
         ));
@@ -222,7 +257,7 @@ fn handle_disconnected_robots(
 // TODO(mid): Remap sticks to square. See http://theinstructionlimit.com/squaring-the-thumbsticks
 fn movement(
     mut cmds: Commands,
-    inputs: Query<(Entity, &RobotId, &ActionState<Action>), With<InputMarker>>,
+    inputs: Query<(Entity, &RobotId, &ActionState<Action>, &InputInterpolation), With<InputMarker>>,
     robots: Query<
         (
             &MovementAxisMaximums,
@@ -234,7 +269,7 @@ fn movement(
         With<Robot>,
     >,
 ) {
-    for (entity, robot, action_state) in &inputs {
+    for (entity, robot, action_state, interpolation) in &inputs {
         let Some((
             MovementAxisMaximums(maximums),
             depth_target,
@@ -250,33 +285,58 @@ fn movement(
             continue;
         };
 
-        let x = action_state.value(&Action::Sway) * maximums[&Axis::X].0
-            - action_state.value(&Action::SwayInverted) * maximums[&Axis::X].0;
-        let y = action_state.value(&Action::Surge) * maximums[&Axis::Y].0
-            - action_state.value(&Action::SurgeInverted) * maximums[&Axis::Y].0;
-        let z = action_state.value(&Action::Heave) * maximums[&Axis::Z].0
-            - action_state.value(&Action::HeaveInverted) * maximums[&Axis::Z].0;
+        let x = interpolation.interpolate_input(
+            action_state.value(&Action::Sway) - action_state.value(&Action::SwayInverted),
+        ) * maximums[&Axis::X].0;
+        let y = interpolation.interpolate_input(
+            action_state.value(&Action::Surge) - action_state.value(&Action::SurgeInverted),
+        ) * maximums[&Axis::Y].0;
+        let z = interpolation.interpolate_input(
+            action_state.value(&Action::Heave) - action_state.value(&Action::HeaveInverted),
+        ) * maximums[&Axis::Z].0;
 
-        let x_rot = action_state.value(&Action::Pitch) * maximums[&Axis::XRot].0
-            - action_state.value(&Action::PitchInverted) * maximums[&Axis::XRot].0;
-        let y_rot = action_state.value(&Action::Roll) * maximums[&Axis::YRot].0
-            - action_state.value(&Action::RollInverted) * maximums[&Axis::YRot].0;
-        let z_rot = -(action_state.value(&Action::Yaw) * maximums[&Axis::ZRot].0
-            - action_state.value(&Action::YawInverted) * maximums[&Axis::ZRot].0);
+        let x_rot = interpolation.interpolate_input(
+            action_state.value(&Action::Pitch) - action_state.value(&Action::PitchInverted),
+        ) * maximums[&Axis::XRot].0;
+        let y_rot = interpolation.interpolate_input(
+            action_state.value(&Action::Roll) - action_state.value(&Action::RollInverted),
+        ) * maximums[&Axis::YRot].0;
+        let z_rot = interpolation.interpolate_input(
+            -(action_state.value(&Action::Yaw) - action_state.value(&Action::YawInverted)),
+        ) * maximums[&Axis::ZRot].0;
 
-        // TODO: Transform translational inputs
-        let z = if depth_target.is_none() { z } else { 0.0 };
+        let force = if depth_target.is_some() {
+            if let Some(orientation) = orientation {
+                let mut yaw = orientation.0;
+                if yaw.z.abs() * yaw.z.abs() + yaw.w.abs() * yaw.w.abs() > 0.1 {
+                    yaw.x = 0.0;
+                    yaw.y = 0.0;
+                    yaw = yaw.normalize()
+                } else {
+                    yaw *= Quat::from_rotation_y(180f32.to_radians());
+                    yaw.x = 0.0;
+                    yaw.y = 0.0;
+                    yaw = -yaw.normalize();
+                    // yaw *= Quat::from_rotation_y(180f32.to_radians()).inverse();
+                }
 
-        let torque = if orientation_target.is_none() {
-            vec3a(x_rot, y_rot, z_rot)
+                let world_force = yaw * vec3a(x, y, 0.0);
+
+                orientation.0.inverse() * world_force
+            } else {
+                vec3a(x, y, 0.0)
+            }
         } else {
-            Vec3A::ZERO
+            vec3a(x, y, z)
         };
 
-        let movement = Movement {
-            force: vec3a(x, y, z),
-            torque,
+        let torque = if orientation_target.is_some() {
+            Vec3A::ZERO
+        } else {
+            vec3a(x_rot, y_rot, z_rot)
         };
+
+        let movement = Movement { force, torque };
 
         cmds.entity(entity).insert(MovementContribution(movement));
     }
@@ -402,9 +462,15 @@ fn trim_orientation(
     time: Res<Time<Real>>,
 ) {
     for (robot, action_state, interpolation) in &inputs {
-        let pitch = action_state.value(&Action::Pitch) - action_state.value(&Action::PitchInverted);
-        let roll = action_state.value(&Action::Roll) - action_state.value(&Action::RollInverted);
-        let yaw = action_state.value(&Action::Yaw) - action_state.value(&Action::YawInverted);
+        let pitch = interpolation.interpolate_input(
+            action_state.value(&Action::Pitch) - action_state.value(&Action::PitchInverted),
+        );
+        let roll = interpolation.interpolate_input(
+            action_state.value(&Action::Roll) - action_state.value(&Action::RollInverted),
+        );
+        let yaw = interpolation.interpolate_input(
+            -(action_state.value(&Action::Yaw) - action_state.value(&Action::YawInverted)),
+        );
 
         let robot = robots
             .iter()
@@ -443,26 +509,33 @@ fn trim_orientation(
 fn trim_depth(
     mut cmds: Commands,
     inputs: Query<(&RobotId, &ActionState<Action>, &InputInterpolation), With<InputMarker>>,
-    robots: Query<(Entity, Option<&DepthTarget>, &RobotId), With<Robot>>,
+    robots: Query<(Entity, Option<&DepthTarget>, Option<&Orientation>, &RobotId), With<Robot>>,
     time: Res<Time<Real>>,
 ) {
     for (robot, action_state, interpolation) in &inputs {
-        let z = action_state.value(&Action::Heave) - action_state.value(&Action::HeaveInverted);
+        let z = interpolation.interpolate_input(
+            action_state.value(&Action::Heave) - action_state.value(&Action::HeaveInverted),
+        );
 
         let robot = robots
             .iter()
-            .find(|&(_, _, other_robot)| robot == other_robot);
+            .find(|&(_, _, _, other_robot)| robot == other_robot);
 
-        if let Some((robot, depth_target, _)) = robot {
+        if let Some((robot, depth_target, orientation, _)) = robot {
             let Some(&DepthTarget(Meters(mut depth_target))) = depth_target else {
                 continue;
             };
 
             if z != 0.0 {
-                let input = z * interpolation.depth_mps * time.delta_seconds();
+                let mut input = z * interpolation.depth_mps * time.delta_seconds();
+
+                if let Some(orientation) = orientation {
+                    input = input.copysign((orientation.0 * Vec3A::Z).z);
+                }
+
                 depth_target -= input;
-                if depth_target < 0.1 {
-                    depth_target = 0.1;
+                if depth_target < 0.0 {
+                    depth_target = 0.0;
                 }
                 cmds.entity(robot).insert(DepthTarget(depth_target.into()));
             }
@@ -486,26 +559,46 @@ fn servos(
         With<InputMarker>,
     >,
     mut writer: EventWriter<ResetServo>,
-    robots: Query<(Entity, &Servos, &RobotId), With<Robot>>,
+    robots: Query<(&Servos, &RobotId), With<Robot>>,
 ) {
     for (entity, robot, action_state, interpolation, mut selected_servo) in &mut inputs {
         let center = action_state.just_pressed(&Action::ServoCenter);
         let switch = action_state.just_pressed(&Action::SwitchServo);
+        let switch_inverted = action_state.just_pressed(&Action::SwitchServoInverted);
+        let select_important = action_state.just_pressed(&Action::SelectImportantServo);
         let input = action_state.value(&Action::Servo) - action_state.value(&Action::ServoInverted);
 
-        let robot = robots
-            .iter()
-            .find(|&(_, _, other_robot)| robot == other_robot);
+        let robot = robots.iter().find(|&(_, other_robot)| robot == other_robot);
 
-        if let Some((robot, servos, _)) = robot {
-            if (switch || selected_servo.servo.is_none()) && !servos.servos.is_empty() {
+        if let Some((servos, _)) = robot {
+            let offset = if switch {
+                1
+            } else {
+                servos.servos.len().saturating_sub(1)
+            };
+
+            if select_important {
+                if selected_servo.servo.as_ref().map(|it| it.as_str()) != Some("Claw1") {
+                    if servos.servos.iter().any(|it| it.as_str() == "Claw1") {
+                        selected_servo.servo = Some("Claw1".into());
+                    }
+                } else if servos
+                    .servos
+                    .iter()
+                    .any(|it| it.as_str() == "FrontCameraRotate")
+                {
+                    selected_servo.servo = Some("FrontCameraRotate".into());
+                }
+            } else if (switch || switch_inverted || selected_servo.servo.is_none())
+                && !servos.servos.is_empty()
+            {
                 let idx = servos
                     .servos
                     .iter()
                     .position(|it| {
                         Some(it.as_str()) == selected_servo.servo.as_ref().map(|it| it.as_str())
                     })
-                    .map(|it| (it + 1) % servos.servos.len())
+                    .map(|it| (it + offset) % servos.servos.len())
                     .unwrap_or(0);
 
                 selected_servo.servo = Some(servos.servos[idx].clone());
@@ -521,6 +614,22 @@ fn servos(
                 cmds.entity(entity).insert(ServoContribution(
                     vec![(servo.clone(), movement)].into_iter().collect(),
                 ));
+            }
+        }
+    }
+}
+
+fn robot_mode(
+    mut inputs: Query<(&ActionState<Action>, &mut InputInterpolation), With<InputMarker>>,
+) {
+    for (action_state, mut interpolation) in &mut inputs {
+        let toggle = action_state.just_pressed(&Action::ToggleRobotMode);
+
+        if toggle {
+            if *interpolation == InputInterpolation::normal() {
+                *interpolation = InputInterpolation::precision()
+            } else {
+                *interpolation = InputInterpolation::normal()
             }
         }
     }

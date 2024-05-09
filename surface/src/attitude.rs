@@ -57,8 +57,10 @@ fn setup(
     let size = Extent3d {
         // width: 512,
         // height: 512,
-        width: 1024,
-        height: 1024,
+        // width: 1024,
+        // height: 1024,
+        width: 920,
+        height: 920,
         ..default()
     };
 
