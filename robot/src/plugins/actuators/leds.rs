@@ -31,7 +31,7 @@ impl Plugin for LedPlugin {
                 PostUpdate,
                 write_state.run_if(resource_exists::<LedChannels>),
             )
-            .add_systems(Last, shutdown);
+            .add_systems(Last, shutdown.run_if(resource_exists::<LedChannels>));
     }
 }
 
