@@ -113,6 +113,7 @@ pub trait Pipeline: FromWorldEntity + Send + 'static {
     // TODO: Expose camera entity as well
     fn collect_inputs(world: &World, entity: &EntityRef) -> Self::Input;
 
+    // TODO: We want to be able to emit "partial" errors but still commit a "best guess" result
     fn process<'b, 'a: 'b>(
         &'a mut self,
         cmds: &mut PipelineCallbacks,

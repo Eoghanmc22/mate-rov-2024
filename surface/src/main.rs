@@ -1,4 +1,4 @@
-#![feature(iter_intersperse)]
+#![feature(iter_intersperse, try_blocks)]
 
 pub mod attitude;
 pub mod input;
