@@ -161,11 +161,14 @@ pub fn correct_color(color: RGB8) -> RGB8 {
 }
 
 fn color_to_data(color: RGB8) -> impl Iterator<Item = u8> {
-    iter::from_coroutine(move || {
-        yield byte_to_data(color.g);
-        yield byte_to_data(color.r);
-        yield byte_to_data(color.b);
-    })
+    iter::from_coroutine(
+        #[coroutine]
+        move || {
+            yield byte_to_data(color.g);
+            yield byte_to_data(color.r);
+            yield byte_to_data(color.b);
+        },
+    )
     .flatten()
 }
 
@@ -173,15 +176,18 @@ fn byte_to_data(byte: u8) -> impl Iterator<Item = u8> {
     const LED_T0: u8 = 0b1100_0000;
     const LED_T1: u8 = 0b1111_1000;
 
-    iter::from_coroutine(move || {
-        for bit in 0..8 {
-            if byte & (0x80 >> bit) != 0 {
-                yield LED_T1;
-            } else {
-                yield LED_T0;
+    iter::from_coroutine(
+        #[coroutine]
+        move || {
+            for bit in 0..8 {
+                if byte & (0x80 >> bit) != 0 {
+                    yield LED_T1;
+                } else {
+                    yield LED_T0;
+                }
             }
-        }
-    })
+        },
+    )
 }
 
 trait AsSlice<T> {
