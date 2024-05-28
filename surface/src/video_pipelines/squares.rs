@@ -27,6 +27,7 @@ use tracing::error;
 
 use crate::video_pipelines::{AppPipelineExt, Pipeline, PipelineCallbacks};
 
+// Autonomous pipeline for brain coral transplantation
 pub struct SquarePipelinePlugin;
 
 impl Plugin for SquarePipelinePlugin {
