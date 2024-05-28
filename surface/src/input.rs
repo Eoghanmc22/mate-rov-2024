@@ -530,7 +530,7 @@ fn trim_depth(
                 let mut input = z * interpolation.depth_mps * time.delta_seconds();
 
                 if let Some(orientation) = orientation {
-                    input = input.copysign((orientation.0 * Vec3A::Z).z);
+                    input *= (orientation.0 * Vec3A::Z).z.signum();
                 }
 
                 depth_target -= input;
