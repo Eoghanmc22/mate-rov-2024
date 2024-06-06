@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, mem};
 
 use ahash::HashSet;
 use bevy::{
@@ -42,6 +42,7 @@ impl Plugin for InputPlugin {
                     trim_depth,
                     servos,
                     robot_mode,
+                    switch_pitch_roll,
                 ),
             );
     }
@@ -121,6 +122,8 @@ pub enum Action {
     SwitchServo,
     SwitchServoInverted,
     SelectImportantServo,
+
+    SwitchPitchRoll,
 }
 
 #[derive(Actionlike, PartialEq, Eq, Hash, Clone, Copy, Debug, Reflect, Default)]
@@ -152,8 +155,9 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             GamepadButtonType::South,
         );
         input_map.insert(Action::ToggleDepthHold, GamepadButtonType::East);
-        input_map.insert(Action::ToggleDepthHold, GamepadButtonType::North);
-        input_map.insert(Action::ToggleDepthHold, GamepadButtonType::South);
+        // input_map.insert(Action::ToggleDepthHold, GamepadButtonType::North);
+        // input_map.insert(Action::ToggleDepthHold, GamepadButtonType::South);
+        input_map.insert(Action::SwitchPitchRoll, GamepadButtonType::West);
 
         input_map.insert(
             Action::Yaw,
@@ -630,6 +634,51 @@ fn robot_mode(
                 *interpolation = InputInterpolation::precision()
             } else {
                 *interpolation = InputInterpolation::normal()
+            }
+        }
+    }
+}
+
+fn switch_pitch_roll(
+    mut inputs: Query<(&ActionState<Action>, &mut InputMap<Action>), With<InputMarker>>,
+) {
+    for (action_state, mut input_map) in &mut inputs {
+        let toggle = action_state.just_pressed(&Action::SwitchPitchRoll);
+
+        if toggle {
+            // Me when no proper remove api
+            let pitch = input_map.get(&Action::Pitch).cloned();
+            let pitch_inverted = input_map.get(&Action::PitchInverted).cloned();
+            let roll = input_map.get(&Action::Roll).cloned();
+            let roll_inverted = input_map.get(&Action::RollInverted).cloned();
+
+            input_map.clear_action(&Action::Pitch);
+            input_map.clear_action(&Action::PitchInverted);
+            input_map.clear_action(&Action::Roll);
+            input_map.clear_action(&Action::RollInverted);
+
+            if let Some(pitch) = pitch {
+                for input in pitch {
+                    input_map.insert(Action::Roll, input);
+                }
+            }
+
+            if let Some(pitch_inverted) = pitch_inverted {
+                for input in pitch_inverted {
+                    input_map.insert(Action::RollInverted, input);
+                }
+            }
+
+            if let Some(roll) = roll {
+                for input in roll {
+                    input_map.insert(Action::Pitch, input);
+                }
+            }
+
+            if let Some(roll_inverted) = roll_inverted {
+                for input in roll_inverted {
+                    input_map.insert(Action::PitchInverted, input);
+                }
             }
         }
     }

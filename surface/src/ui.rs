@@ -18,12 +18,13 @@ use egui::{
     load::SizedTexture, text::LayoutJob, widgets, Align, Color32, Id, Label, Layout, RichText,
     TextBuffer, TextFormat, Visuals,
 };
+use leafwing_input_manager::input_map::InputMap;
 use motor_math::{solve::reverse::Axis, Movement};
 use tokio::net::lookup_host;
 
 use crate::{
     attitude::OrientationDisplay,
-    input::{InputInterpolation, InputMarker, SelectedServo},
+    input::{Action, InputInterpolation, InputMarker, SelectedServo},
     video_pipelines::VideoPipelines,
     video_stream::{VideoProcessorFactory, VideoThread},
     DARK_MODE,
@@ -343,7 +344,15 @@ fn hud(
         With<Robot>,
     >,
 
-    inputs: Query<(&SelectedServo, &InputInterpolation, &RobotId), With<InputMarker>>,
+    inputs: Query<
+        (
+            &SelectedServo,
+            &InputInterpolation,
+            &InputMap<Action>,
+            &RobotId,
+        ),
+        With<InputMarker>,
+    >,
 
     peers: Option<Res<MdnsPeers>>,
 
@@ -415,8 +424,8 @@ fn hud(
                         });
                     }
 
-                    if let Some((selected_servo, input_interpolation, _)) =
-                        inputs.iter().find(|(_, _, robot)| **robot == *robot_id)
+                    if let Some((selected_servo, input_interpolation, input_map, _)) =
+                        inputs.iter().find(|(_, _, _, robot)| **robot == *robot_id)
                     {
                         ui.horizontal(|ui| {
                             ui.label(RichText::new("Robot Mode:").size(size));
@@ -428,6 +437,27 @@ fn hud(
                                 );
                             } else {
                                 ui.label(RichText::new("Unknown").size(size).color(Color32::RED));
+                            }
+                        });
+
+                        ui.add_space(10.0);
+
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Input Mode:").size(size));
+                            if input_map.get(&Action::Pitch).is_some()
+                                && input_map.get(&Action::Roll).is_some()
+                            {
+                                ui.label(
+                                    RichText::new("Pitch & Roll")
+                                        .size(size)
+                                        .color(Color32::GOLD),
+                                );
+                            } else if input_map.get(&Action::Pitch).is_some() {
+                                ui.label(RichText::new("Pitch").size(size).color(Color32::BLUE));
+                            } else if input_map.get(&Action::Roll).is_some() {
+                                ui.label(RichText::new("Roll").size(size).color(Color32::GREEN));
+                            } else {
+                                ui.label(RichText::new("Neither").size(size).color(Color32::RED));
                             }
                         });
 
