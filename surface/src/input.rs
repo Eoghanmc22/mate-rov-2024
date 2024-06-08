@@ -195,7 +195,6 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
         input_map.insert(Action::SelectImportantServo, GamepadButtonType::DPadDown);
 
         input_map.insert(Action::ToggleRobotMode, GamepadButtonType::Mode);
-        input_map.insert(Action::ToggleRobotMode, GamepadButtonType::West);
 
         // input_map.insert(
         //     Action::Yaw,
