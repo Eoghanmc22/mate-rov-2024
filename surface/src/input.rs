@@ -177,8 +177,8 @@ fn attach_to_new_robots(mut cmds: Commands, new_robots: Query<(&NetId, &Name), A
             SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.05),
         );
 
-        input_map.insert(Action::Servo, GamepadButtonType::RightTrigger);
-        input_map.insert(Action::ServoInverted, GamepadButtonType::LeftTrigger);
+        input_map.insert(Action::ServoInverted, GamepadButtonType::RightTrigger);
+        input_map.insert(Action::Servo, GamepadButtonType::LeftTrigger);
         // input_map.insert(Action::Pitch, GamepadButtonType::RightTrigger);
         // input_map.insert(Action::PitchInverted, GamepadButtonType::LeftTrigger);
 
