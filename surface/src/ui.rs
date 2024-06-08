@@ -47,6 +47,7 @@ impl Plugin for EguiUiPlugin {
                 cleanup_pwm_control
                     .after(topbar)
                     .run_if(resource_removed::<PwmControl>()),
+                timer.after(topbar).run_if(resource_exists::<TimerUi>),
             ),
         );
     }
@@ -57,6 +58,21 @@ pub struct ShowInspector;
 
 #[derive(Resource)]
 pub struct PwmControl(bool);
+
+#[derive(Resource)]
+pub struct TimerUi(TimerState, TimerType);
+
+pub enum TimerState {
+    Running { start: Duration, offset: Duration },
+    Paused { elapsed: Duration },
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub enum TimerType {
+    Setup,
+    Run,
+    Cleanup,
+}
 
 #[derive(Component)]
 pub struct MovementController;
@@ -91,6 +107,7 @@ fn topbar(
 
     inspector: Option<Res<ShowInspector>>,
     pwm_control: Option<Res<PwmControl>>,
+    timer_ui: Option<Res<TimerUi>>,
 
     peers: Query<(&Peer, Option<&Name>)>,
     mut disconnect: EventWriter<DisconnectPeer>,
@@ -207,6 +224,19 @@ fn topbar(
                         cmds.remove_resource::<PwmControl>()
                     } else {
                         cmds.insert_resource(PwmControl(false));
+                    }
+                }
+
+                if ui.selectable_label(timer_ui.is_some(), "Timer").clicked() {
+                    if timer_ui.is_some() {
+                        cmds.remove_resource::<TimerUi>()
+                    } else {
+                        cmds.insert_resource(TimerUi(
+                            TimerState::Paused {
+                                elapsed: Duration::ZERO,
+                            },
+                            TimerType::Setup,
+                        ));
                     }
                 }
             });
@@ -856,5 +886,83 @@ fn movement_control(
         if !open {
             cmds.entity(contoller).despawn();
         }
+    }
+}
+
+fn timer(
+    mut cmds: Commands,
+    mut contexts: EguiContexts,
+    mut timer: ResMut<TimerUi>,
+    time: Res<Time<Real>>,
+) {
+    let context = contexts.ctx_mut();
+    let mut open = true;
+
+    egui::Window::new("Timer")
+        .default_pos(context.screen_rect().left_top())
+        .constrain_to(context.available_rect().shrink(20.0))
+        .open(&mut open)
+        .show(contexts.ctx_mut(), |ui| {
+            let current_value = &mut timer.1;
+            ui.horizontal(|ui| {
+                ui.selectable_value(current_value, TimerType::Setup, "Setup");
+                ui.selectable_value(current_value, TimerType::Run, "Demo");
+                ui.selectable_value(current_value, TimerType::Cleanup, "Cleanup");
+            });
+
+            let total_duration = match current_value {
+                TimerType::Setup => Duration::from_secs_f64(5.0 * 60.0),
+                TimerType::Run => Duration::from_secs_f64(15.0 * 60.0),
+                TimerType::Cleanup => Duration::from_secs_f64(5.0 * 60.0),
+            };
+
+            let remaining_duration = match timer.0 {
+                TimerState::Running { start, offset } => {
+                    total_duration.saturating_sub((time.elapsed() - start) + offset)
+                }
+                TimerState::Paused { elapsed } => total_duration - elapsed,
+            };
+
+            let remaining_sec = remaining_duration.as_secs();
+
+            let min = remaining_sec / 60;
+            let sec = remaining_sec % 60;
+
+            ui.allocate_ui((ui.available_width(), 25.0).into(), |ui| {
+                ui.centered_and_justified(|ui| {
+                    ui.label(RichText::new(format!("{min:02}:{sec:02}",)).size(20.0));
+                });
+            });
+            ui.horizontal(|ui| match timer.0 {
+                TimerState::Running { start, offset } => {
+                    if ui.button("Pause").clicked() {
+                        timer.0 = TimerState::Paused {
+                            elapsed: time.elapsed() - start + offset,
+                        };
+                    }
+                    if ui.button("Reset").clicked() {
+                        timer.0 = TimerState::Paused {
+                            elapsed: Duration::ZERO,
+                        };
+                    }
+                }
+                TimerState::Paused { elapsed } => {
+                    if ui.button("Resume").clicked() {
+                        timer.0 = TimerState::Running {
+                            start: time.elapsed(),
+                            offset: elapsed,
+                        };
+                    }
+                    if ui.button("Reset").clicked() {
+                        timer.0 = TimerState::Paused {
+                            elapsed: Duration::ZERO,
+                        };
+                    }
+                }
+            });
+        });
+
+    if !open {
+        cmds.remove_resource::<TimerUi>();
     }
 }
